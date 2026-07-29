@@ -1,0 +1,41 @@
+{
+  "id": 27,
+  "name": "Shuttered Depths",
+  "width": 8,
+  "height": 8,
+  "moves": 24,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 12
+    },
+    {
+      "kind": "contain",
+      "target": 14
+    }
+  ],
+  "stars": [
+    16800,
+    24360,
+    33600
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "........",
+    "........",
+    "..1111..",
+    "..1111..",
+    "..1111..",
+    "........",
+    "........",
+    "........"
+  ],
+  "shadowPeriod": 4
+}

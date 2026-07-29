@@ -1,0 +1,35 @@
+{
+  "id": 7,
+  "name": "Rime and Ruin",
+  "width": 8,
+  "height": 8,
+  "moves": 25,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 12
+    }
+  ],
+  "stars": [
+    13600,
+    19720,
+    27200
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal"
+  ],
+  "layout": [
+    "........",
+    "........",
+    "..1111..",
+    "..1..1..",
+    "..1..1..",
+    "..1111..",
+    "........",
+    "........"
+  ]
+}

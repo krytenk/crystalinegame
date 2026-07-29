@@ -1,0 +1,25 @@
+{
+  "id": 4,
+  "name": "Deepening Vein",
+  "width": 8,
+  "height": 8,
+  "moves": 22,
+  "objectives": [
+    {
+      "kind": "score",
+      "target": 6000
+    }
+  ],
+  "stars": [
+    6000,
+    8700,
+    12000
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal"
+  ]
+}

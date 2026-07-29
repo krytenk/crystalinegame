@@ -1,0 +1,35 @@
+{
+  "id": 9,
+  "name": "Hollow Chamber",
+  "width": 8,
+  "height": 8,
+  "moves": 24,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 16
+    }
+  ],
+  "stars": [
+    14200,
+    20590,
+    28400
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal"
+  ],
+  "layout": [
+    "##....##",
+    "##1111##",
+    ".1....1.",
+    ".1....1.",
+    ".1....1.",
+    ".1....1.",
+    "##1111##",
+    "##....##"
+  ]
+}

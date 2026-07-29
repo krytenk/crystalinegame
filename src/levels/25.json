@@ -1,0 +1,26 @@
+{
+  "id": 25,
+  "name": "First Dark",
+  "width": 8,
+  "height": 8,
+  "moves": 26,
+  "objectives": [
+    {
+      "kind": "contain",
+      "target": 10
+    }
+  ],
+  "stars": [
+    13500,
+    19575,
+    27000
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal"
+  ],
+  "shadowPeriod": 5
+}

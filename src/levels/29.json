@@ -1,0 +1,42 @@
+{
+  "id": 29,
+  "name": "Endgame Protocol",
+  "width": 9,
+  "height": 8,
+  "moves": 22,
+  "objectives": [
+    {
+      "kind": "defuse",
+      "target": 2
+    },
+    {
+      "kind": "contain",
+      "target": 16
+    }
+  ],
+  "stars": [
+    13900,
+    20155,
+    27800
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    ".........",
+    ".........",
+    "..B......",
+    ".........",
+    ".........",
+    "......B..",
+    ".........",
+    "........."
+  ],
+  "shadowPeriod": 4,
+  "bombFuse": 12
+}

@@ -1,0 +1,25 @@
+{
+  "id": 3,
+  "name": "The Glittering Cut",
+  "width": 8,
+  "height": 8,
+  "moves": 24,
+  "objectives": [
+    {
+      "kind": "score",
+      "target": 4000
+    }
+  ],
+  "stars": [
+    4000,
+    5800,
+    8000
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal"
+  ]
+}

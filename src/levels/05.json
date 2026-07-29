@@ -1,0 +1,25 @@
+{
+  "id": 5,
+  "name": "Pressure Point",
+  "width": 8,
+  "height": 8,
+  "moves": 20,
+  "objectives": [
+    {
+      "kind": "score",
+      "target": 8500
+    }
+  ],
+  "stars": [
+    8500,
+    12325,
+    17000
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": 15,
+  "name": "The Long Drop",
+  "width": 8,
+  "height": 8,
+  "moves": 20,
+  "objectives": [
+    {
+      "kind": "collect",
+      "target": 5
+    }
+  ],
+  "stars": [
+    9700,
+    14065,
+    19400
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ]
+}

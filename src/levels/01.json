@@ -1,0 +1,24 @@
+{
+  "id": 1,
+  "name": "First Light",
+  "width": 7,
+  "height": 7,
+  "moves": 25,
+  "objectives": [
+    {
+      "kind": "score",
+      "target": 1200
+    }
+  ],
+  "stars": [
+    1200,
+    1740,
+    2400
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant"
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "id": 14,
+  "name": "Buried Offerings",
+  "width": 8,
+  "height": 8,
+  "moves": 24,
+  "objectives": [
+    {
+      "kind": "collect",
+      "target": 4
+    }
+  ],
+  "stars": [
+    11100,
+    16095,
+    22200
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal"
+  ]
+}

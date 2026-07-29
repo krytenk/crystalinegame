@@ -1,0 +1,36 @@
+{
+  "id": 19,
+  "name": "Slow Fuse",
+  "width": 8,
+  "height": 8,
+  "moves": 24,
+  "objectives": [
+    {
+      "kind": "defuse",
+      "target": 2
+    }
+  ],
+  "stars": [
+    10600,
+    15370,
+    21200
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal"
+  ],
+  "layout": [
+    "........",
+    "........",
+    "........",
+    "..B.....",
+    ".....B..",
+    "........",
+    "........",
+    "........"
+  ],
+  "bombFuse": 14
+}

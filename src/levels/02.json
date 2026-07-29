@@ -1,0 +1,24 @@
+{
+  "id": 2,
+  "name": "Shallow Seam",
+  "width": 7,
+  "height": 7,
+  "moves": 24,
+  "objectives": [
+    {
+      "kind": "score",
+      "target": 2400
+    }
+  ],
+  "stars": [
+    2400,
+    3480,
+    4800
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant"
+  ]
+}

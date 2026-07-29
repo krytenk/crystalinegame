@@ -1,0 +1,31 @@
+{
+  "id": 28,
+  "name": "Lightless",
+  "width": 9,
+  "height": 8,
+  "moves": 22,
+  "objectives": [
+    {
+      "kind": "collect",
+      "target": 3
+    },
+    {
+      "kind": "contain",
+      "target": 18
+    }
+  ],
+  "stars": [
+    14700,
+    21315,
+    29400
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "shadowPeriod": 3
+}

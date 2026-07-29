@@ -1,0 +1,26 @@
+{
+  "id": 18,
+  "name": "Reliquary",
+  "width": 9,
+  "height": 8,
+  "moves": 22,
+  "objectives": [
+    {
+      "kind": "collect",
+      "target": 7
+    }
+  ],
+  "stars": [
+    11100,
+    16095,
+    22200
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ]
+}

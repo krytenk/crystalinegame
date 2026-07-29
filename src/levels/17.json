@@ -1,0 +1,36 @@
+{
+  "id": 17,
+  "name": "Fractured Floor",
+  "width": 9,
+  "height": 8,
+  "moves": 24,
+  "objectives": [
+    {
+      "kind": "collect",
+      "target": 5
+    }
+  ],
+  "stars": [
+    11400,
+    16530,
+    22800
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "##.....##",
+    "##.....##",
+    ".........",
+    ".........",
+    ".........",
+    ".........",
+    "##.....##",
+    "##.....##"
+  ]
+}

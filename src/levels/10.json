@@ -1,0 +1,36 @@
+{
+  "id": 10,
+  "name": "Glacier Heart",
+  "width": 8,
+  "height": 8,
+  "moves": 24,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 24
+    }
+  ],
+  "stars": [
+    16300,
+    23635,
+    32600
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "........",
+    "...11...",
+    "..1111..",
+    ".112211.",
+    ".112211.",
+    "..1111..",
+    "...11...",
+    "........"
+  ]
+}

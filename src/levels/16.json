@@ -1,0 +1,39 @@
+{
+  "id": 16,
+  "name": "Ice and Iron",
+  "width": 8,
+  "height": 8,
+  "moves": 24,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 12
+    },
+    {
+      "kind": "collect",
+      "target": 4
+    }
+  ],
+  "stars": [
+    14200,
+    20590,
+    28400
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal"
+  ],
+  "layout": [
+    "........",
+    "........",
+    "..1111..",
+    "..1111..",
+    "..1111..",
+    "........",
+    "........",
+    "........"
+  ]
+}

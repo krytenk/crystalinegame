@@ -1,0 +1,37 @@
+{
+  "id": 24,
+  "name": "The Powder Seam",
+  "width": 9,
+  "height": 8,
+  "moves": 20,
+  "objectives": [
+    {
+      "kind": "defuse",
+      "target": 5
+    }
+  ],
+  "stars": [
+    9700,
+    14065,
+    19400
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "##.....##",
+    "##.....##",
+    "..B...B..",
+    ".........",
+    "....B....",
+    "..B...B..",
+    "##.....##",
+    "##.....##"
+  ],
+  "bombFuse": 9
+}

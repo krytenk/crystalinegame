@@ -1,0 +1,40 @@
+{
+  "id": 11,
+  "name": "Locked Strata",
+  "width": 9,
+  "height": 8,
+  "moves": 24,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 20
+    },
+    {
+      "kind": "score",
+      "target": 6000
+    }
+  ],
+  "stars": [
+    6000,
+    8700,
+    12000
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    ".........",
+    ".........",
+    "..22222..",
+    "..22222..",
+    "..22222..",
+    "..22222..",
+    ".........",
+    "........."
+  ]
+}

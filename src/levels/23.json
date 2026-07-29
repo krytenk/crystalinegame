@@ -1,0 +1,41 @@
+{
+  "id": 23,
+  "name": "Salvage Under Fire",
+  "width": 9,
+  "height": 8,
+  "moves": 22,
+  "objectives": [
+    {
+      "kind": "defuse",
+      "target": 2
+    },
+    {
+      "kind": "collect",
+      "target": 3
+    }
+  ],
+  "stars": [
+    10500,
+    15225,
+    21000
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    ".........",
+    ".........",
+    "..B......",
+    ".........",
+    ".........",
+    "......B..",
+    ".........",
+    "........."
+  ],
+  "bombFuse": 12
+}

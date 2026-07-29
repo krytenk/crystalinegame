@@ -1,0 +1,36 @@
+{
+  "id": 20,
+  "name": "Countdown",
+  "width": 8,
+  "height": 8,
+  "moves": 22,
+  "objectives": [
+    {
+      "kind": "defuse",
+      "target": 3
+    }
+  ],
+  "stars": [
+    10000,
+    14500,
+    20000
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal"
+  ],
+  "layout": [
+    "........",
+    "........",
+    ".B......",
+    "......B.",
+    "........",
+    "....B...",
+    "........",
+    "........"
+  ],
+  "bombFuse": 12
+}
