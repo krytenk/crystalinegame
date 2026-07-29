@@ -1,0 +1,21 @@
+{
+  "name": "crystalline",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Crystalline - a match-3 research build. All monetization is simulated; no real currency, no ad SDKs, no network calls.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "assets": "python3 tools/build_assets.py"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7",
+    "vitest": "^2.1.8"
+  }
+}
