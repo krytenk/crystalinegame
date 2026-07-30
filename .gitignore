@@ -1,8 +1,17 @@
 node_modules/
 dist/
-public/gen/
 .vite/
 *.log
 .DS_Store
 __pycache__/
 *.pyc
+
+# Font source packages / comparison dumps (runtime woff/woff2 stay tracked)
+public/fonts/Diamond Shape/
+public/fonts/Diamond Shape.zip
+public/fonts/font-compare.png
+public/fonts/README.md
+public/sfx/README.md
+
+# Unused long riser kept only locally if re-downloaded
+# (gameplay uses trimmed public/sfx/*.ogg)

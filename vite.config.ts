@@ -14,6 +14,12 @@ export default defineConfig({
       '@ui': r('./src/ui'),
     },
   },
-  server: { port: 5173, strictPort: false },
+  server: {
+    port: 5173,
+    strictPort: false,
+    host: true,
+    // Avoid ENOSPC when the OS inotify watcher limit is exhausted
+    watch: { usePolling: true, interval: 1000 },
+  },
   build: { target: 'es2022', assetsInlineLimit: 0 },
 });

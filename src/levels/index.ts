@@ -53,8 +53,11 @@ function validate(file: string, raw: unknown): LevelDef {
   if (width < 3 || height < 3) fail('board must be at least 3x3');
   if (moves < 1) fail('moves must be positive');
 
-  const name = raw['name'];
-  if (typeof name !== 'string' || name.length === 0) fail('"name" must be a non-empty string');
+  const rawName = raw['name'];
+  if (typeof rawName !== 'string' || rawName.length === 0) {
+    return fail('"name" must be a non-empty string');
+  }
+  const name: string = rawName;
 
   // -- colours --------------------------------------------------------------
   const rawColors = raw['colors'];

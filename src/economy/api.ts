@@ -47,11 +47,24 @@ export const ECONOMY_CONST = {
     booster: 15,
   },
 
+  /** Opening booster pack so demo / first-run players can actually use them. */
+  startingBoosters: {
+    seedPrism: 3,
+    extraMoves: 3,
+    pickaxe: 3,
+    reshuffle: 3,
+  } as const,
+
   /** A level fail or clear every N plays triggers a simulated interstitial. */
   interstitialEvery: 3,
-  /** Simulated rewarded-video length, and the delay before Skip appears. */
-  adDurationMs: 5000,
-  adSkippableAfterMs: 3000,
+  /**
+   * Rewarded / interstitial length matches Discworld in 60s Shorts (~60s).
+   * Skip unlocks after `adSkippableAfterMs` (mobile-ad cadence).
+   * Completing the full duration grants the rewarded payout; Skip dismisses
+   * with no reward (interstitials just close).
+   */
+  adDurationMs: 60_000,
+  adSkippableAfterMs: 5_000,
 } as const;
 
 // ---------------------------------------------------------------------------

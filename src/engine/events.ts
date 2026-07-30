@@ -78,8 +78,16 @@ export type GameEvent =
   | {
       readonly t: 'specialTriggered';
       readonly at: Coord;
-      readonly kind: 'line' | 'burst' | 'prism';
+      readonly kind: 'line' | 'burst' | 'prism' | 'supernova' | 'core';
       readonly affected: readonly Coord[];
+    }
+  /** Living Core appeared after a strong cascade. */
+  | { readonly t: 'coreSpawned'; readonly at: Coord; readonly piece: Piece }
+  /** Living Core claimed (tap or swap). */
+  | {
+      readonly t: 'coreClaimed';
+      readonly at: Coord;
+      readonly reward: 'moves' | 'burst' | 'shards';
     }
   | { readonly t: 'crustDamaged'; readonly at: Coord; readonly layersLeft: number }
   | { readonly t: 'shadowSpread'; readonly cells: readonly Coord[] }

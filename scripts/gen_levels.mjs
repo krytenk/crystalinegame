@@ -145,9 +145,30 @@ for (const [id, name, w, h, moves, colorCount, layout, extra] of spec) {
 
   if (objectives.length === 0) throw new Error(`level ${id} has no objectives`);
 
-  // Star thresholds scale with the work the level demands.
-  const base = extra.score ?? Math.round((moves * 420 + objectives.reduce((n, o) => n + o.target * 260, 0)) / 100) * 100;
-  const stars = [base, Math.round(base * 1.45), Math.round(base * 2.0)];
+  // Star thresholds must match real scoring (SCORE.perCrystal ≈ 60, cascades
+  // maybe 1.5–2×). The old moves*420 formula assumed ~7× more points than play
+  // actually produces, so wins saved 0 stars. Calibrated so:
+  //   ★   — complete the objective with average play
+  //   ★★  — solid cascades / leftover moves
+  //   ★★★ — high efficiency
+  const objWeight = objectives.reduce((n, o) => {
+    if (o.kind === 'score') return n + o.target * 0.15;
+    if (o.kind === 'crust') return n + o.target * 80;
+    if (o.kind === 'collect') return n + o.target * 120;
+    if (o.kind === 'defuse') return n + o.target * 100;
+    if (o.kind === 'contain') return n + o.target * 60;
+    return n;
+  }, 0);
+  // ~200 pts/move is a realistic mid-skill average with cascades.
+  const expected = Math.round((moves * 200 + objWeight) / 100) * 100;
+  const one = extra.score
+    ? Math.round(extra.score * 0.85 / 100) * 100 // slightly under score goal → 1★ on clear
+    : Math.round(expected * 0.45 / 100) * 100;
+  const stars = [
+    Math.max(400, one),
+    Math.round(Math.max(400, one) * 1.55 / 100) * 100,
+    Math.round(Math.max(400, one) * 2.25 / 100) * 100,
+  ];
 
   const level = {
     id,

@@ -76,16 +76,26 @@ export const GLYPH: Readonly<Record<CrystalColor, string>> = {
 
 /**
  * What occupies a cell.
- * - `crystal` — an ordinary matchable crystal.
- * - `line`    — 4-match reward; clears its whole row or column.
- * - `burst`   — L/T-match reward; clears a 3x3 radius.
- * - `prism`   — 5-in-a-row reward (the opalescent crystal); a wildcard that clears
- *               every crystal of the colour it is swapped with.
- * - `stone`   — immovable blocker; damaged only by an adjacent match.
- * - `bomb`    — carries a fuse; the level is lost if it reaches zero.
- * - `relic`   — a collectible that must be dropped off the bottom row.
+ * - `crystal`   — ordinary matchable crystal.
+ * - `line`      — 4-match Seam Rift; clears a row or column.
+ * - `burst`     — L/T Geode Burst; radius clear (3×3 base, bigger in combos).
+ * - `prism`     — 5-match Opal Prism; clears a colour / chromatic combos.
+ * - `supernova` — 6+ match peak special; huge radius / board-clear combos.
+ * - `core`      — Living Core bonus token (spinning shard); tap/swap to claim.
+ * - `stone`     — immovable blocker.
+ * - `bomb`      — fuse countdown.
+ * - `relic`     — drop to bottom to collect.
  */
-export type PieceKind = 'crystal' | 'line' | 'burst' | 'prism' | 'stone' | 'bomb' | 'relic';
+export type PieceKind =
+  | 'crystal'
+  | 'line'
+  | 'burst'
+  | 'prism'
+  | 'supernova'
+  | 'core'
+  | 'stone'
+  | 'bomb'
+  | 'relic';
 
 export interface Piece {
   /**
@@ -94,7 +104,7 @@ export interface Piece {
    */
   readonly id: number;
   readonly kind: PieceKind;
-  /** `null` for kinds that carry no colour (`prism`, `stone`, `relic`). */
+  /** `null` for kinds that carry no colour (`prism`, `supernova`, `core`, `stone`, `relic`). */
   readonly color: CrystalColor | null;
   /** Only meaningful for `line`. */
   readonly orientation?: 'h' | 'v';
@@ -110,9 +120,10 @@ export const isMovable = (p: Piece | null): boolean =>
 export const isMatchable = (p: Piece | null): p is Piece =>
   p !== null && (p.kind === 'crystal' || p.kind === 'line' || p.kind === 'burst');
 
-/** True when the piece is a player-triggerable special. */
+/** True when the piece is a player-triggerable power special. */
 export const isSpecial = (p: Piece | null): boolean =>
-  p !== null && (p.kind === 'line' || p.kind === 'burst' || p.kind === 'prism');
+  p !== null &&
+  (p.kind === 'line' || p.kind === 'burst' || p.kind === 'prism' || p.kind === 'supernova');
 
 // ---------------------------------------------------------------------------
 // Cells
@@ -156,6 +167,8 @@ export type ClearCause =
   | 'line'
   | 'burst'
   | 'prism'
+  | 'supernova'
+  | 'core'
   | 'bomb'
   | 'crust'
   | 'cascade';
@@ -273,7 +286,7 @@ export const SCORE = {
   /** Multiplier applied per cascade step beyond the first. Step 3 scores 2x. */
   cascadeStep: 0.5,
   /** Bonus for creating a special. */
-  special: { line: 120, burst: 200, prism: 500 },
+  special: { line: 120, burst: 200, prism: 500, supernova: 800 },
   /** Bonus per crust layer removed. */
   crustLayer: 90,
   relic: 300,
