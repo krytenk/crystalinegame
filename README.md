@@ -12,15 +12,19 @@ Match gems, forge **Power Crystals**, chain combos, and explore a simulated free
 
 | Where | Playable? | Notes |
 |--------|-----------|--------|
-| **Live demo** | **Yes — browser only** | No download. Open the link below. |
-| **This GitHub repo** | **No (not by itself)** | GitHub shows source code. It is not a host for the running game unless you enable Pages or run it yourself. |
+| **GitHub Pages** | **Yes — browser only** | Built automatically on each push to `main`. |
+| **Live demo (portfolio)** | **Yes — browser only** | Same build on Departure Bay Digital. |
+| **Repo file browser** | **No** | Source only — not the running game. |
 | **Your computer** | **Yes, after install** | Clone → `npm install` → `npm run dev` |
 
-### Play now (hosted)
+### Play now (no download)
 
-**https://departurebaydigital.ca/demos/crystalline/**
+- **GitHub Pages:** https://krytenk.github.io/crystalinegame/
+- **Portfolio host:** https://departurebaydigital.ca/demos/crystalline/
 
 Works on phone and desktop. Tap once to unlock sound.
+
+> **Note:** GitHub Pages must deploy the **Vite production build** (`dist/`), not the raw repo root. A GitHub Action (`.github/workflows/pages.yml`) builds and publishes on every push to `main`.
 
 ---
 
@@ -92,14 +96,24 @@ docs/         # economy + legal notes
 
 ## Deploy notes
 
-Production static build:
+### GitHub Pages
+
+Configured via **GitHub Actions** (not “Deploy from branch / root”):
+
+1. Repo → **Settings → Pages**
+2. **Source:** GitHub Actions  
+3. Push to `main` (or run the **Deploy GitHub Pages** workflow manually)
+
+The workflow runs `npm ci && npm run build` and publishes `dist/`.
+
+### Manual / other hosts
 
 ```bash
 npm run build
 # upload contents of dist/ to any static host
 ```
 
-This demo is deployed under a **subdirectory** (`/demos/crystalline/`). Asset URLs are base-relative so that works; prefer `base: './'` in Vite (already set).
+Asset paths use Vite `base: './'` so subdirectory deploys work (e.g. `/demos/crystalline/` or `/crystalinegame/`).
 
 ---
 
