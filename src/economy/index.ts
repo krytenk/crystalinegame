@@ -315,6 +315,15 @@ export class Economy {
     return true;
   }
 
+  /** Near-miss continue: pay shards for +5 moves (does not grant inventory booster). */
+  spendShardsForContinue(): boolean {
+    const paid = this.wallet.spendShards(ECONOMY_CONST.cost.extraMoves5);
+    if (!paid.ok) return false;
+    this.persist();
+    this.emit();
+    return true;
+  }
+
   shouldShowInterstitial(): boolean {
     return this.ads.shouldShowInterstitial();
   }

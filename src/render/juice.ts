@@ -64,29 +64,32 @@ export class JuiceSystem {
       text: `+${points}`,
       color,
       born: performance.now(),
-      life: 900,
-      vy: -0.55,
+      // Appears ~0.1s into clear choreography (caller may delay slightly).
+      life: 1000,
+      vy: -0.62,
     });
-    if (this.floats.length > 24) this.floats.shift();
+    if (this.floats.length > 28) this.floats.shift();
   }
 
   cascadeBanner(step: number): void {
     if (step < 1) return;
+    // Competence inflation labels — over-the-top on purpose (research).
     const labels = [
       '',
-      'Cascade!',
+      'Nice!',
       'Cascade ×2!',
       'Cascade ×3!',
       'BLAZING!',
       'UNSTOPPABLE!',
       'CRYSTAL STORM!',
+      'LEGENDARY!',
     ];
     const text = labels[Math.min(step, labels.length - 1)] ?? `Cascade ×${step}!`;
-    const colors = ['#fff', '#b8f0ff', '#ffe9a8', '#ffb0e0', '#ffd0a0', '#e0c0ff', '#ffffff'];
+    const colors = ['#fff', '#b8f0ff', '#ffe9a8', '#ffb0e0', '#ffd0a0', '#e0c0ff', '#ffffff', '#fff6c8'];
     this.banner = {
       text,
       born: performance.now(),
-      life: 900 + step * 80,
+      life: 1000 + step * 100,
       color: colors[Math.min(step, colors.length - 1)] ?? '#fff',
     };
   }
@@ -134,16 +137,21 @@ export class JuiceSystem {
     for (const f of this.floats) {
       const age = now - f.born;
       const t = age / f.life;
-      const fade = t < 0.15 ? t / 0.15 : t > 0.7 ? Math.max(0, (1 - t) / 0.3) : 1;
+      const fade = t < 0.12 ? t / 0.12 : t > 0.7 ? Math.max(0, (1 - t) / 0.3) : 1;
+      const pop = 1 + 0.18 * Math.sin(Math.min(1, t * 5) * Math.PI);
       ctx.save();
       ctx.globalAlpha = fade;
-      ctx.font = '800 22px "GalacticKnights", "CrystallineDisplay", "Cinzel", serif';
-      ctx.fillStyle = 'rgba(0,0,0,0.45)';
-      ctx.fillText(f.text, f.x + 1, f.y + 2);
+      ctx.translate(f.x, f.y);
+      ctx.scale(pop, pop);
+      // Thick outline for readability over particle chaos (mobile arm's-length).
+      ctx.font = '800 26px "GalacticKnights", "CrystallineDisplay", "Cinzel", serif';
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = 'rgba(0,0,0,0.72)';
+      ctx.strokeText(f.text, 0, 0);
       ctx.fillStyle = f.color;
       ctx.shadowColor = f.color;
-      ctx.shadowBlur = 10;
-      ctx.fillText(f.text, f.x, f.y);
+      ctx.shadowBlur = 14;
+      ctx.fillText(f.text, 0, 0);
       ctx.restore();
     }
 
@@ -159,13 +167,14 @@ export class JuiceSystem {
         ctx.globalAlpha = Math.max(0, fade);
         ctx.translate(viewW / 2, 240);
         ctx.scale(pop, pop);
-        ctx.font = '800 36px "GalacticKnights", "CrystallineDisplay", "Cinzel", serif';
+        ctx.font = '800 40px "GalacticKnights", "CrystallineDisplay", "Cinzel", serif';
         ctx.textAlign = 'center';
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.fillText(this.banner.text, 2, 2);
+        ctx.lineWidth = 6;
+        ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+        ctx.strokeText(this.banner.text, 0, 0);
         ctx.fillStyle = this.banner.color;
         ctx.shadowColor = this.banner.color;
-        ctx.shadowBlur = 22;
+        ctx.shadowBlur = 26;
         ctx.fillText(this.banner.text, 0, 0);
         ctx.restore();
       }

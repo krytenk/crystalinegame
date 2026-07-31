@@ -41,6 +41,11 @@ export interface Session {
   applyDda(scalar: number): void;
   useSeedPrism(): GameEvent[];
   addMoves(n: number): GameEvent[];
+  /**
+   * Near-miss continue: revive a just-lost session (out of moves) with extra moves.
+   * Does not burn another life — the life was never committed until the player declines.
+   */
+  continueWithMoves(n: number): GameEvent[];
   usePickaxe(at: Coord): GameEvent[];
   useReshuffle(): GameEvent[];
   /** Claim Living Core at a cell (tap). */
@@ -340,6 +345,14 @@ export const createSession = (level: LevelDef, seed: number, ddaScalar = 0): Ses
     addMoves(n: number): GameEvent[] {
       if (state.status !== 'playing') return [];
       state.movesLeft += Math.max(0, Math.floor(n));
+      return [{ t: 'movesChanged', left: state.movesLeft }];
+    },
+
+    continueWithMoves(n: number): GameEvent[] {
+      if (state.status !== 'lost' || state.endReason !== 'outOfMoves') return [];
+      state.status = 'playing';
+      state.endReason = null;
+      state.movesLeft = Math.max(0, Math.floor(n));
       return [{ t: 'movesChanged', left: state.movesLeft }];
     },
 

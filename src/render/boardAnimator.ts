@@ -10,7 +10,7 @@
 
 import type { GameEvent } from '@engine/events';
 import type { BoardSnapshot, Coord, Piece } from '@engine/types';
-import { easeFall, easeOutCubic, easeOutQuad } from './easing';
+import { easeFall, easeInQuad, easeOutCubic, easeOutQuad } from './easing';
 import { newVis, Tweener, type Vis } from './tween';
 import type { BoardLayout } from './boardView';
 
@@ -20,12 +20,20 @@ export interface AnimPiece {
   dying: boolean;
 }
 
-const CLEAR_MS = 150;
-const FALL_MS_PER_ROW = 72;
-const FALL_BASE_MS = 100;
-const SPAWN_STAGGER_MS = 24;
-const MAX_FALL_MS = 400;
-const SWAP_MS = 100;
+/**
+ * Research-aligned juice timing (see docs/COGNITIVE_UX.md):
+ *  0–100ms squeeze, 50–150ms fade, ~200ms gravity, ~300ms spawns.
+ */
+const CLEAR_SQUEEZE_MS = 100;
+const CLEAR_FADE_MS = 150;
+const CLEAR_HOLD_MS = 160;
+const FALL_MS_PER_ROW = 68;
+const FALL_BASE_MS = 110;
+const SPAWN_STAGGER_MS = 22;
+const MAX_FALL_MS = 380;
+const SWAP_MS = 95;
+/** Delay after clear before falls read as “weight” (industry ~0.2s). */
+const POST_CLEAR_FALL_GAP_MS = 40;
 
 export class BoardAnimator {
   private readonly tweens = new Tweener();
@@ -82,7 +90,7 @@ export class BoardAnimator {
         }
         case 'clear': {
           this.applyClear(ev.cells, t);
-          t += CLEAR_MS * 0.85;
+          t += CLEAR_HOLD_MS + POST_CLEAR_FALL_GAP_MS;
           anyMotion = true;
           break;
         }
@@ -207,15 +215,23 @@ export class BoardAnimator {
       ap.dying = true;
       this.logic.delete(id);
       this.tweens.cancel(ap.vis);
-      this.tweens.to(ap.vis, 'scale', 0.12, {
+      const fromScale = ap.vis.scale || 1;
+      // Squeeze (ease-in) then vanish — tactile “crush” before gravity.
+      this.tweens.to(ap.vis, 'scale', 0.72, {
         start: t,
-        dur: CLEAR_MS,
+        dur: CLEAR_SQUEEZE_MS * 0.45,
+        ease: easeInQuad,
+        from: fromScale,
+      });
+      this.tweens.to(ap.vis, 'scale', 0.08, {
+        start: t + CLEAR_SQUEEZE_MS * 0.45,
+        dur: CLEAR_SQUEEZE_MS * 0.55,
         ease: easeOutQuad,
-        from: ap.vis.scale || 1,
+        from: 0.72,
       });
       this.tweens.to(ap.vis, 'alpha', 0, {
-        start: t,
-        dur: CLEAR_MS,
+        start: t + 40,
+        dur: CLEAR_FADE_MS,
         ease: easeOutQuad,
         from: 1,
       });

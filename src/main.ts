@@ -17,6 +17,7 @@ import {
   youtubeEmbedUrl,
 } from '@economy/discworldShorts';
 import { AudioDirector } from '@audio/audio';
+import { haptic } from '@audio/haptics';
 import { Atlas } from '@render/atlas';
 import { drawGameBackground, loadBackground } from '@render/background';
 import { CanvasView } from '@render/canvas';
@@ -41,6 +42,7 @@ type Screen =
   | 'prelevel'
   | 'play'
   | 'results'
+  | 'continue'
   | 'store'
   | 'lives'
   | 'ad'
@@ -57,6 +59,8 @@ interface AppState {
   /** Active Discworld Short video id while an ad is showing. */
   adVideoId: string | null;
   pendingContinue: boolean;
+  /** One continue offer per attempt (loss-aversion lever, research). */
+  continueUsed: boolean;
   moveTimes: number[];
   lastMoveAt: number;
   /** Pre-level booster toggles (consumed on Play). */
@@ -81,6 +85,7 @@ const app: AppState = {
   adReturn: 'map',
   adVideoId: null,
   pendingContinue: false,
+  continueUsed: false,
   moveTimes: [],
   lastMoveAt: 0,
   prep: { seedPrism: false, extraMoves: false },
@@ -322,20 +327,23 @@ function drawChrome(ctx: CanvasRenderingContext2D, now: number): void {
 
   if (app.screen === 'play' && app.session) {
     const s = app.session.snapshot();
+    // Oversized moves/score — primary pattern-recognition resources stay free.
+    const movesHot = s.movesLeft <= 5;
+    ctx.fillStyle = movesHot ? '#ffb0b8' : '#eef3ff';
+    ctx.font = `800 22px ${display}`;
+    ctx.fillText(`Moves  ${s.movesLeft}`, 24, 128);
     ctx.fillStyle = '#eef3ff';
-    ctx.font = `700 17px ${display}`;
-    ctx.fillText(`Moves  ${s.movesLeft}`, 24, 130);
-    ctx.fillText(`Score  ${s.score.toLocaleString()}`, 190, 130);
+    ctx.fillText(`Score  ${s.score.toLocaleString()}`, 200, 128);
     if (app.pickaxeMode) {
       ctx.fillStyle = '#ffd679';
-      ctx.font = `700 13px ${body}`;
+      ctx.font = `700 14px ${body}`;
       ctx.fillText('Pickaxe ready — tap a gem to smash it', 24, 154);
     } else {
       const obj = s.objectives
         .map((o) => `${OBJECTIVE_LABEL[o.kind]}  ${o.current}/${o.target}`)
         .join('   ·   ');
-      ctx.font = `700 13px ${body}`;
-      ctx.fillStyle = '#b0c0e0';
+      ctx.font = `700 14px ${body}`;
+      ctx.fillStyle = '#c4d4f0';
       ctx.fillText(obj, 24, 154);
     }
   } else {
@@ -452,7 +460,10 @@ function bindInput(): void {
           boardAnim.play(events, app.session.snapshot(), performance.now());
           const ended = events.find((ev) => ev.t === 'levelEnded');
           if (ended && ended.t === 'levelEnded') {
-            window.setTimeout(() => finishLevel(ended.status, ended.score, ended.stars), 400);
+            window.setTimeout(
+              () => finishLevel(ended.status, ended.score, ended.stars, ended.reason),
+              400,
+            );
           }
           pushToast('Pickaxe!', '#ffd679');
         } else {
@@ -507,7 +518,7 @@ function doSwap(a: Coord, b: Coord): void {
   if (ended && ended.t === 'levelEnded') {
     const wait = Math.max(0, Math.min(900, boardAnim.busy ? 550 : 0));
     window.setTimeout(() => {
-      finishLevel(ended.status, ended.score, ended.stars);
+      finishLevel(ended.status, ended.score, ended.stars, ended.reason);
     }, wait);
   }
 }
@@ -526,13 +537,17 @@ function playMatchVfx(events: readonly GameEvent[]): void {
   let forged = 0;
   let powerFires = 0;
   let maxCascade = 0;
+  let matchHits = 0;
   const palette = atlas.palette();
 
   for (const ev of events) {
-    if (ev.t === 'match') {
+    if (ev.t === 'swapRejected') {
+      haptic('reject');
+    } else if (ev.t === 'match') {
       const tier = tierFromMatch(ev.shape, ev.cells.length);
       vfx.playAtCells(tier, ev.cells, cellToLogical);
       maxCascade = Math.max(maxCascade, ev.cascadeStep);
+      matchHits++;
 
       // Centroid for juice
       let sx = 0;
@@ -546,21 +561,29 @@ function playMatchVfx(events: readonly GameEvent[]): void {
       const cx = sx / n;
       const cy = sy / n;
       const col = palette[ev.color] ?? '#a0d0ff';
-      juice.burst(cx, cy, col, 8 + tier * 4);
-      juice.scorePop(cx, cy - 10, ev.points, tier >= 4 ? '#ffe9a8' : '#d0e8ff');
+      // Particles at t≈0; score pop slightly delayed to ~0.1s of the clear beat.
+      juice.burst(cx, cy, col, 10 + tier * 5);
+      window.setTimeout(() => {
+        juice.scorePop(cx, cy - 12, ev.points, tier >= 4 ? '#ffe9a8' : '#d0e8ff');
+      }, 90);
 
       if (tier >= 6) {
         shakeMs = 320;
         shakeMag = 14;
         juice.requestHitStop(70);
+        haptic('clearBig');
       } else if (tier === 5) {
         shakeMs = 200;
         shakeMag = 8;
         juice.requestHitStop(45);
+        haptic('clearBig');
       } else if (tier === 4) {
         shakeMs = 100;
         shakeMag = 4;
         juice.requestHitStop(28);
+        haptic('clear');
+      } else {
+        haptic('clear');
       }
 
       // Tutorial beat 1 → 2 after forging match
@@ -575,17 +598,14 @@ function playMatchVfx(events: readonly GameEvent[]): void {
       juice.burst(p.x, p.y, col, 22);
       juice.powerBanner(`${name.toUpperCase()} FORGED`);
       juice.requestHitStop(55);
+      haptic('forge');
       if (forged <= 2) pushToast(`${name} forged!`, '#e0c0ff', 1600);
       if (app.ahaPhase === 'forge') advanceTutorialToFire();
-      try {
-        if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(30);
-      } catch {
-        /* ignore */
-      }
     } else if (ev.t === 'coreSpawned') {
       const p = cellToLogical(ev.at);
       juice.burst(p.x, p.y, '#ffe9a8', 24);
       juice.powerBanner('LIVING CORE!');
+      haptic('special');
       pushToast('Living Core! Tap the spinning crystal', '#ffe9a8', 2600);
     } else if (ev.t === 'specialTriggered') {
       powerFires++;
@@ -594,6 +614,7 @@ function playMatchVfx(events: readonly GameEvent[]): void {
       vfx.playAtCells(tier, ev.affected, cellToLogical);
       const p = cellToLogical(ev.at);
       juice.burst(p.x, p.y, '#fff0c0', 20 + tier * 6);
+      haptic('special');
       if (tier >= 5) {
         shakeMs = Math.max(shakeMs, tier >= 6 ? 280 : 160);
         shakeMag = Math.max(shakeMag, tier >= 6 ? 12 : 7);
@@ -608,17 +629,18 @@ function playMatchVfx(events: readonly GameEvent[]): void {
         juice.requestHitStop(60);
       }
       if (app.ahaPhase === 'fire') completeTutorial();
-      try {
-        if (typeof navigator !== 'undefined' && navigator.vibrate) {
-          navigator.vibrate(powerFires >= 2 ? [20, 40, 30] : 25);
-        }
-      } catch {
-        /* ignore */
-      }
+    } else if (ev.t === 'levelEnded') {
+      if (ev.status === 'won') haptic('win');
+      else haptic('softFail');
     }
   }
 
-  if (maxCascade >= 1) juice.cascadeBanner(maxCascade);
+  if (maxCascade >= 1) {
+    juice.cascadeBanner(maxCascade);
+    if (maxCascade >= 2) haptic('cascade');
+  } else if (matchHits > 0 && maxCascade === 0) {
+    /* single clear haptics already fired */
+  }
 }
 
 /** After forge: re-hint to fire the new power. */
@@ -671,10 +693,46 @@ function ddaScalar(): number {
 
 let finishing = false;
 
-function finishLevel(status: 'won' | 'lost', score: number, stars: number): void {
+/** Objective completion ratio 0–1 for near-miss detection (loss aversion). */
+function objectiveProgressRatio(session: Session): number {
+  const objs = session.snapshot().objectives;
+  if (objs.length === 0) return 0;
+  let sum = 0;
+  for (const o of objs) {
+    sum += o.target <= 0 ? 1 : Math.min(1, o.current / o.target);
+  }
+  return sum / objs.length;
+}
+
+function finishLevel(
+  status: 'won' | 'lost',
+  score: number,
+  stars: number,
+  reason?: 'objectivesMet' | 'outOfMoves' | 'bombExpired',
+): void {
   // Guard against double levelEnded / delayed timeout after quit.
   if (finishing) return;
   finishing = true;
+
+  // Near-miss continue: out of moves, meaningful progress, one offer per attempt.
+  if (
+    status === 'lost' &&
+    reason === 'outOfMoves' &&
+    app.session &&
+    !app.continueUsed &&
+    objectiveProgressRatio(app.session) >= 0.45
+  ) {
+    app.pendingContinue = true;
+    app.lastResult = { status, score, stars };
+    app.screen = 'continue';
+    overlay.style.background = '';
+    overlay.style.backdropFilter = '';
+    overlay.style.justifyContent = '';
+    overlay.style.pointerEvents = '';
+    renderOverlay();
+    finishing = false;
+    return;
+  }
 
   const scalar = ddaScalar();
   if (status === 'won') {
@@ -684,6 +742,8 @@ function finishLevel(status: 'won' | 'lost', score: number, stars: number): void
   }
   app.lastResult = { status, score, stars };
   app.session = null;
+  app.pendingContinue = false;
+  app.continueUsed = false;
 
   if (economy.shouldShowInterstitial()) {
     openAd('interstitial', 'results');
@@ -693,6 +753,54 @@ function finishLevel(status: 'won' | 'lost', score: number, stars: number): void
   app.screen = 'results';
   renderOverlay();
   finishing = false;
+}
+
+function reviveSessionWithMoves(n = 5): void {
+  if (!app.session) return;
+  const events = app.session.continueWithMoves(n);
+  if (events.length === 0) return;
+  app.continueUsed = true;
+  app.pendingContinue = false;
+  audio.handle(events);
+  boardAnim.sync(app.session.snapshot());
+  app.screen = 'play';
+  haptic('forge');
+  pushToast(`+${n} moves — finish the geode!`, '#7dffc0', 2200);
+  renderOverlay();
+}
+
+function acceptContinue(via: 'ad' | 'shards'): void {
+  if (!app.session || !app.pendingContinue) return;
+  if (via === 'shards') {
+    if (!economy.spendShardsForContinue()) {
+      pushToast(
+        `Need ${ECONOMY_CONST.cost.extraMoves5} shards — or watch a Short`,
+        '#ff9a9a',
+      );
+      return;
+    }
+    reviveSessionWithMoves(5);
+    return;
+  }
+  // Rewarded Short; moves applied in closeAdSession when grant succeeds.
+  app.continueUsed = true;
+  openAd('rewardedContinue', 'play');
+}
+
+function declineContinue(): void {
+  app.pendingContinue = false;
+  app.continueUsed = false;
+  const r = app.lastResult;
+  const scalar = ddaScalar();
+  economy.failLevel(scalar);
+  app.session = null;
+  if (economy.shouldShowInterstitial()) {
+    openAd('interstitial', 'results');
+    return;
+  }
+  app.screen = 'results';
+  if (r) app.lastResult = r;
+  renderOverlay();
 }
 
 function startLevel(
@@ -732,6 +840,8 @@ function startLevel(
     app.session.useSeedPrism();
     pushToast('Opal Prism seeded!', '#e0c0ff');
   }
+  app.continueUsed = false;
+  app.pendingContinue = false;
   if (prep.extraMoves && economy.consumeBooster('extraMoves').ok) {
     app.session.addMoves(5);
     pushToast('+5 moves!', '#b8f0ff');
@@ -752,8 +862,15 @@ function closeAdSession(opts: { grant: boolean }): void {
   const placement = app.adPlacement ?? 'interstitial';
   if (opts.grant) {
     const res = economy.completeAd();
-    if (res.ok && placement === 'rewardedContinue') {
-      app.session?.addMoves(5);
+    if (res.ok && placement === 'rewardedContinue' && app.session) {
+      // Near-miss revive uses continueWithMoves; mid-level continue uses addMoves.
+      if (app.session.snapshot().status === 'lost') {
+        reviveSessionWithMoves(5);
+        app.adVideoId = null;
+        return;
+      }
+      app.session.addMoves(5);
+      pushToast('+5 moves!', '#7dffc0', 1800);
     }
     if (placement === 'interstitial') {
       economy.noteInterstitialShown();
@@ -763,6 +880,12 @@ function closeAdSession(opts: { grant: boolean }): void {
     // Interstitials still count as shown even if skipped after the unlock.
     if (placement === 'interstitial') {
       economy.noteInterstitialShown();
+    }
+    // Declined continue ad → treat as give-up if we still have a lost session.
+    if (placement === 'rewardedContinue' && app.session?.snapshot().status === 'lost') {
+      app.adVideoId = null;
+      declineContinue();
+      return;
     }
   }
   app.adVideoId = null;
@@ -893,6 +1016,9 @@ function renderOverlay(): void {
       break;
     case 'results':
       renderResults();
+      break;
+    case 'continue':
+      renderContinueOffer();
       break;
     case 'store':
       renderStore();
@@ -1139,6 +1265,33 @@ function renderPrelevel(): void {
       }, 'secondary'),
     ],
   );
+}
+
+/** Loss-aversion near-miss UI (research) — life not burned until player declines. */
+function renderContinueOffer(): void {
+  const r = app.lastResult;
+  const progress = app.session ? Math.round(objectiveProgressRatio(app.session) * 100) : 0;
+  const cost = ECONOMY_CONST.cost.extraMoves5;
+  const shards = economy.getSnapshot().wallet.shards;
+  panel(
+    'So close…',
+    [
+      el('p', {}, [
+        r
+          ? `Score ${r.score.toLocaleString()} · objectives ~${progress}% done. One more push?`
+          : 'Out of moves — keep the chamber open?',
+      ]),
+      el('p', { class: 'hud-tip' }, [
+        'Simulated offer. +5 moves now, or walk away (spend a life). Demo · no real money.',
+      ]),
+    ],
+    [
+      btn(`+5 Moves · ${cost} shards`, () => acceptContinue('shards'), 'gold'),
+      btn('Watch Short · +5 Moves', () => acceptContinue('ad')),
+      btn('Give up', () => declineContinue(), 'secondary'),
+    ],
+  );
+  void shards;
 }
 
 function renderResults(): void {
