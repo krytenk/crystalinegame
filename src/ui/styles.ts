@@ -192,10 +192,80 @@ export function injectStyles(): void {
     }
     .panel.panel-title {
       text-align: center;
-      padding-top: 32px;
+      padding-top: 28px;
+      padding-bottom: 22px;
+      overflow: hidden;
       background:
-        linear-gradient(165deg, rgba(50, 36, 90, 0.92), rgba(16, 12, 32, 0.96) 60%);
-      border-color: rgba(201, 162, 39, 0.65);
+        radial-gradient(ellipse at 50% 0%, rgba(255, 200, 80, 0.12), transparent 55%),
+        linear-gradient(165deg, rgba(50, 36, 90, 0.94), rgba(16, 12, 32, 0.97) 60%);
+      border-color: rgba(201, 162, 39, 0.7);
+      box-shadow:
+        0 0 0 2px rgba(201, 162, 39, 0.45),
+        0 18px 0 rgba(8, 4, 18, 0.85),
+        0 28px 50px rgba(0,0,0,0.55),
+        0 0 40px rgba(120, 70, 200, 0.2),
+        inset 0 2px 0 rgba(255,255,255,0.12);
+    }
+    .title-kicker {
+      font-family: var(--font-display);
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      color: var(--gold);
+      margin-bottom: 4px;
+      text-shadow: 0 1px 0 rgba(0,0,0,0.4);
+    }
+    .title-tagline {
+      font-size: 1rem !important;
+      color: #e8e0f8 !important;
+      margin-bottom: 12px !important;
+    }
+    .title-features {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      margin: 0 0 12px;
+    }
+    .title-feat {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #c9ecff;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(0,0,0,0.35);
+      border: 1.5px solid rgba(126, 208, 255, 0.35);
+      box-shadow: 0 2px 0 rgba(0,0,0,0.3);
+    }
+    .title-progress {
+      margin-bottom: 4px !important;
+      color: rgba(255, 220, 140, 0.9) !important;
+      font-weight: 700 !important;
+    }
+    .title-actions { margin-top: 12px; }
+    .title-gems {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .title-gem {
+      position: absolute;
+      font-size: 1.1rem;
+      opacity: 0.35;
+      animation: titleGemFloat 4.5s ease-in-out infinite;
+      filter: drop-shadow(0 0 8px rgba(126, 208, 255, 0.5));
+    }
+    .title-gem.g1 { left: 10%; top: 18%; color: #7ed0ff; animation-delay: 0s; }
+    .title-gem.g2 { right: 12%; top: 22%; color: #ffd24a; animation-delay: 0.6s; }
+    .title-gem.g3 { left: 16%; bottom: 22%; color: #e0c0ff; animation-delay: 1.2s; }
+    .title-gem.g4 { right: 14%; bottom: 18%; color: #ff9ab0; animation-delay: 1.8s; }
+    @keyframes titleGemFloat {
+      0%, 100% { transform: translateY(0) scale(1); opacity: 0.3; }
+      50% { transform: translateY(-10px) scale(1.15); opacity: 0.55; }
     }
     .panel h1, .panel h2 {
       margin: 0 0 10px;
@@ -1543,6 +1613,51 @@ export function injectStyles(): void {
     .play-dock .play-quit {
       flex-shrink: 0;
       padding: 12px 14px;
+    }
+    .play-dock .play-pause {
+      flex: 0 0 auto;
+      min-width: 56px;
+      letter-spacing: 0.02em;
+    }
+    /* Pause menu */
+    .pause-card {
+      width: min(340px, 100%);
+      padding: 22px 18px 18px;
+      border-radius: 22px;
+      text-align: center;
+      pointer-events: auto;
+      background:
+        radial-gradient(circle at 40% 12%, rgba(255, 220, 120, 0.14), transparent 50%),
+        linear-gradient(165deg, #3a2868, #141028 55%, #0a0818);
+      border: 3px solid rgba(255, 210, 74, 0.55);
+      box-shadow:
+        0 12px 0 rgba(0,0,0,0.4),
+        0 0 40px rgba(100, 80, 200, 0.25),
+        inset 0 1px 0 rgba(255,255,255,0.12);
+    }
+    .pause-kicker {
+      font-family: var(--font-display);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      color: var(--gold);
+      margin-bottom: 4px;
+    }
+    .pause-card h2 {
+      font-family: var(--font-title);
+      font-size: 1.35rem;
+      color: #fff6e8;
+      margin: 0 0 6px;
+      text-shadow: 0 2px 0 #3a2060;
+    }
+    .pause-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .pause-actions .btn {
+      width: 100%;
     }
     .settings-section {
       margin: 12px 0 16px;

@@ -1,5 +1,5 @@
 /**
- * CRYSTALLINE — juice layer: particles, score pops, cascade banners, hit-stop.
+ * CRYSTALLINE — juice layer: particles, rings, flashes, score pops, banners.
  * Makes every clear feel like an event.
  */
 
@@ -22,11 +22,31 @@ interface Particle {
   maxLife: number;
   size: number;
   color: string;
+  /** 0 = circle, 1 = diamond spark, 2 = soft star */
+  shape: 0 | 1 | 2;
+}
+
+interface Ring {
+  x: number;
+  y: number;
+  born: number;
+  life: number;
+  color: string;
+  maxR: number;
+}
+
+interface Flash {
+  born: number;
+  life: number;
+  color: string;
+  alpha: number;
 }
 
 export class JuiceSystem {
   private particles: Particle[] = [];
   private floats: JuiceFloat[] = [];
+  private rings: Ring[] = [];
+  private flash: Flash | null = null;
   private banner: { text: string; born: number; life: number; color: string } | null = null;
   hitStopUntil = 0;
 
@@ -42,6 +62,7 @@ export class JuiceSystem {
     for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2;
       const sp = 1.2 + Math.random() * 4.5;
+      const roll = Math.random();
       this.particles.push({
         x,
         y,
@@ -51,9 +72,21 @@ export class JuiceSystem {
         maxLife: 0.35 + Math.random() * 0.45,
         size: 2 + Math.random() * 3.5,
         color,
+        shape: roll > 0.72 ? 1 : roll > 0.5 ? 2 : 0,
       });
     }
-    if (this.particles.length > 400) this.particles.splice(0, this.particles.length - 400);
+    if (this.particles.length > 480) this.particles.splice(0, this.particles.length - 480);
+  }
+
+  /** Expanding ring shockwave (forge / power / big cascade). */
+  ring(x: number, y: number, color: string, maxR = 70, life = 420): void {
+    this.rings.push({ x, y, born: performance.now(), life, color, maxR });
+    if (this.rings.length > 12) this.rings.shift();
+  }
+
+  /** Full-view colour wash for peak moments. */
+  screenFlash(color = 'rgba(255, 230, 160, 0.35)', life = 220, alpha = 0.32): void {
+    this.flash = { born: performance.now(), life, color, alpha };
   }
 
   scorePop(x: number, y: number, points: number, color = '#ffe9a8'): void {
@@ -120,15 +153,65 @@ export class JuiceSystem {
       f.y += f.vy * (n * 60);
       if (now - f.born > f.life) this.floats.splice(i, 1);
     }
+    for (let i = this.rings.length - 1; i >= 0; i--) {
+      if (now - this.rings[i]!.born > this.rings[i]!.life) this.rings.splice(i, 1);
+    }
+    if (this.flash && now - this.flash.born > this.flash.life) this.flash = null;
   }
 
-  draw(ctx: CanvasRenderingContext2D, now: number, viewW: number): void {
+  draw(ctx: CanvasRenderingContext2D, now: number, viewW: number, viewH = 1280): void {
+    // Screen flash under everything else in juice (over board)
+    if (this.flash) {
+      const age = now - this.flash.born;
+      const t = age / this.flash.life;
+      const a = this.flash.alpha * (t < 0.2 ? t / 0.2 : 1 - (t - 0.2) / 0.8);
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, a);
+      ctx.fillStyle = this.flash.color;
+      ctx.fillRect(0, 0, viewW, viewH);
+      ctx.restore();
+    }
+
+    for (const r of this.rings) {
+      const age = now - r.born;
+      const t = Math.min(1, age / r.life);
+      const radius = r.maxR * (0.15 + 0.85 * t);
+      const alpha = (1 - t) * 0.85;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, alpha);
+      ctx.strokeStyle = r.color;
+      ctx.lineWidth = 3.5 * (1 - t * 0.6);
+      ctx.shadowColor = r.color;
+      ctx.shadowBlur = 14;
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     for (const p of this.particles) {
       ctx.globalAlpha = Math.max(0, p.life);
       ctx.fillStyle = p.color;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
-      ctx.fill();
+      const s = p.size * p.life;
+      if (p.shape === 1) {
+        // Diamond spark
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y - s);
+        ctx.lineTo(p.x + s * 0.7, p.y);
+        ctx.lineTo(p.x, p.y + s);
+        ctx.lineTo(p.x - s * 0.7, p.y);
+        ctx.closePath();
+        ctx.fill();
+      } else if (p.shape === 2) {
+        ctx.font = `${Math.max(8, s * 3)}px serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('✦', p.x, p.y);
+      } else {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, s, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
     ctx.globalAlpha = 1;
 

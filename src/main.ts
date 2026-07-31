@@ -81,6 +81,8 @@ interface AppState {
   ahaPhase: TutorialPhase;
   ahaDone: boolean;
   titleBorn: number;
+  /** In-level pause (blocks input; session frozen until resume). */
+  paused: boolean;
 }
 
 const AHA_KEY = 'crystalline.ahaDone';
@@ -103,6 +105,7 @@ const app: AppState = {
   ahaPhase: 'done',
   ahaDone: typeof localStorage !== 'undefined' && localStorage.getItem(AHA_KEY) === '1',
   titleBorn: 0,
+  paused: false,
 };
 
 const powerLabel = (kind: string): string => {
@@ -234,17 +237,25 @@ function loop(): void {
     const snap = app.session.snapshot();
     boardView.relayout(snap.width, snap.height);
     boardAnim.setLayout(boardView.layout);
-    if (!frozen) boardAnim.update(now);
+    if (!frozen && !app.paused) boardAnim.update(now);
     boardView.draw(ctx, snap, atlas, canvasView.dprBucket, now, boardAnim);
     const { originX, originY, cell } = boardView.layout;
-    drawBoardDust(ctx, originX, originY, cell * snap.width, cell * snap.height, now);
-    drawAhaHint(ctx, now);
+    const bw = cell * snap.width;
+    const bh = cell * snap.height;
+    if (!app.paused) {
+      drawBoardDust(ctx, originX, originY, bw, bh, now);
+      drawAhaHint(ctx, now);
+    } else {
+      // Dim board while paused
+      ctx.fillStyle = 'rgba(6, 4, 16, 0.35)';
+      ctx.fillRect(originX - 4, originY - 4, bw + 8, bh + 8);
+    }
   }
 
   if (!frozen) vfx.draw(ctx, now, canvasView.logicalWidth, canvasView.logicalHeight);
   else vfx.draw(ctx, Math.min(now, juice.hitStopUntil), canvasView.logicalWidth, canvasView.logicalHeight);
 
-  juice.draw(ctx, now, canvasView.logicalWidth);
+  juice.draw(ctx, now, canvasView.logicalWidth, canvasView.logicalHeight);
   drawToasts(ctx, now);
 
   ctx.restore();
@@ -256,22 +267,51 @@ function drawTitleCanvas(ctx: CanvasRenderingContext2D, now: number): void {
   const w = canvasView.logicalWidth;
   const h = canvasView.logicalHeight;
   const age = now - (app.titleBorn || now);
+  const reduce = economy.getSnapshot().settings.reducedMotion;
 
   // Periodic supernova pulse for "wow" while they watch
   if (now >= titleFxAt) {
-    vfx.play(6, w / 2, h * 0.42, 420);
-    juice.burst(w / 2, h * 0.42, '#e0c0ff', 28);
-    juice.burst(w / 2, h * 0.42, '#7ed0ff', 18);
+    vfx.play(6, w / 2, h * 0.38, 420);
+    juice.burst(w / 2, h * 0.38, '#e0c0ff', 28);
+    juice.burst(w / 2, h * 0.38, '#7ed0ff', 18);
+    if (!reduce) {
+      juice.ring(w / 2, h * 0.38, '#ffd24a', 140, 700);
+      juice.ring(w / 2, h * 0.38, '#7ed0ff', 90, 520);
+    }
     titleFxAt = now + 2800 + Math.random() * 1200;
   }
 
-  // Ambient sparkles
-  drawAmbientSparkles(ctx, w, h, now, 18);
+  // Ambient sparkles + floating gem motes
+  drawAmbientSparkles(ctx, w, h, now, reduce ? 8 : 22);
+  if (!reduce) {
+    for (let i = 0; i < 6; i++) {
+      const seed = i * 51.3;
+      const x = w * (0.12 + 0.76 * ((Math.sin(seed) * 0.5 + 0.5 + now * 0.00004 * (i + 1)) % 1));
+      const y = h * (0.12 + 0.45 * (0.5 + 0.5 * Math.sin(now * 0.0011 + seed)));
+      const rot = now * 0.001 + seed;
+      const a = 0.2 + 0.25 * (0.5 + 0.5 * Math.sin(now * 0.003 + seed));
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(rot);
+      ctx.globalAlpha = a;
+      ctx.fillStyle = i % 2 === 0 ? '#7ed0ff' : '#ffd24a';
+      ctx.shadowColor = ctx.fillStyle;
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.moveTo(0, -8);
+      ctx.lineTo(6, 0);
+      ctx.lineTo(0, 8);
+      ctx.lineTo(-6, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+  }
 
   // Soft title on canvas (DOM carries the CTA)
-  const pulse = 0.92 + 0.08 * Math.sin(age * 0.004);
+  const pulse = reduce ? 1 : 0.92 + 0.08 * Math.sin(age * 0.004);
   ctx.save();
-  ctx.translate(w / 2, h * 0.28);
+  ctx.translate(w / 2, h * 0.26);
   ctx.scale(pulse, pulse);
   ctx.textAlign = 'center';
   ctx.font = '800 64px "GalacticKnights", "CrystallineDisplay", "Cinzel", serif';
@@ -288,7 +328,7 @@ function drawTitleCanvas(ctx: CanvasRenderingContext2D, now: number): void {
   ctx.font = '700 17px "CrystallineBody", "Nunito", sans-serif';
   ctx.fillStyle = 'rgba(220,210,255,0.8)';
   ctx.shadowBlur = 0;
-  ctx.fillText('Match · Forge · Cascade · Build', w / 2, h * 0.36);
+  ctx.fillText('Match · Forge · Cascade · Build', w / 2, h * 0.34);
 }
 
 /** Slow floating sparkles for title / idle ambience. */
@@ -707,7 +747,7 @@ function drawToasts(ctx: CanvasRenderingContext2D, now: number): void {
 
 function bindInput(): void {
   canvas.addEventListener('pointerdown', (e) => {
-    if (app.screen !== 'play') return;
+    if (app.screen !== 'play' || app.paused) return;
     audio.resume();
     canvas.setPointerCapture(e.pointerId);
     const p = canvasView.clientToLogical(e.clientX, e.clientY);
@@ -770,7 +810,7 @@ function bindInput(): void {
   });
 
   canvas.addEventListener('pointerup', (e) => {
-    if (app.screen !== 'play' || !app.session || app.pickaxeMode) return;
+    if (app.screen !== 'play' || app.paused || !app.session || app.pickaxeMode) return;
     const p = canvasView.clientToLogical(e.clientX, e.clientY);
     const swap = boardView.completeSwap(p.x, p.y);
     if (!swap) return;
@@ -781,7 +821,7 @@ function bindInput(): void {
 }
 
 function doSwap(a: Coord, b: Coord): void {
-  if (!app.session) return;
+  if (!app.session || app.paused) return;
   // Let the current drop-in settle so cascades read cleanly.
   if (boardAnim.busy) return;
 
@@ -854,6 +894,7 @@ function playMatchVfx(events: readonly GameEvent[]): void {
       const col = palette[ev.color] ?? '#a0d0ff';
       // Particles at t≈0; score pop slightly delayed to ~0.1s of the clear beat.
       juice.burst(cx, cy, col, 10 + tier * 5);
+      if (tier >= 4) juice.ring(cx, cy, col, 40 + tier * 10, 380 + tier * 30);
       window.setTimeout(() => {
         juice.scorePop(cx, cy - 12, ev.points, tier >= 4 ? '#ffe9a8' : '#d0e8ff');
       }, 90);
@@ -862,11 +903,13 @@ function playMatchVfx(events: readonly GameEvent[]): void {
         shakeMs = 320;
         shakeMag = 14;
         juice.requestHitStop(70);
+        juice.screenFlash('rgba(255, 240, 200, 0.55)', 260, 0.38);
         haptic('clearBig');
       } else if (tier === 5) {
         shakeMs = 200;
         shakeMag = 8;
         juice.requestHitStop(45);
+        juice.screenFlash('rgba(224, 192, 255, 0.45)', 200, 0.28);
         haptic('clearBig');
       } else if (tier === 4) {
         shakeMs = 100;
@@ -887,15 +930,24 @@ function playMatchVfx(events: readonly GameEvent[]): void {
       const p = cellToLogical(ev.at);
       const col = ev.piece.kind === 'supernova' ? '#ffffff' : '#e0c0ff';
       juice.burst(p.x, p.y, col, 22);
+      juice.ring(p.x, p.y, col, 90, 520);
+      juice.ring(p.x, p.y, '#fff6e8', 55, 380);
       juice.powerBanner(`${name.toUpperCase()} FORGED`);
       juice.requestHitStop(55);
+      juice.screenFlash(
+        ev.piece.kind === 'supernova' ? 'rgba(255,255,255,0.4)' : 'rgba(200, 160, 255, 0.35)',
+        180,
+        0.28,
+      );
       haptic('forge');
       if (forged <= 2) pushToast(`${name} forged!`, '#e0c0ff', 1600);
       if (app.ahaPhase === 'forge') advanceTutorialToFire();
     } else if (ev.t === 'coreSpawned') {
       const p = cellToLogical(ev.at);
       juice.burst(p.x, p.y, '#ffe9a8', 24);
+      juice.ring(p.x, p.y, '#ffd24a', 100, 600);
       juice.powerBanner('LIVING CORE!');
+      juice.screenFlash('rgba(255, 210, 80, 0.4)', 240, 0.3);
       haptic('special');
       pushToast('Living Core! Tap the spinning crystal', '#ffe9a8', 2600);
     } else if (ev.t === 'specialTriggered') {
@@ -914,6 +966,7 @@ function playMatchVfx(events: readonly GameEvent[]): void {
               : '#7ed0ff';
       juice.burst(p.x, p.y, powerCol, 28 + tier * 8);
       juice.burst(p.x, p.y, '#fff0c0', 14 + tier * 4);
+      juice.ring(p.x, p.y, powerCol, 60 + tier * 14, 480);
       // Secondary pops along affected cells for “board wipe” read
       const sample = ev.affected.slice(0, 12);
       for (const c of sample) {
@@ -925,6 +978,11 @@ function playMatchVfx(events: readonly GameEvent[]): void {
         shakeMs = Math.max(shakeMs, tier >= 6 ? 320 : 180);
         shakeMag = Math.max(shakeMag, tier >= 6 ? 14 : 8);
         juice.requestHitStop(tier >= 6 ? 90 : 55);
+        juice.screenFlash(
+          tier >= 6 ? 'rgba(255,255,255,0.5)' : 'rgba(255, 200, 120, 0.4)',
+          tier >= 6 ? 280 : 200,
+          tier >= 6 ? 0.4 : 0.28,
+        );
       } else {
         shakeMs = Math.max(shakeMs, 90);
         shakeMag = Math.max(shakeMag, 4);
@@ -953,13 +1011,13 @@ function playMatchVfx(events: readonly GameEvent[]): void {
   // Combo end fanfare — when a multi-step cascade fully resolves
   for (const ev of events) {
     if (ev.t === 'cascadeEnd' && ev.steps >= 3) {
+      const cx = canvasView.logicalWidth / 2;
+      const cy = canvasView.logicalHeight * 0.45;
       juice.powerBanner(ev.steps >= 5 ? 'UNSTOPPABLE!' : 'COMBO CLEAR!');
-      juice.burst(
-        canvasView.logicalWidth / 2,
-        canvasView.logicalHeight * 0.45,
-        '#ffe9a8',
-        20 + ev.steps * 4,
-      );
+      juice.burst(cx, cy, '#ffe9a8', 20 + ev.steps * 4);
+      juice.ring(cx, cy, '#ffd24a', 120 + ev.steps * 18, 620);
+      juice.ring(cx, cy, '#7ed0ff', 70 + ev.steps * 10, 480);
+      juice.screenFlash('rgba(255, 210, 100, 0.4)', 220 + ev.steps * 20, 0.3);
       juice.requestHitStop(40 + ev.steps * 8);
       shakeMs = Math.max(shakeMs, 120 + ev.steps * 20);
       shakeMag = Math.max(shakeMag, 5 + ev.steps);
@@ -1150,6 +1208,7 @@ function startLevel(
   app.moveTimes = [];
   app.lastMoveAt = 0;
   app.pickaxeMode = false;
+  app.paused = false;
   app.ahaHint = null;
   app.ahaPhase = 'done';
   hudScoreShown = 0;
@@ -1282,9 +1341,23 @@ function renderOverlay(): void {
     overlay.style.backdropFilter = 'none';
     overlay.style.justifyContent = 'flex-end';
     overlay.style.pointerEvents = 'none';
+
+    if (app.paused) {
+      renderPauseMenu();
+      return;
+    }
+
     const dock = el('div', { class: 'play-dock' }, []);
     dock.style.pointerEvents = 'auto';
     const snap = economy.getSnapshot();
+    const pauseBtn = btn('❚❚', () => {
+      app.paused = true;
+      app.pickaxeMode = false;
+      audio.uiTap();
+      renderOverlay();
+    }, 'secondary');
+    pauseBtn.title = 'Pause';
+    pauseBtn.classList.add('play-tool', 'play-pause');
     const reshuffleBtn = btn(
       `⟲ ×${snap.boosters.reshuffle}`,
       () => {
@@ -1328,26 +1401,8 @@ function renderOverlay(): void {
     pickBtn.title = app.pickaxeMode ? 'Cancel pickaxe' : 'Pickaxe';
     pickBtn.classList.add('play-tool');
     if (app.pickaxeMode) pickBtn.classList.add('armed');
-    const quitBtn = btn(
-      'Quit',
-      () => {
-        app.session = null;
-        app.pickaxeMode = false;
-        economy.failLevel(ddaScalar());
-        app.lastResult = { status: 'lost', score: 0, stars: 0 };
-        app.screen = 'results';
-        overlay.style.background = '';
-        overlay.style.backdropFilter = '';
-        overlay.style.justifyContent = '';
-        overlay.style.pointerEvents = '';
-        renderOverlay();
-      },
-      'danger',
-    );
-    quitBtn.classList.add('play-quit');
     dock.append(
-      el('div', { class: 'play-dock-tools' }, [reshuffleBtn, pickBtn]),
-      quitBtn,
+      el('div', { class: 'play-dock-tools' }, [pauseBtn, reshuffleBtn, pickBtn]),
     );
     overlay.append(dock);
     return;
@@ -1422,21 +1477,38 @@ function panel(
 function renderTitle(): void {
   overlay.classList.remove('hidden');
   overlay.style.background =
-    'linear-gradient(180deg, rgba(10,6,24,0.1) 0%, rgba(10,6,24,0.45) 40%, rgba(8,4,18,0.88) 100%)';
+    'linear-gradient(180deg, rgba(10,6,24,0.08) 0%, rgba(10,6,24,0.4) 38%, rgba(8,4,18,0.9) 100%)';
   overlay.style.backdropFilter = 'none';
   overlay.style.justifyContent = 'flex-end';
-  overlay.style.paddingBottom = '10%';
+  overlay.style.paddingBottom = '8%';
+
+  const snap = economy.getSnapshot();
+  const progressLine =
+    snap.progress.highestUnlocked <= 1 && !app.ahaDone
+      ? 'Your first dive awaits'
+      : `Chamber ${snap.progress.highestUnlocked} open · ${snap.meta.ownedCount}/${snap.meta.totalCount} cavern pieces`;
 
   const wrap = el('div', { class: 'panel panel-title' }, []);
   wrap.append(
-    el('h1', {}, ['CRYSTALLINE']),
-    el('p', {}, ['Match gems. Forge powers. Build your cavern.']),
-    el('p', { class: 'hud-tip' }, [
-      'Match 4+ for Power Crystals · Chain combos · Furnish the mine',
+    el('div', { class: 'title-gems', 'aria-hidden': 'true' }, [
+      el('span', { class: 'title-gem g1' }, ['◆']),
+      el('span', { class: 'title-gem g2' }, ['✦']),
+      el('span', { class: 'title-gem g3' }, ['◇']),
+      el('span', { class: 'title-gem g4' }, ['❖']),
     ]),
-    el('div', { class: 'row' }, [
+    el('div', { class: 'title-kicker' }, ['CRYSTAL MINE MATCH-3']),
+    el('h1', {}, ['CRYSTALLINE']),
+    el('p', { class: 'title-tagline' }, ['Match gems. Forge powers. Build your cavern.']),
+    el('div', { class: 'title-features' }, [
+      el('div', { class: 'title-feat' }, ['Match']),
+      el('div', { class: 'title-feat' }, ['Forge']),
+      el('div', { class: 'title-feat' }, ['Cascade']),
+      el('div', { class: 'title-feat' }, ['Furnish']),
+    ]),
+    el('p', { class: 'hud-tip title-progress' }, [progressLine]),
+    el('div', { class: 'row title-actions' }, [
       btn(
-        'PLAY',
+        app.ahaDone ? 'PLAY' : 'BEGIN',
         () => {
           audio.titleSting();
           audio.stopPad();
@@ -1466,16 +1538,70 @@ function renderTitle(): void {
   overlay.append(wrap);
 
   // Daily gift modal (once) — more game-like than a toast
-  const gift = economy.getSnapshot().pendingDailyGift;
+  const gift = snap.pendingDailyGift;
   if (gift) {
     requestAnimationFrame(() => showDailyGiftModal(gift));
   }
+}
 
-  // Sting once when title first shows
-  if (app.titleBorn && performance.now() - app.titleBorn < 80) {
-    /* wait for user gesture for audio */
-  }
-  // One-shot auto VFX is on canvas; try soft pad after first interaction via DIVE
+/** In-play pause overlay — resume, mute, quit to results (life spent). */
+function renderPauseMenu(): void {
+  overlay.style.pointerEvents = 'auto';
+  overlay.style.justifyContent = 'center';
+  overlay.style.background = 'rgba(4, 2, 12, 0.72)';
+  overlay.style.backdropFilter = 'blur(6px)';
+
+  const snap = economy.getSnapshot();
+  const s = app.session?.snapshot();
+  const level = getLevel(app.levelId);
+
+  const card = el('div', { class: 'pause-card panel-enter' }, [
+    el('div', { class: 'pause-kicker' }, ['PAUSED']),
+    el('h2', {}, [level.name]),
+    el('p', { class: 'hud-tip' }, [
+      s
+        ? `Level ${app.levelId} · ${s.movesLeft} moves · ${s.score.toLocaleString()} pts`
+        : `Level ${app.levelId}`,
+    ]),
+    el('div', { class: 'pause-actions' }, [
+      btn(
+        'RESUME',
+        () => {
+          app.paused = false;
+          audio.uiTap();
+          renderOverlay();
+        },
+        'gold',
+      ),
+      btn(
+        snap.settings.sfx ? 'SFX: On' : 'SFX: Off',
+        () => {
+          economy.updateSettings({ sfx: !snap.settings.sfx });
+          audio.setEnabled(!snap.settings.sfx);
+          renderOverlay();
+        },
+        'secondary',
+      ),
+      btn(
+        'QUIT LEVEL',
+        () => {
+          app.paused = false;
+          app.session = null;
+          app.pickaxeMode = false;
+          economy.failLevel(ddaScalar());
+          app.lastResult = { status: 'lost', score: 0, stars: 0 };
+          app.screen = 'results';
+          overlay.style.background = '';
+          overlay.style.backdropFilter = '';
+          overlay.style.justifyContent = '';
+          overlay.style.pointerEvents = '';
+          renderOverlay();
+        },
+        'danger',
+      ),
+    ]),
+  ]);
+  overlay.append(card);
 }
 
 /** Soft retention prompts for map / cavern / prelevel. */
