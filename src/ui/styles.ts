@@ -1743,6 +1743,148 @@ export function injectStyles(): void {
     .panel-shop .row {
       flex-wrap: wrap;
     }
+    /* ---- Pass 10: Geode Warden companion + geode crack ---- */
+    .companion-bubble {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin: 8px 0 12px;
+      padding: 10px 12px;
+      border-radius: 16px;
+      text-align: left;
+      background:
+        linear-gradient(135deg, rgba(40, 60, 100, 0.55), rgba(16, 12, 32, 0.92));
+      border: 2px solid rgba(126, 208, 255, 0.35);
+      box-shadow: 0 3px 0 rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    .panel-title .companion-bubble {
+      margin: 4px 0 14px;
+    }
+    .companion-portrait {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+      border: 2px solid rgba(255, 210, 74, 0.55);
+      box-shadow: 0 0 14px rgba(100, 180, 255, 0.35), 0 3px 0 rgba(0,0,0,0.35);
+      background: #0a0714;
+    }
+    .companion-body { min-width: 0; flex: 1; }
+    .companion-name {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 3px;
+    }
+    .companion-line {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #e8f0ff;
+      line-height: 1.35;
+    }
+    .geode-crack {
+      position: absolute; inset: 0;
+      z-index: 52;
+      display: flex; align-items: center; justify-content: center;
+      padding: 18px;
+      background: rgba(2, 4, 12, 0.86);
+      backdrop-filter: blur(7px);
+      animation: placeFadeIn 0.28s ease-out;
+    }
+    .geode-crack-card {
+      width: min(360px, 100%);
+      padding: 18px 16px 16px;
+      border-radius: 22px;
+      text-align: center;
+      background:
+        radial-gradient(circle at 40% 10%, rgba(126, 208, 255, 0.18), transparent 50%),
+        linear-gradient(165deg, #2a2860, #121028 55%, #0a0818);
+      border: 3px solid rgba(126, 208, 255, 0.5);
+      box-shadow:
+        0 12px 0 rgba(0,0,0,0.4),
+        0 0 40px rgba(80, 160, 255, 0.25),
+        inset 0 1px 0 rgba(255,255,255,0.1);
+    }
+    .geode-crack-kicker {
+      font-family: var(--font-display);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      color: #7ed0ff;
+      margin: 8px 0 4px;
+    }
+    .geode-crack-card h2 {
+      font-family: var(--font-title);
+      font-size: 1.35rem;
+      color: #fff6e8;
+      margin: 0 0 6px;
+      text-shadow: 0 2px 0 #3a2060;
+    }
+    .geode-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin: 14px 0 12px;
+    }
+    .geode-slot {
+      appearance: none;
+      border: 2px solid rgba(201, 162, 39, 0.45);
+      border-radius: 16px;
+      padding: 14px 8px;
+      min-height: 92px;
+      cursor: pointer;
+      background:
+        radial-gradient(circle at 40% 30%, rgba(126, 208, 255, 0.25), transparent 55%),
+        linear-gradient(180deg, #2a2050, #121028);
+      color: var(--text);
+      box-shadow: 0 4px 0 rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.1);
+      font-family: var(--font-body);
+      transition: transform 0.15s, filter 0.15s;
+    }
+    .geode-slot:active:not(:disabled) {
+      transform: translateY(2px);
+      box-shadow: 0 2px 0 rgba(0,0,0,0.35);
+    }
+    .geode-slot-glyph {
+      font-size: 1.6rem;
+      line-height: 1.2;
+      filter: drop-shadow(0 0 8px rgba(126, 208, 255, 0.5));
+    }
+    .geode-slot-label {
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    .geode-slot-reward {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 1rem;
+      color: #ffd24a;
+      margin-top: 4px;
+    }
+    .geode-slot.cracked {
+      border-color: rgba(255, 210, 74, 0.7);
+      pointer-events: none;
+      animation: propPlace 0.4s ease-out both;
+    }
+    .geode-slot.jackpot {
+      box-shadow: 0 0 20px rgba(255, 200, 60, 0.55), 0 4px 0 rgba(0,0,0,0.35);
+    }
+    .geode-slot.miss {
+      opacity: 0.4;
+      filter: grayscale(0.5);
+      pointer-events: none;
+    }
+    .geode-crack-card .btn { width: 100%; }
+    .geode-crack-card .companion-bubble {
+      margin-top: 0;
+    }
   `;
   document.head.appendChild(el);
 }

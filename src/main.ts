@@ -40,6 +40,12 @@ import {
   type TutorialPhase,
 } from '@engine/tutorial';
 import { getLevel, LEVEL_COUNT, LEVELS } from './levels';
+import {
+  COMPANION,
+  companionLine,
+  dealGeodeSlots,
+  type CompanionBeat,
+} from './narrative/companion';
 import { injectStyles } from './ui/styles';
 import { btn, clear, el, setUiTapHook } from './ui/dom';
 
@@ -83,6 +89,8 @@ interface AppState {
   titleBorn: number;
   /** In-level pause (blocks input; session frozen until resume). */
   paused: boolean;
+  /** After a win, offer the Geode Warden crack micro-beat once. */
+  pendingGeode: boolean;
 }
 
 const AHA_KEY = 'crystalline.ahaDone';
@@ -106,6 +114,7 @@ const app: AppState = {
   ahaDone: typeof localStorage !== 'undefined' && localStorage.getItem(AHA_KEY) === '1',
   titleBorn: 0,
   paused: false,
+  pendingGeode: false,
 };
 
 const powerLabel = (kind: string): string => {
@@ -1122,8 +1131,10 @@ function finishLevel(
   const scalar = ddaScalar();
   if (status === 'won') {
     economy.completeLevel(app.levelId, stars, scalar);
+    app.pendingGeode = true;
   } else {
     economy.failLevel(scalar);
+    app.pendingGeode = false;
   }
   app.lastResult = { status, score, stars };
   app.session = null;
@@ -1499,6 +1510,10 @@ function renderTitle(): void {
     el('div', { class: 'title-kicker' }, ['CRYSTAL MINE MATCH-3']),
     el('h1', {}, ['CRYSTALLINE']),
     el('p', { class: 'title-tagline' }, ['Match gems. Forge powers. Build your cavern.']),
+    companionBubble(
+      !app.ahaDone ? 'titleFirst' : 'title',
+      snap.progress.highestUnlocked + snap.meta.ownedCount,
+    ),
     el('div', { class: 'title-features' }, [
       el('div', { class: 'title-feat' }, ['Match']),
       el('div', { class: 'title-feat' }, ['Forge']),
@@ -1638,10 +1653,121 @@ function essenceProgressBar(snap: ReturnType<Economy['getSnapshot']>): HTMLEleme
   return wrap;
 }
 
+/** Geode Warden speech bubble + portrait (thin narrator chrome). */
+function companionBubble(beat: CompanionBeat, salt = 0): HTMLElement {
+  const line = companionLine(beat, salt);
+  return el('div', { class: 'companion-bubble' }, [
+    el('img', {
+      class: 'companion-portrait',
+      src: assetUrl(COMPANION.art),
+      alt: COMPANION.name,
+      decoding: 'async',
+    }),
+    el('div', { class: 'companion-body' }, [
+      el('div', { class: 'companion-name' }, [COMPANION.name]),
+      el('div', { class: 'companion-line' }, [line]),
+    ]),
+  ]);
+}
+
+/**
+ * Post-win micro-beat: pick one of three sealed geodes for bonus essence.
+ * Variable reward (10 / 18 / 40) — not a second game mode.
+ */
+function showGeodeCrackModal(onDone?: () => void): void {
+  if (document.getElementById('geode-crack-modal')) return;
+  if (!app.pendingGeode) {
+    onDone?.();
+    return;
+  }
+
+  const slots = dealGeodeSlots(
+    (Date.now() ^ (app.levelId * 7919) ^ (app.lastResult?.score ?? 0)) >>> 0,
+  );
+  let picked = false;
+
+  const grid = el('div', { class: 'geode-grid' }, []);
+  for (let i = 0; i < slots.length; i++) {
+    const reward = slots[i]!;
+    const isJackpot = reward === Math.max(...slots);
+    const cell = el(
+      'button',
+      {
+        class: 'geode-slot',
+        type: 'button',
+        'aria-label': `Sealed geode ${i + 1}`,
+      },
+      [
+        el('div', { class: 'geode-slot-glyph' }, ['◆']),
+        el('div', { class: 'geode-slot-label' }, ['Sealed']),
+      ],
+    ) as HTMLButtonElement;
+    cell.addEventListener('click', () => {
+      if (picked) return;
+      picked = true;
+      app.pendingGeode = false;
+      economy.grantBonusEssence(reward);
+      audio.starDing(isJackpot ? 2 : 1);
+      haptic(isJackpot ? 'special' : 'forge');
+      cell.classList.add('cracked', isJackpot ? 'jackpot' : 'hit');
+      cell.replaceChildren(
+        el('div', { class: 'geode-slot-glyph' }, [isJackpot ? '❋' : '✦']),
+        el('div', { class: 'geode-slot-reward' }, [`+${reward} ✧`]),
+      );
+      // Reveal siblings as duds (dim)
+      for (const sibling of grid.querySelectorAll('.geode-slot')) {
+        if (sibling === cell) continue;
+        (sibling as HTMLElement).classList.add('miss');
+        (sibling as HTMLElement).setAttribute('disabled', 'true');
+      }
+      pushToast(
+        isJackpot ? `Jackpot vein · +${reward}✧!` : `Geode crack · +${reward}✧`,
+        isJackpot ? '#ffd24a' : '#b8f0ff',
+        2200,
+      );
+      const resultLine = companionLine(
+        'geodeResult',
+        reward + (isJackpot ? 40 : 0),
+      );
+      const resultEl = document.getElementById('geode-result-line');
+      if (resultEl) resultEl.textContent = resultLine;
+      window.setTimeout(() => {
+        modal.remove();
+        onDone?.();
+      }, 1100);
+    });
+    grid.append(cell);
+  }
+
+  const modal = el('div', { class: 'geode-crack', id: 'geode-crack-modal' }, [
+    el('div', { class: 'geode-crack-card panel-enter' }, [
+      companionBubble('geode', app.levelId),
+      el('div', { class: 'geode-crack-kicker' }, ['CRACK A GEODE']),
+      el('h2', {}, ['Bonus essence']),
+      el('p', { class: 'hud-tip', id: 'geode-result-line' }, [
+        'Pick one sealed vein — rewards are shuffled.',
+      ]),
+      grid,
+      btn(
+        'SKIP',
+        () => {
+          app.pendingGeode = false;
+          modal.remove();
+          onDone?.();
+        },
+        'secondary',
+      ),
+    ]),
+  ]);
+  overlay.append(modal);
+  audio.starDing(0);
+}
+
 function showDailyGiftModal(gift: { credits: number; essence: number }): void {
   if (document.getElementById('daily-gift-modal')) return;
   const modal = el('div', { class: 'daily-gift', id: 'daily-gift-modal' }, [
     el('div', { class: 'daily-gift-card panel-enter' }, [
+      companionBubble('daily', Number(gift.credits + gift.essence)),
       el('div', { class: 'daily-gift-kicker' }, ['DAILY GIFT']),
       el('h2', {}, ['Welcome back']),
       el('div', { class: 'daily-gift-rewards' }, [
@@ -2126,10 +2252,34 @@ function renderResults(): void {
         ])
       : null;
 
+  const beat: CompanionBeat =
+    r.status === 'won'
+      ? r.stars >= 3
+        ? 'winPerfect'
+        : 'win'
+      : 'lose';
+  const warden = companionBubble(beat, r.score + r.stars * 11);
+
+  const leaveResults = (screen: typeof app.screen, levelDelta = 0): void => {
+    const go = () => {
+      app.pendingGeode = false;
+      if (levelDelta) app.levelId = Math.min(LEVEL_COUNT, app.levelId + levelDelta);
+      app.screen = screen;
+      renderOverlay();
+    };
+    // One last chance to crack if they leave without tapping CRACK GEODE
+    if (r.status === 'won' && app.pendingGeode) {
+      showGeodeCrackModal(go);
+    } else {
+      go();
+    }
+  };
+
   panel(
     r.status === 'won' ? 'Level Clear!' : 'Almost…',
     [
       burst,
+      warden,
       ...(essenceLine ? [essenceLine] : []),
       ...(nextHint ? [nextHint] : []),
       ...(r.status === 'won' ? [essenceProgressBar(snap)] : []),
@@ -2144,31 +2294,52 @@ function renderResults(): void {
         : []),
     ],
     [
-      btn(r.status === 'won' ? 'NEXT' : 'RETRY', () => {
-        if (r.status === 'won' && app.levelId < LEVEL_COUNT) {
-          app.levelId += 1;
-          app.screen = 'prelevel';
-        } else {
-          app.screen = r.status === 'lost' ? 'prelevel' : 'map';
-        }
-        renderOverlay();
-      }, 'gold'),
+      ...(r.status === 'won' && app.pendingGeode
+        ? [
+            btn(
+              'CRACK A GEODE',
+              () => {
+                showGeodeCrackModal(() => {
+                  if (app.screen === 'results') renderOverlay();
+                });
+              },
+              'gold',
+            ),
+          ]
+        : []),
+      btn(
+        r.status === 'won' ? (app.pendingGeode ? 'NEXT · SKIP GEODE' : 'NEXT') : 'RETRY',
+        () => {
+          if (r.status === 'won' && app.levelId < LEVEL_COUNT) {
+            // Explicit next can skip geode if they already cracked; else offer then go
+            if (app.pendingGeode) {
+              // Skip without modal
+              app.pendingGeode = false;
+            }
+            app.levelId = Math.min(LEVEL_COUNT, app.levelId + 1);
+            app.screen = 'prelevel';
+            renderOverlay();
+          } else if (r.status === 'lost') {
+            app.screen = 'prelevel';
+            renderOverlay();
+          } else {
+            app.pendingGeode = false;
+            app.screen = 'map';
+            renderOverlay();
+          }
+        },
+        r.status === 'won' && app.pendingGeode ? 'secondary' : 'gold',
+      ),
       ...(r.status === 'won'
         ? [
             btn(
               snap.meta.nextAffordable ? 'PLACE IN CAVERN' : 'CAVERN',
-              () => {
-                app.screen = 'cavern';
-                renderOverlay();
-              },
+              () => leaveResults('cavern'),
               snap.meta.nextAffordable ? 'primary' : 'secondary',
             ),
           ]
         : []),
-      btn('LEVELS', () => {
-        app.screen = 'map';
-        renderOverlay();
-      }, 'secondary'),
+      btn('LEVELS', () => leaveResults('map'), 'secondary'),
     ],
     { className: r.status === 'won' ? 'panel-results win' : 'panel-results lose' },
   );
@@ -2279,6 +2450,10 @@ function renderCavern(): void {
   panel(
     'Your Cavern',
     [
+      companionBubble(
+        meta.nextAffordable ? 'cavernReady' : 'cavern',
+        meta.ownedCount + meta.essence,
+      ),
       el('p', {}, [
         'Earn essence from clears. Furnish the living mine — pieces appear in the chamber.',
       ]),

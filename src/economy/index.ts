@@ -286,6 +286,20 @@ export class Economy {
     return result;
   }
 
+  /**
+   * Bonus essence (geode crack, events). Surfaces in `lastEssenceGain` for UI.
+   */
+  grantBonusEssence(amount: number): number {
+    const n = Math.max(0, Math.floor(amount));
+    if (n <= 0) return this.meta.snapshot().essence;
+    this.meta.grantEssence(n);
+    this.lastEssenceGain = n;
+    this.syncMetaAux();
+    this.persist();
+    this.emit();
+    return this.meta.snapshot().essence;
+  }
+
   private syncMetaAux(): void {
     const m = this.meta.serialized;
     this.aux = {
