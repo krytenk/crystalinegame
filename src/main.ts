@@ -128,6 +128,11 @@ let shakeMs = 0;
 let shakeMag = 0;
 let lastFrame = performance.now();
 let titleFxAt = 0;
+/** In-play HUD score pulse when points land (Pass 8). */
+let hudScoreShown = 0;
+let hudScorePulseUntil = 0;
+let hudMovesPulseUntil = 0;
+let hudLastMoves = -1;
 
 interface Toast {
   text: string;
@@ -167,8 +172,10 @@ function mount(): void {
   bindInput();
   economy.startSession();
   economy.ensureStarterBoosters();
-  audio.setEnabled(economy.getSnapshot().settings.sfx);
-  boardView.glyphs = economy.getSnapshot().settings.glyphs;
+  const bootSettings = economy.getSnapshot().settings;
+  audio.setEnabled(bootSettings.sfx);
+  if (!bootSettings.music) audio.stopPad();
+  boardView.glyphs = bootSettings.glyphs;
 
   setUiTapHook(() => audio.uiTap());
 
@@ -426,17 +433,18 @@ function drawChrome(ctx: CanvasRenderingContext2D, now: number): void {
   const snap = economy.getSnapshot();
   const display = '"CrystallineDisplay", "Cinzel", "Palatino Linotype", serif';
   const body = '"CrystallineBody", "Nunito", "Segoe UI", system-ui, sans-serif';
+  const reduceMotion = snap.settings.reducedMotion;
 
   // Soft top bar — studio casual HUD (not a website header)
-  ctx.fillStyle = 'rgba(12, 8, 28, 0.82)';
-  roundRectPath(ctx, 12, 10, 696, 148, 22);
+  ctx.fillStyle = 'rgba(12, 8, 28, 0.88)';
+  roundRectPath(ctx, 12, 10, 696, 158, 22);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(201, 162, 39, 0.5)';
+  ctx.strokeStyle = 'rgba(201, 162, 39, 0.55)';
   ctx.lineWidth = 3;
   ctx.stroke();
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
   ctx.lineWidth = 1;
-  roundRectPath(ctx, 18, 16, 684, 136, 18);
+  roundRectPath(ctx, 18, 16, 684, 146, 18);
   ctx.stroke();
 
   // Wordmark with stroke for mobile readability
@@ -455,27 +463,126 @@ function drawChrome(ctx: CanvasRenderingContext2D, now: number): void {
   if (app.screen === 'play' && app.session) {
     const s = app.session.snapshot();
     const movesHot = s.movesLeft <= 5;
-    // Moves badge
-    drawStatBadge(ctx, 32, 108, 'MOVES', String(s.movesLeft), movesHot ? '#ff6a7a' : '#5ec8ff', display);
-    drawStatBadge(ctx, 200, 108, 'SCORE', s.score.toLocaleString(), '#ffd24a', display);
+    if (s.movesLeft !== hudLastMoves) {
+      if (s.movesLeft < hudLastMoves && movesHot) hudMovesPulseUntil = now + 520;
+      hudLastMoves = s.movesLeft;
+    }
+    if (s.score > hudScoreShown) {
+      hudScorePulseUntil = now + 420;
+      hudScoreShown = s.score;
+    }
+
+    // Low-moves urgency rim
+    if (movesHot && !reduceMotion) {
+      const pulse = 0.25 + 0.2 * (0.5 + 0.5 * Math.sin(now * 0.012));
+      ctx.save();
+      ctx.strokeStyle = `rgba(255, 80, 100, ${pulse})`;
+      ctx.lineWidth = 4;
+      roundRectPath(ctx, 14, 12, 692, 154, 20);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    const movesPulse = !reduceMotion && now < hudMovesPulseUntil;
+    const scorePulse = !reduceMotion && now < hudScorePulseUntil;
+    drawStatBadge(
+      ctx,
+      32,
+      108,
+      movesHot ? 'MOVES · LOW' : 'MOVES',
+      String(s.movesLeft),
+      movesHot ? '#ff6a7a' : '#5ec8ff',
+      display,
+      movesPulse ? 1.08 : 1,
+    );
+    drawStatBadge(
+      ctx,
+      200,
+      108,
+      'SCORE',
+      s.score.toLocaleString(),
+      '#ffd24a',
+      display,
+      scorePulse ? 1.1 : 1,
+    );
+
     if (app.pickaxeMode) {
       ctx.fillStyle = '#ffd679';
       ctx.font = `800 14px ${body}`;
-      ctx.fillText('TAP A GEM TO SMASH', 380, 132);
+      ctx.fillText('TAP A GEM TO SMASH', 380, 128);
     } else {
-      const obj = s.objectives
-        .map((o) => `${OBJECTIVE_LABEL[o.kind]} ${o.current}/${o.target}`)
-        .join('  ·  ');
-      ctx.font = `800 13px ${body}`;
-      ctx.fillStyle = '#d8c8f0';
-      ctx.fillText(obj, 380, 132);
+      drawObjectiveHud(ctx, s.objectives, 380, 104, body, now, reduceMotion);
     }
   } else {
     ctx.fillStyle = '#c4b6d8';
     ctx.font = `800 14px ${body}`;
     ctx.fillText('Match · Forge · Cascade · Build', 32, 132);
+    // Reset play HUD trackers off-play
+    hudScoreShown = 0;
+    hudLastMoves = -1;
   }
   void now;
+}
+
+/** Compact objective pills with mini progress bars (in-level HUD). */
+function drawObjectiveHud(
+  ctx: CanvasRenderingContext2D,
+  objectives: readonly { kind: ObjectiveKind; current: number; target: number }[],
+  x0: number,
+  y0: number,
+  font: string,
+  now: number,
+  reduceMotion: boolean,
+): void {
+  let x = x0;
+  const maxW = 700 - x0 - 16;
+  const pillW = Math.min(150, Math.floor(maxW / Math.max(1, objectives.length)) - 6);
+  for (const o of objectives) {
+    const done = o.current >= o.target;
+    const pct = Math.min(1, o.current / Math.max(1, o.target));
+    const accent = done ? '#4dde8a' : '#7ed0ff';
+    const glow = done && !reduceMotion ? 0.55 + 0.25 * Math.sin(now * 0.008) : 0.4;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    roundRectPath(ctx, x, y0, pillW, 48, 12);
+    ctx.fill();
+    ctx.strokeStyle = accent;
+    ctx.globalAlpha = glow;
+    ctx.lineWidth = 1.8;
+    roundRectPath(ctx, x, y0, pillW, 48, 12);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.font = `800 9px ${font}`;
+    ctx.textAlign = 'left';
+    const label = OBJECTIVE_LABEL[o.kind];
+    ctx.fillText(label.length > 12 ? label.slice(0, 11) + '…' : label, x + 8, y0 + 13);
+
+    ctx.fillStyle = done ? '#4dde8a' : '#e8f4ff';
+    ctx.font = `800 15px ${font}`;
+    ctx.fillText(
+      done ? '✓' : `${o.current}/${o.target}`,
+      x + 8,
+      y0 + 30,
+    );
+
+    // Progress track
+    const trackX = x + 8;
+    const trackY = y0 + 36;
+    const trackW = pillW - 16;
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    roundRectPath(ctx, trackX, trackY, trackW, 5, 3);
+    ctx.fill();
+    if (pct > 0) {
+      ctx.fillStyle = accent;
+      roundRectPath(ctx, trackX, trackY, Math.max(4, trackW * pct), 5, 3);
+      ctx.fill();
+    }
+
+    x += pillW + 6;
+    if (x + 40 > 700) break;
+  }
 }
 
 function drawStatBadge(
@@ -486,14 +593,23 @@ function drawStatBadge(
   value: string,
   color: string,
   font: string,
+  scale = 1,
 ): void {
-  ctx.fillStyle = 'rgba(0,0,0,0.45)';
-  roundRectPath(ctx, x, y, 150, 36, 12);
+  ctx.save();
+  if (scale !== 1) {
+    const cx = x + 75;
+    const cy = y + 18;
+    ctx.translate(cx, cy);
+    ctx.scale(scale, scale);
+    ctx.translate(-cx, -cy);
+  }
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  roundRectPath(ctx, x, y, 150, 38, 12);
   ctx.fill();
   ctx.strokeStyle = color;
-  ctx.globalAlpha = 0.55;
+  ctx.globalAlpha = 0.65;
   ctx.lineWidth = 2;
-  roundRectPath(ctx, x, y, 150, 36, 12);
+  roundRectPath(ctx, x, y, 150, 38, 12);
   ctx.stroke();
   ctx.globalAlpha = 1;
   ctx.fillStyle = 'rgba(255,255,255,0.55)';
@@ -502,7 +618,11 @@ function drawStatBadge(
   ctx.fillText(label, x + 12, y + 13);
   ctx.fillStyle = color;
   ctx.font = `800 18px ${font}`;
-  ctx.fillText(value, x + 12, y + 30);
+  ctx.shadowColor = color;
+  ctx.shadowBlur = scale > 1 ? 12 : 0;
+  ctx.fillText(value, x + 12, y + 31);
+  ctx.shadowBlur = 0;
+  ctx.restore();
 }
 
 function drawChip(
@@ -1032,6 +1152,10 @@ function startLevel(
   app.pickaxeMode = false;
   app.ahaHint = null;
   app.ahaPhase = 'done';
+  hudScoreShown = 0;
+  hudScorePulseUntil = 0;
+  hudMovesPulseUntil = 0;
+  hudLastMoves = -1;
   const level = getLevel(id);
   app.session = createSession(level, (Date.now() ^ (id * 9973)) >>> 0, ddaScalar());
 
@@ -1158,13 +1282,11 @@ function renderOverlay(): void {
     overlay.style.backdropFilter = 'none';
     overlay.style.justifyContent = 'flex-end';
     overlay.style.pointerEvents = 'none';
-    const bar = el('div', { class: 'row' }, []);
-    bar.style.pointerEvents = 'auto';
-    bar.style.marginBottom = '16px';
-    bar.style.justifyContent = 'center';
+    const dock = el('div', { class: 'play-dock' }, []);
+    dock.style.pointerEvents = 'auto';
     const snap = economy.getSnapshot();
     const reshuffleBtn = btn(
-      `Reshuffle ×${snap.boosters.reshuffle}`,
+      `⟲ ×${snap.boosters.reshuffle}`,
       () => {
         if (!app.session) return;
         if (economy.consumeBooster('reshuffle').ok) {
@@ -1172,6 +1294,7 @@ function renderOverlay(): void {
           audio.handle(events);
           boardAnim.sync(app.session.snapshot());
           pushToast('Board reshuffled', '#b8f0ff');
+          haptic('forge');
           renderOverlay();
         } else {
           pushToast('No reshuffles — buy in Store', '#ff9a9a');
@@ -1180,8 +1303,10 @@ function renderOverlay(): void {
       'secondary',
       snap.boosters.reshuffle <= 0,
     );
+    reshuffleBtn.title = 'Reshuffle board';
+    reshuffleBtn.classList.add('play-tool');
     const pickBtn = btn(
-      app.pickaxeMode ? 'Cancel pickaxe' : `Pickaxe ×${snap.boosters.pickaxe}`,
+      app.pickaxeMode ? '✕' : `⛏ ×${snap.boosters.pickaxe}`,
       () => {
         if (app.pickaxeMode) {
           app.pickaxeMode = false;
@@ -1194,15 +1319,18 @@ function renderOverlay(): void {
         }
         app.pickaxeMode = true;
         pushToast('Tap a gem to smash', '#ffd679');
+        haptic('special');
         renderOverlay();
       },
       app.pickaxeMode ? 'gold' : 'secondary',
       !app.pickaxeMode && snap.boosters.pickaxe <= 0,
     );
-    bar.append(
-      reshuffleBtn,
-      pickBtn,
-      btn('Quit', () => {
+    pickBtn.title = app.pickaxeMode ? 'Cancel pickaxe' : 'Pickaxe';
+    pickBtn.classList.add('play-tool');
+    if (app.pickaxeMode) pickBtn.classList.add('armed');
+    const quitBtn = btn(
+      'Quit',
+      () => {
         app.session = null;
         app.pickaxeMode = false;
         economy.failLevel(ddaScalar());
@@ -1213,9 +1341,15 @@ function renderOverlay(): void {
         overlay.style.justifyContent = '';
         overlay.style.pointerEvents = '';
         renderOverlay();
-      }, 'danger'),
+      },
+      'danger',
     );
-    overlay.append(bar);
+    quitBtn.classList.add('play-quit');
+    dock.append(
+      el('div', { class: 'play-dock-tools' }, [reshuffleBtn, pickBtn]),
+      quitBtn,
+    );
+    overlay.append(dock);
     return;
   }
   overlay.style.background = '';
@@ -2230,22 +2364,85 @@ function metaUpgradeRow(
   return row;
 }
 
+const SKU_GLYPH: Record<string, string> = {
+  'shards.pocket': '◆',
+  'shards.hoard': '◆◆',
+  'shards.vault': '💎',
+  'bundle.starter': '✦',
+  'lives.refill': '♥',
+  'ads.remove': '☁',
+};
+
+const SKU_TAG_LABEL: Record<string, string> = {
+  bestValue: 'BEST VALUE',
+  mostPopular: 'MOST POPULAR',
+  limited: 'LIMITED',
+};
+
 function renderStore(): void {
   const snap = economy.getSnapshot();
+  const wallet = el('div', { class: 'shop-wallet' }, [
+    el('div', { class: 'shop-wallet-chip credits' }, [
+      el('span', { class: 'shop-wallet-k' }, ['Credits']),
+      el('span', { class: 'shop-wallet-v' }, [snap.wallet.credits.toLocaleString()]),
+    ]),
+    el('div', { class: 'shop-wallet-chip shards' }, [
+      el('span', { class: 'shop-wallet-k' }, ['Shards']),
+      el('span', { class: 'shop-wallet-v' }, [`◆ ${snap.wallet.shards}`]),
+    ]),
+  ]);
+
   const items = snap.availableSkus.map((sku) => {
-    const row = el('div', { class: 'sku' }, [
-      el('div', {}, [
-        el('div', { class: 'name' }, [
-          sku.name,
-          sku.tag ? el('span', { class: 'tag' }, [sku.tag]) : '',
-        ].filter(Boolean) as (string | Node)[]),
-        el('div', { class: 'blurb' }, [sku.blurb]),
-      ]),
-    ]);
-    const buy = btn(`${sku.credits}¢`, () => {
-      economy.purchase(sku.id);
-      renderOverlay();
-    }, 'secondary');
+    const can = snap.wallet.credits >= sku.credits;
+    const tagLabel = sku.tag ? SKU_TAG_LABEL[sku.tag] ?? sku.tag : null;
+    const grantBits: string[] = [];
+    if (sku.grantShards) grantBits.push(`+${sku.grantShards} ◆`);
+    if (sku.grantLives) grantBits.push(`+${sku.grantLives} ♥`);
+    if (sku.grantBoosters) {
+      const n = Object.values(sku.grantBoosters).reduce((a, b) => a + (b ?? 0), 0);
+      if (n > 0) grantBits.push(`+${n} tools`);
+    }
+    const row = el(
+      'div',
+      {
+        class: `sku${sku.tag ? ` tagged-${sku.tag}` : ''}${can ? '' : ' broke'}`,
+      },
+      [
+        el('div', { class: 'sku-glyph' }, [SKU_GLYPH[sku.id] ?? '◇']),
+        el('div', { class: 'sku-body' }, [
+          el('div', { class: 'name' }, [
+            sku.name,
+            tagLabel ? el('span', { class: `tag tag-${sku.tag}` }, [tagLabel]) : '',
+          ].filter(Boolean) as (string | Node)[]),
+          el('div', { class: 'blurb' }, [sku.blurb]),
+          grantBits.length
+            ? el('div', { class: 'sku-grants' }, [grantBits.join(' · ')])
+            : el('div', {}, []),
+        ]),
+      ],
+    );
+    const buy = btn(
+      `${sku.credits.toLocaleString()}¢`,
+      () => {
+        const res = economy.purchase(sku.id);
+        if (!res.ok) {
+          if (res.reason === 'insufficientCredits') {
+            pushToast('Not enough credits', '#ff9a9a');
+          } else if (res.reason === 'alreadyOwned') {
+            pushToast('Already owned', '#b0c0e0');
+          } else {
+            pushToast('Unavailable', '#ff9a9a');
+          }
+          return;
+        }
+        audio.starDing(1);
+        haptic('forge');
+        pushToast(`Purchased · ${sku.name}`, '#ffd24a', 2000);
+        renderOverlay();
+      },
+      can ? (sku.tag === 'bestValue' || sku.tag === 'limited' ? 'gold' : 'primary') : 'secondary',
+      !can,
+    );
     row.append(buy);
     return row;
   });
@@ -2253,18 +2450,22 @@ function renderStore(): void {
   panel(
     'Shop',
     [
-      el('p', {}, [
-        `Credits ${snap.wallet.credits}  ·  Shards ${snap.wallet.shards}`,
-      ]),
-      el('p', { class: 'hud-tip' }, ['Stock up before the next dive']),
+      el('div', { class: 'sim-badge' }, ['simulated · no real money']),
+      wallet,
+      el('p', { class: 'hud-tip' }, ['Stock up before the next dive · research price ladder']),
       ...items,
     ],
     [
-      btn('Back', () => {
+      btn('LEVELS', () => {
         app.screen = 'map';
         renderOverlay();
       }, 'secondary'),
+      btn('CAVERN', () => {
+        app.screen = 'cavern';
+        renderOverlay();
+      }, 'secondary'),
     ],
+    { className: 'panel-shop' },
   );
 }
 
@@ -2450,28 +2651,83 @@ function renderAd(): void {
   renderAdShell();
 }
 
+function settingsToggle(
+  label: string,
+  hint: string,
+  on: boolean,
+  onClick: () => void,
+): HTMLElement {
+  const row = el('button', {
+    class: `settings-toggle${on ? ' on' : ''}`,
+    type: 'button',
+  }, [
+    el('div', { class: 'settings-toggle-copy' }, [
+      el('div', { class: 'settings-toggle-label' }, [label]),
+      el('div', { class: 'settings-toggle-hint' }, [hint]),
+    ]),
+    el('div', { class: 'settings-switch', 'aria-hidden': 'true' }, [
+      el('div', { class: 'settings-switch-knob' }, []),
+    ]),
+  ]) as HTMLButtonElement;
+  row.addEventListener('click', (e) => {
+    e.preventDefault();
+    onClick();
+  });
+  return row;
+}
+
 function renderSettings(): void {
   const snap = economy.getSnapshot();
+  const s = snap.settings;
   panel(
     'Settings',
     [
-      el('p', {}, ['Sound, accessibility, and demo tools. Nothing leaves this device.']),
+      el('p', { class: 'hud-tip' }, [
+        'Sound, accessibility, and demo tools. Nothing leaves this device.',
+      ]),
+      el('div', { class: 'settings-section' }, [
+        el('div', { class: 'settings-section-title' }, ['Audio']),
+        settingsToggle('Sound effects', 'Glass, whooshes, chimes, UI taps', s.sfx, () => {
+          economy.updateSettings({ sfx: !s.sfx });
+          audio.setEnabled(!s.sfx);
+          if (!s.sfx) audio.uiTap();
+          renderOverlay();
+        }),
+        settingsToggle('Ambient pad', 'Soft title / mine hum when SFX is on', s.music, () => {
+          const next = !s.music;
+          economy.updateSettings({ music: next });
+          if (!next) audio.stopPad();
+          else if (s.sfx) audio.resume();
+          renderOverlay();
+        }),
+      ]),
+      el('div', { class: 'settings-section' }, [
+        el('div', { class: 'settings-section-title' }, ['Accessibility']),
+        settingsToggle('Shape glyphs', 'Extra symbols on crystals for colour-blind play', s.glyphs, () => {
+          economy.updateSettings({ glyphs: !s.glyphs });
+          boardView.glyphs = !s.glyphs;
+          renderOverlay();
+        }),
+        settingsToggle('Reduced motion', 'Softer HUD pulses and less urgency flash', s.reducedMotion, () => {
+          economy.updateSettings({ reducedMotion: !s.reducedMotion });
+          renderOverlay();
+        }),
+      ]),
+      el('div', { class: 'settings-section' }, [
+        el('div', { class: 'settings-section-title' }, ['Research']),
+        el('div', { class: 'settings-about' }, [
+          el('div', {}, ['Crystalline v0.1.0 · portfolio demo']),
+          el('div', { class: 'hud-tip' }, [
+            'Simulated economy · Discworld Shorts ads · local save only',
+          ]),
+        ]),
+      ]),
     ],
     [
-      btn(snap.settings.sfx ? 'SFX: On' : 'SFX: Off', () => {
-        economy.updateSettings({ sfx: !snap.settings.sfx });
-        audio.setEnabled(!snap.settings.sfx);
-        renderOverlay();
-      }, 'secondary'),
-      btn(snap.settings.glyphs ? 'Glyphs: On' : 'Glyphs: Off', () => {
-        economy.updateSettings({ glyphs: !snap.settings.glyphs });
-        boardView.glyphs = !snap.settings.glyphs;
-        renderOverlay();
-      }, 'secondary'),
       btn('Publisher Dashboard', () => {
         app.screen = 'dashboard';
         renderOverlay();
-      }),
+      }, 'primary'),
       btn('Reset research profile', () => {
         if (confirm('Wipe local save and start fresh?')) {
           economy.resetProfile();
@@ -2479,11 +2735,12 @@ function renderSettings(): void {
           renderOverlay();
         }
       }, 'danger'),
-      btn('Back', () => {
+      btn('LEVELS', () => {
         app.screen = 'map';
         renderOverlay();
       }, 'secondary'),
     ],
+    { className: 'panel-settings' },
   );
 }
 
