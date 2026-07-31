@@ -1293,18 +1293,6 @@ function renderTitle(): void {
   overlay.style.justifyContent = 'flex-end';
   overlay.style.paddingBottom = '10%';
 
-  // Daily login gift (credits + essence) — show once when claimed
-  const gift = economy.getSnapshot().pendingDailyGift;
-  if (gift) {
-    window.setTimeout(() => {
-      const g = economy.getSnapshot().pendingDailyGift;
-      if (!g) return;
-      pushToast(`Daily gift · +${g.credits}¢ · +${g.essence}✧ essence`, '#ffd24a', 3200);
-      audio.starDing(1);
-      economy.consumeDailyGift();
-    }, 600);
-  }
-
   const wrap = el('div', { class: 'panel panel-title' }, []);
   wrap.append(
     el('h1', {}, ['CRYSTALLINE']),
@@ -1343,11 +1331,79 @@ function renderTitle(): void {
   );
   overlay.append(wrap);
 
+  // Daily gift modal (once) — more game-like than a toast
+  const gift = economy.getSnapshot().pendingDailyGift;
+  if (gift) {
+    requestAnimationFrame(() => showDailyGiftModal(gift));
+  }
+
   // Sting once when title first shows
   if (app.titleBorn && performance.now() - app.titleBorn < 80) {
     /* wait for user gesture for audio */
   }
   // One-shot auto VFX is on canvas; try soft pad after first interaction via DIVE
+}
+
+/** Soft retention prompts for map / cavern / prelevel. */
+function nextGoalHint(snap: ReturnType<Economy['getSnapshot']>): string {
+  const meta = snap.meta;
+  if (meta.nextAffordable) {
+    return `Ready · place ${meta.nextAffordable.name} in the cavern`;
+  }
+  if (meta.nextTarget) {
+    const need = Math.max(0, meta.nextTarget.cost - meta.essence);
+    return `Next · ${need}✧ for ${meta.nextTarget.name}`;
+  }
+  if (meta.stagesComplete >= 4) {
+    return 'Cavern complete · chase ★★★ on every chamber';
+  }
+  return `Next · clear level ${snap.progress.highestUnlocked}`;
+}
+
+function essenceProgressBar(snap: ReturnType<Economy['getSnapshot']>): HTMLElement {
+  const target = snap.meta.nextTarget;
+  const have = snap.meta.essence;
+  const need = target?.cost ?? 100;
+  const pct = Math.min(100, Math.floor((have / Math.max(1, need)) * 100));
+  const wrap = el('div', { class: 'essence-track-wrap' }, [
+    el('div', { class: 'essence-track-label' }, [
+      target
+        ? `✧ ${have} / ${need} · ${target.name}`
+        : `✧ ${have} essence`,
+    ]),
+    el('div', { class: 'essence-track' }, [
+      el('div', { class: 'essence-track-fill', style: `width:${pct}%` }, []),
+    ]),
+  ]);
+  return wrap;
+}
+
+function showDailyGiftModal(gift: { credits: number; essence: number }): void {
+  if (document.getElementById('daily-gift-modal')) return;
+  const modal = el('div', { class: 'daily-gift', id: 'daily-gift-modal' }, [
+    el('div', { class: 'daily-gift-card panel-enter' }, [
+      el('div', { class: 'daily-gift-kicker' }, ['DAILY GIFT']),
+      el('h2', {}, ['Welcome back']),
+      el('div', { class: 'daily-gift-rewards' }, [
+        el('div', { class: 'daily-gift-chip' }, [`+${gift.credits} ¢`]),
+        el('div', { class: 'daily-gift-chip gold' }, [`+${gift.essence} ✧`]),
+      ]),
+      el('p', { class: 'hud-tip' }, ['Credits for the shop · essence for your cavern']),
+      btn(
+        'CLAIM',
+        () => {
+          economy.consumeDailyGift();
+          audio.starDing(2);
+          haptic('forge');
+          modal.remove();
+          pushToast(`+${gift.credits}¢ · +${gift.essence}✧ claimed`, '#ffd24a', 2200);
+        },
+        'gold',
+      ),
+    ]),
+  ]);
+  overlay.append(modal);
+  audio.starDing(0);
 }
 
 function boosterChip(
@@ -1469,6 +1525,8 @@ function renderMap(): void {
     'Levels',
     [
       el('p', {}, ['Clear chambers · collect stars · furnish your cavern']),
+      el('div', { class: 'goal-banner' }, [nextGoalHint(snap)]),
+      essenceProgressBar(snap),
       board,
       el('div', { class: 'stat-grid' }, [
         stat('Lives', String(snap.lives.count)),
@@ -1754,37 +1812,47 @@ function renderCavern(): void {
   const ownedSet = new Set(meta.owned);
 
   const glow =
-    0.18 +
+    0.22 +
     meta.stagesComplete * 0.14 +
-    (meta.ownedCount / Math.max(1, meta.totalCount)) * 0.25;
+    (meta.ownedCount / Math.max(1, meta.totalCount)) * 0.28;
 
-  // Stage vista art for the chamber you're currently furnishing.
-  const activeStageId = Math.min(4, Math.max(1, meta.stagesComplete + 1)) as 1 | 2 | 3 | 4;
-  const activeStage = META_STAGES.find((s) => s.id === activeStageId) ?? META_STAGES[0]!;
+  const activeStage =
+    META_STAGES.find((s) => s.id === meta.activeStageId) ?? META_STAGES[0]!;
 
-  const accents = el('div', { class: 'cavern-accents' }, []);
-  for (const up of META_UPGRADES) {
-    if (!ownedSet.has(up.id)) continue;
-    const chip = el('span', { class: 'cavern-chip', title: up.name }, [
-      metaArtImg(up.art, up.name, 'cavern-chip-img'),
-    ]);
-    accents.append(chip);
+  // Live-furnished stage: props sit on the mine backdrop
+  const stageProps = el('div', { class: 'cavern-props' }, []);
+  for (const up of meta.activeStageOwned) {
+    const prop = el('div', {
+      class: 'cavern-prop',
+      title: up.name,
+      style: `left:${up.place.left}%;top:${up.place.top}%;transform:translate(-50%,-50%) scale(${up.place.scale ?? 1})`,
+    }, [metaArtImg(up.art, up.name, 'cavern-prop-img')]);
+    stageProps.append(prop);
+  }
+  // Ghost slots for unowned pieces in this stage (soft goal)
+  for (const up of META_UPGRADES.filter((u) => u.stage === meta.activeStageId && !ownedSet.has(u.id))) {
+    const ghost = el('div', {
+      class: 'cavern-prop ghost',
+      title: up.name,
+      style: `left:${up.place.left}%;top:${up.place.top}%;transform:translate(-50%,-50%) scale(${(up.place.scale ?? 1) * 0.85})`,
+    }, [metaArtImg(up.art, up.name, 'cavern-prop-img')]);
+    stageProps.append(ghost);
   }
 
   const vista = el('div', { class: 'cavern-vista' }, [
     metaArtImg(activeStage.art, activeStage.name, 'cavern-vista-bg'),
     el('div', { class: 'cavern-vista-scrim' }, []),
+    stageProps,
     el('div', { class: 'cavern-depth' }, [
       el('span', { class: 'cavern-label' }, [
         meta.stagesComplete >= 4
           ? 'Deep Geode complete'
           : `Furnishing · ${activeStage.name}`,
       ]),
-      el('span', { class: 'cavern-essence' }, [`✧ ${meta.essence} essence`]),
+      el('span', { class: 'cavern-essence' }, [`✧ ${meta.essence}`]),
     ]),
-    accents,
   ]);
-  vista.style.setProperty('--cavern-glow', String(Math.min(0.85, glow)));
+  vista.style.setProperty('--cavern-glow', String(Math.min(0.9, glow)));
 
   const stages = META_STAGES.map((stage) => {
     const open = stage.id === 1 || meta.stagesComplete >= stage.id - 1;
@@ -1816,7 +1884,7 @@ function renderCavern(): void {
     for (const up of META_UPGRADES.filter((u) => u.stage === stage.id).sort(
       (a, b) => a.order - b.order,
     )) {
-      list.append(metaUpgradeRow(up, ownedSet.has(up.id), meta.essence));
+      list.append(metaUpgradeRow(up, ownedSet.has(up.id), meta.essence, meta.stagesComplete));
     }
     section.append(list);
     return section;
@@ -1826,8 +1894,10 @@ function renderCavern(): void {
     'Your Cavern',
     [
       el('p', {}, [
-        'Earn essence from clears. Furnish chambers. Your mine grows with every win.',
+        'Earn essence from clears. Furnish the living mine — pieces appear in the chamber.',
       ]),
+      el('div', { class: 'goal-banner' }, [nextGoalHint(snap)]),
+      essenceProgressBar(snap),
       vista,
       el('div', { class: 'stat-grid' }, [
         stat('Essence', String(meta.essence)),
@@ -1838,11 +1908,11 @@ function renderCavern(): void {
       ...stages,
     ],
     [
-      btn('Play levels', () => {
+      btn('LEVELS', () => {
         app.screen = 'map';
         renderOverlay();
-      }),
-      btn('Store', () => {
+      }, 'gold'),
+      btn('SHOP', () => {
         app.screen = 'store';
         renderOverlay();
       }, 'secondary'),
@@ -1914,7 +1984,12 @@ function playPlacementCeremony(up: MetaUpgrade, onDone: () => void): void {
   window.setTimeout(() => finish(), 2800);
 }
 
-function metaUpgradeRow(up: MetaUpgrade, owned: boolean, essence: number): HTMLElement {
+function metaUpgradeRow(
+  up: MetaUpgrade,
+  owned: boolean,
+  essence: number,
+  stagesCompleteBefore = 0,
+): HTMLElement {
   const thumb = el('div', { class: 'cavern-item-art' }, [
     metaArtImg(up.art, up.name, 'cavern-item-img'),
   ]);
@@ -1932,6 +2007,7 @@ function metaUpgradeRow(up: MetaUpgrade, owned: boolean, essence: number): HTMLE
     const buy = btn(
       `✧ ${up.cost}`,
       () => {
+        const before = economy.getSnapshot().meta.stagesComplete;
         const res = economy.buyMetaUpgrade(up.id);
         if (!res.ok) {
           if (res.reason === 'insufficient') pushToast('Need more essence — clear levels!', '#ff9a9a');
@@ -1940,9 +2016,15 @@ function metaUpgradeRow(up: MetaUpgrade, owned: boolean, essence: number): HTMLE
           return;
         }
         haptic('forge');
-        // Don't rebuild the list mid-ceremony — play placement video first.
+        const after = economy.getSnapshot().meta.stagesComplete;
         playPlacementCeremony(res.upgrade, () => {
-          pushToast(`${res.upgrade.name} is in the cavern`, '#b8f0ff', 2000);
+          if (after > before) {
+            juice.powerBanner(`STAGE ${after} COMPLETE!`);
+            audio.starDing(2);
+            pushToast(`Chamber complete · new stage open!`, '#ffd24a', 2800);
+          } else {
+            pushToast(`${res.upgrade.name} is in the cavern`, '#b8f0ff', 2000);
+          }
           renderOverlay();
         });
       },
@@ -1951,6 +2033,7 @@ function metaUpgradeRow(up: MetaUpgrade, owned: boolean, essence: number): HTMLE
     );
     row.append(buy);
   }
+  void stagesCompleteBefore;
   return row;
 }
 

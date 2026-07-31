@@ -767,44 +767,90 @@ export function injectStyles(): void {
     .cavern-vista {
       position: relative;
       border-radius: 16px;
-      min-height: 168px;
+      min-height: 220px;
+      height: clamp(200px, 38vw, 260px);
       margin: 8px 0 14px;
       overflow: hidden;
-      border: 1px solid rgba(126, 208, 255, 0.28);
+      border: 2px solid rgba(126, 208, 255, 0.32);
       background: #080c18;
-      box-shadow: inset 0 0 40px rgba(0,0,0,0.45);
-      padding: 14px 12px 12px;
+      box-shadow:
+        inset 0 0 40px rgba(0,0,0,0.45),
+        0 0 24px rgba(60, 140, 255, calc(var(--cavern-glow, 0.3) * 0.55));
+      padding: 0;
     }
     .cavern-vista-bg {
       position: absolute; inset: 0;
       width: 100%; height: 100%;
       object-fit: cover;
-      opacity: 0.92;
+      opacity: 0.95;
       pointer-events: none;
     }
     .cavern-vista-scrim {
       position: absolute; inset: 0;
+      z-index: 1;
       background:
-        linear-gradient(180deg, rgba(4,8,18,0.15), rgba(4,8,18,0.72) 70%, rgba(4,8,18,0.9)),
+        linear-gradient(180deg, rgba(4,8,18,0.05), transparent 35%, rgba(4,8,18,0.55) 70%, rgba(4,8,18,0.92)),
         radial-gradient(ellipse at 50% 80%, rgba(80, 160, 255, calc(var(--cavern-glow, 0.3))), transparent 60%);
       pointer-events: none;
     }
+    /* Live-furnished props on the stage vista */
+    .cavern-props {
+      position: absolute; inset: 0;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .cavern-prop {
+      position: absolute;
+      width: clamp(52px, 16%, 78px);
+      aspect-ratio: 1;
+      filter: drop-shadow(0 6px 14px rgba(0,0,0,0.55)) drop-shadow(0 0 12px rgba(100, 200, 255, 0.35));
+      pointer-events: auto;
+      cursor: default;
+    }
+    .cavern-prop-img {
+      width: 100%; height: 100%;
+      object-fit: contain;
+      display: block;
+      border-radius: 10px;
+      animation: propPlace 0.55s cubic-bezier(0.22, 1.2, 0.36, 1) both;
+    }
+    .cavern-prop.ghost {
+      opacity: 0.28;
+      filter: grayscale(0.55) drop-shadow(0 2px 6px rgba(0,0,0,0.3));
+    }
+    .cavern-prop.ghost .cavern-prop-img {
+      outline: 1.5px dashed rgba(180, 220, 255, 0.45);
+      outline-offset: 2px;
+      border-radius: 12px;
+      animation: none;
+    }
+    @keyframes propPlace {
+      from { opacity: 0; transform: scale(0.45) translateY(-12px); }
+      70% { transform: scale(1.08) translateY(2px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
     .cavern-depth {
-      position: relative; z-index: 1;
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      z-index: 3;
       display: flex; justify-content: space-between; align-items: center;
       gap: 8px; flex-wrap: wrap;
-      margin-bottom: 10px;
+      padding: 28px 12px 10px;
+      background: linear-gradient(180deg, transparent, rgba(4, 8, 18, 0.88));
+      pointer-events: none;
     }
     .cavern-label {
       font-family: var(--font-display);
       font-weight: 700;
       color: #c9ecff;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.7);
     }
     .cavern-essence {
       font-weight: 800;
       color: #7ed0ff;
       font-size: 0.9rem;
+      text-shadow: 0 0 12px rgba(100, 200, 255, 0.5);
     }
     .cavern-accents {
       position: relative; z-index: 1;
@@ -825,6 +871,118 @@ export function injectStyles(): void {
       width: 100%; height: 100%;
       object-fit: cover;
       display: block;
+    }
+    /* Next-goal retention strip */
+    .goal-banner {
+      margin: 6px 0 8px;
+      padding: 10px 14px;
+      border-radius: 14px;
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 0.88rem;
+      letter-spacing: 0.02em;
+      color: #fff6e8;
+      text-align: center;
+      background:
+        linear-gradient(135deg, rgba(90, 50, 160, 0.55), rgba(20, 40, 90, 0.85));
+      border: 2px solid rgba(255, 210, 74, 0.4);
+      box-shadow: 0 3px 0 rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.45);
+    }
+    /* Essence progress toward next cavern piece */
+    .essence-track-wrap {
+      margin: 0 0 12px;
+    }
+    .essence-track-label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #b8e8ff;
+      margin-bottom: 5px;
+      letter-spacing: 0.02em;
+    }
+    .essence-track {
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(0,0,0,0.45);
+      border: 2px solid rgba(126, 208, 255, 0.35);
+      overflow: hidden;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
+    }
+    .essence-track-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #3a9ae0, #7ed0ff 45%, #ffd24a);
+      box-shadow: 0 0 12px rgba(100, 200, 255, 0.55);
+      transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+      min-width: 0;
+    }
+    /* Daily gift claim modal */
+    .daily-gift {
+      position: absolute; inset: 0;
+      z-index: 50;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+      background: rgba(2, 4, 12, 0.82);
+      backdrop-filter: blur(6px);
+      animation: placeFadeIn 0.28s ease-out;
+    }
+    .daily-gift-card {
+      width: min(340px, 100%);
+      padding: 22px 18px 18px;
+      border-radius: 22px;
+      text-align: center;
+      background:
+        radial-gradient(circle at 30% 20%, rgba(255, 220, 120, 0.18), transparent 45%),
+        linear-gradient(165deg, #3a2868, #141028 55%, #0a0818);
+      border: 3px solid rgba(255, 210, 74, 0.55);
+      box-shadow:
+        0 10px 0 rgba(0,0,0,0.4),
+        0 0 40px rgba(255, 180, 60, 0.25),
+        inset 0 1px 0 rgba(255,255,255,0.12);
+    }
+    .daily-gift-kicker {
+      font-family: var(--font-display);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      color: var(--gold);
+      margin-bottom: 6px;
+    }
+    .daily-gift-card h2 {
+      font-family: var(--font-title);
+      font-size: 1.55rem;
+      color: #fff6e8;
+      margin: 0 0 14px;
+      text-shadow: 0 2px 0 #3a2060;
+    }
+    .daily-gift-rewards {
+      display: flex; justify-content: center; gap: 12px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .daily-gift-chip {
+      min-width: 96px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 1.05rem;
+      color: #e8f4ff;
+      background: linear-gradient(180deg, #3a6a9a, #1a3048);
+      border: 2px solid rgba(126, 208, 255, 0.45);
+      box-shadow: 0 4px 0 #0a1828, inset 0 1px 0 rgba(255,255,255,0.15);
+    }
+    .daily-gift-chip.gold {
+      color: #fff6e8;
+      background: linear-gradient(180deg, #c9a227, #7a5810);
+      border-color: rgba(255, 230, 140, 0.55);
+      box-shadow: 0 4px 0 #3a2808, inset 0 1px 0 rgba(255,255,255,0.25);
+    }
+    .daily-gift-card .hud-tip {
+      margin-bottom: 14px;
+    }
+    .daily-gift-card .btn {
+      width: 100%;
     }
     .cavern-stage-head {
       display: flex; gap: 12px; align-items: flex-start;

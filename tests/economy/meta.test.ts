@@ -33,4 +33,22 @@ describe('meta progression', () => {
     expect(m.buy(first.id).ok).toBe(true);
     expect(m.buy(first.id).ok).toBe(false);
   });
+
+  it('exposes nextTarget, placement coords, and active stage props', () => {
+    const first = META_UPGRADES.find((u) => u.stage === 1)!;
+    expect(first.place.left).toBeGreaterThanOrEqual(0);
+    expect(first.place.top).toBeLessThanOrEqual(100);
+
+    const m = new MetaModel({ essence: 0, owned: [], totalSpent: 0 });
+    const snap = m.snapshot();
+    expect(snap.activeStageId).toBe(1);
+    expect(snap.nextTarget?.id).toBe(first.id);
+    expect(snap.activeStageOwned).toHaveLength(0);
+
+    m.grantEssence(first.cost);
+    expect(m.buy(first.id).ok).toBe(true);
+    const after = m.snapshot();
+    expect(after.activeStageOwned.some((u) => u.id === first.id)).toBe(true);
+    expect(after.nextTarget?.id).not.toBe(first.id);
+  });
 });

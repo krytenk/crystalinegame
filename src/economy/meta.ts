@@ -22,6 +22,11 @@ export interface MetaUpgrade {
   readonly art: string;
   /** Order within stage (lower first). */
   readonly order: number;
+  /**
+   * Placement on the stage vista (% left / % top of the vista box).
+   * Used to “live-furnish” the mine instead of only listing icons.
+   */
+  readonly place: { readonly left: number; readonly top: number; readonly scale?: number };
 }
 
 export interface MetaStage {
@@ -76,6 +81,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     glyph: '✦',
     art: icon('s1_lamp'),
     order: 1,
+    place: { left: 14, top: 18, scale: 0.95 },
   },
   {
     id: 's1.vein',
@@ -86,6 +92,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     glyph: '◇',
     art: icon('s1_vein'),
     order: 2,
+    place: { left: 72, top: 28, scale: 1.05 },
   },
   {
     id: 's1.cart',
@@ -96,6 +103,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     glyph: '▣',
     art: icon('s1_cart'),
     order: 3,
+    place: { left: 38, top: 58, scale: 1.1 },
   },
   {
     id: 's1.banner',
@@ -106,6 +114,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     glyph: '⚑',
     art: icon('s1_banner'),
     order: 4,
+    place: { left: 78, top: 12, scale: 0.9 },
   },
   // Stage 2
   {
@@ -117,6 +126,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     glyph: '◆',
     art: icon('s2_prism'),
     order: 1,
+    place: { left: 44, top: 42, scale: 1.05 },
   },
   {
     id: 's2.pool',
@@ -127,6 +137,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     glyph: '○',
     art: icon('s2_pool'),
     order: 2,
+    place: { left: 18, top: 62, scale: 1 },
   },
   {
     id: 's2.arch',
@@ -137,6 +148,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     glyph: '⌂',
     art: icon('s2_arch'),
     order: 3,
+    place: { left: 62, top: 22, scale: 1.15 },
   },
   {
     id: 's2.chorus',
@@ -147,6 +159,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     glyph: '♪',
     art: icon('s2_chorus'),
     order: 4,
+    place: { left: 12, top: 16, scale: 0.9 },
   },
   // Stage 3
   {
@@ -158,6 +171,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     glyph: '◎',
     art: icon('s3_core'),
     order: 1,
+    place: { left: 42, top: 38, scale: 1.1 },
   },
   {
     id: 's3.veins',
@@ -168,6 +182,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     glyph: '≡',
     art: icon('s3_veins'),
     order: 2,
+    place: { left: 70, top: 24, scale: 1 },
   },
   {
     id: 's3.altar',
@@ -178,6 +193,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     glyph: '✶',
     art: icon('s3_altar'),
     order: 3,
+    place: { left: 20, top: 48, scale: 1 },
   },
   {
     id: 's3.guardian',
@@ -188,6 +204,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     glyph: '♜',
     art: icon('s3_guardian'),
     order: 4,
+    place: { left: 76, top: 50, scale: 1.05 },
   },
   // Stage 4
   {
@@ -199,6 +216,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     glyph: '❋',
     art: icon('s4_geode'),
     order: 1,
+    place: { left: 40, top: 40, scale: 1.15 },
   },
   {
     id: 's4.throne',
@@ -209,6 +227,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     glyph: '♛',
     art: icon('s4_throne'),
     order: 2,
+    place: { left: 16, top: 52, scale: 1.05 },
   },
   {
     id: 's4.sky',
@@ -219,6 +238,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     glyph: '✧',
     art: icon('s4_sky'),
     order: 3,
+    place: { left: 68, top: 14, scale: 1.1 },
   },
 ];
 
@@ -229,8 +249,13 @@ export interface MetaSnapshot {
   /** Highest stage with every upgrade owned (0 if none complete). */
   readonly stagesComplete: number;
   readonly nextAffordable: MetaUpgrade | null;
+  /** Cheapest unowned upgrade in the open stage (even if unaffordable). */
+  readonly nextTarget: MetaUpgrade | null;
   readonly ownedCount: number;
   readonly totalCount: number;
+  /** Owned upgrades in the active (open) stage for vista placement. */
+  readonly activeStageOwned: readonly MetaUpgrade[];
+  readonly activeStageId: CavernStageId;
 }
 
 export interface MetaPersist {
@@ -313,13 +338,15 @@ export class MetaModel {
       if (this.stageComplete(s.id)) stagesComplete = s.id;
       else break;
     }
-    const nextAffordable =
-      META_UPGRADES.filter(
-        (u) =>
-          !this.owned.has(u.id) &&
-          this.stageUnlocked(u.stage) &&
-          this.essence >= u.cost,
-      ).sort((a, b) => a.cost - b.cost || a.order - b.order)[0] ?? null;
+    const activeStageId = Math.min(4, Math.max(1, stagesComplete + 1)) as CavernStageId;
+    const openUpgrades = META_UPGRADES.filter(
+      (u) => !this.owned.has(u.id) && this.stageUnlocked(u.stage),
+    ).sort((a, b) => a.cost - b.cost || a.order - b.order);
+    const nextAffordable = openUpgrades.find((u) => this.essence >= u.cost) ?? null;
+    const nextTarget = openUpgrades[0] ?? null;
+    const activeStageOwned = META_UPGRADES.filter(
+      (u) => u.stage === activeStageId && this.owned.has(u.id),
+    );
 
     return {
       essence: this.essence,
@@ -327,8 +354,11 @@ export class MetaModel {
       totalSpent: this.totalSpent,
       stagesComplete,
       nextAffordable,
+      nextTarget,
       ownedCount: this.owned.size,
       totalCount: META_UPGRADES.length,
+      activeStageOwned,
+      activeStageId,
     };
   }
 
