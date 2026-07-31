@@ -208,4 +208,4 @@ export const getLevel = (id: number): LevelDef => {
  * free-to-play title applies economic pressure, and where the Publisher Dashboard
  * expects to see conversion events cluster. Documented in docs/ECONOMY.md.
  */
-export const PRESSURE_POINTS: readonly number[] = [8, 15, 22, 28, 30];
+export const PRESSURE_POINTS: readonly number[] = [8, 15, 22, 28, 30, 35, 40];

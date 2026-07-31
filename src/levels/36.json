@@ -1,0 +1,24 @@
+{
+  "id": 36,
+  "name": "Twin Charge",
+  "width": 8,
+  "height": 8,
+  "moves": 22,
+  "objectives": [
+    { "kind": "defuse", "target": 4 },
+    { "kind": "crust", "target": 28 }
+  ],
+  "stars": [4200, 6400, 9200],
+  "colors": ["ember", "aurum", "solar", "verdant", "tidal", "void"],
+  "layout": [
+    "........",
+    "..1111..",
+    ".B1111B.",
+    ".111111.",
+    ".111111.",
+    ".B1111B.",
+    "..1111..",
+    "........"
+  ],
+  "bombFuse": 12
+}

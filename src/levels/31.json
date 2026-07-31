@@ -1,0 +1,10 @@
+{
+  "id": 31,
+  "name": "Spire Steps",
+  "width": 8,
+  "height": 8,
+  "moves": 24,
+  "objectives": [{ "kind": "score", "target": 4200 }],
+  "stars": [4200, 6200, 8800],
+  "colors": ["ember", "aurum", "solar", "verdant", "tidal", "void"]
+}

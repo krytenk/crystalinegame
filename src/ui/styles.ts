@@ -112,7 +112,10 @@ export function injectStyles(): void {
       height: min(100vh, calc(100vw * 1280 / 720));
       max-width: 100vw;
       max-height: 100vh;
+      overflow: hidden;
       filter: drop-shadow(0 18px 50px rgba(0,0,0,0.65));
+      /* Isolate fixed/absolute ceremonies to this stage */
+      transform: translateZ(0);
     }
     /* Desktop / portfolio demos: use almost the full window height */
     @media (min-width: 700px) {
@@ -322,6 +325,9 @@ export function injectStyles(): void {
       border-radius: 999px;
       padding: 14px 22px;
       min-height: 52px;
+      min-width: 48px;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
       font-family: var(--font-display);
       font-weight: 800;
       font-size: 1.02rem;
@@ -488,6 +494,10 @@ export function injectStyles(): void {
     .map-section.depth-deep {
       border-color: rgba(80, 160, 255, 0.32);
       background: linear-gradient(180deg, rgba(12, 24, 48, 0.55), rgba(6, 10, 22, 0.4));
+    }
+    .map-section.depth-core {
+      border-color: rgba(255, 180, 80, 0.4);
+      background: linear-gradient(180deg, rgba(48, 28, 12, 0.55), rgba(18, 10, 8, 0.45));
     }
     .map-grid-wrap {
       position: relative;
@@ -987,6 +997,9 @@ export function injectStyles(): void {
     .level-banner.depth-deep {
       border-color: rgba(94, 200, 255, 0.5);
     }
+    .level-banner.depth-core {
+      border-color: rgba(255, 180, 80, 0.55);
+    }
     .goal-banner.soft {
       font-size: 0.82rem;
       padding: 8px 12px;
@@ -1383,13 +1396,22 @@ export function injectStyles(): void {
       letter-spacing: 0.06em;
       color: #7ed0ff;
     }
-    /* Placement ceremony overlay */
+    /* Placement ceremony — pinned to game-root, ignores overlay scroll */
+    .ceremony-root-layer.place-ceremony,
+    .ceremony-root-layer.stage-complete {
+      position: absolute;
+      inset: 0;
+      z-index: 60;
+    }
     .place-ceremony {
       position: absolute; inset: 0;
       z-index: 40;
       display: flex; flex-direction: column;
       align-items: center; justify-content: flex-end;
-      padding: 20px 16px 28px;
+      padding: max(20px, env(safe-area-inset-top, 0px))
+        max(16px, env(safe-area-inset-right, 0px))
+        max(28px, env(safe-area-inset-bottom, 0px))
+        max(16px, env(safe-area-inset-left, 0px));
       background: rgba(2, 4, 12, 0.88);
       animation: placeFadeIn 0.25s ease-out;
     }

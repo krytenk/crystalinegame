@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { LEVELS, LEVEL_COUNT, PRESSURE_POINTS, getLevel } from '../../src/levels/index';
 
 describe('level catalogue', () => {
-  it('loads and validates all 30 levels', () => {
-    expect(LEVEL_COUNT).toBe(30);
-    expect(LEVELS).toHaveLength(30);
+  it('loads and validates all 40 levels', () => {
+    expect(LEVEL_COUNT).toBe(40);
+    expect(LEVELS).toHaveLength(40);
   });
 
   it('has contiguous ids and non-empty names', () => {
@@ -19,8 +19,12 @@ describe('level catalogue', () => {
     expect(first.objectives).toEqual([{ kind: 'score', target: 1200 }]);
     expect(first.colors).toHaveLength(4);
 
-    const last = getLevel(30);
-    expect(last.objectives).toHaveLength(4);
+    const midBoss = getLevel(30);
+    expect(midBoss.objectives).toHaveLength(4);
+    expect(midBoss.colors).toHaveLength(6);
+
+    const last = getLevel(40);
+    expect(last.objectives.length).toBeGreaterThanOrEqual(3);
     expect(last.colors).toHaveLength(6);
   });
 

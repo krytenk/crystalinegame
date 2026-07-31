@@ -1,0 +1,24 @@
+{
+  "id": 38,
+  "name": "Creeping Walls",
+  "width": 8,
+  "height": 8,
+  "moves": 23,
+  "objectives": [
+    { "kind": "contain", "target": 16 },
+    { "kind": "crust", "target": 20 }
+  ],
+  "stars": [4500, 6800, 9800],
+  "colors": ["ember", "aurum", "solar", "verdant", "tidal", "void"],
+  "layout": [
+    "........",
+    "..1111..",
+    ".11..11.",
+    ".1....1.",
+    ".1....1.",
+    ".11..11.",
+    "..1111..",
+    "........"
+  ],
+  "shadowPeriod": 4
+}

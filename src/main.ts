@@ -1944,7 +1944,8 @@ const MAP_CHAPTERS: readonly {
 }[] = [
   { roman: 'I', title: 'Mouth of the Mine', depth: 'shallow', minId: 1, maxId: 10 },
   { roman: 'II', title: 'Prism Gallery', depth: 'mid', minId: 11, maxId: 20 },
-  { roman: 'III', title: 'Deep Geode', depth: 'deep', minId: 21, maxId: 999 },
+  { roman: 'III', title: 'Deep Geode', depth: 'deep', minId: 21, maxId: 30 },
+  { roman: 'IV', title: 'Core Spire', depth: 'core', minId: 31, maxId: 999 },
 ];
 
 function chapterForLevel(levelId: number): (typeof MAP_CHAPTERS)[number] {
@@ -2280,7 +2281,9 @@ function renderPrelevel(): void {
       ? 'ui/prelevel_banner.webp'
       : level.id <= 20
         ? 'ui/prelevel_mid.webp'
-        : 'ui/prelevel_deep.webp';
+        : level.id <= 30
+          ? 'ui/prelevel_deep.webp'
+          : 'ui/prelevel_deep.webp';
   const banner = el('div', { class: `level-banner depth-${ch.depth}` }, [
     el('img', {
       class: 'level-banner-art',
@@ -2656,7 +2659,7 @@ function renderCavern(): void {
     stageProps.append(ghost);
   }
 
-  const vista = el('div', { class: 'cavern-vista' }, [
+  const vista = el('div', { class: 'cavern-vista', id: 'cavern-vista' }, [
     metaArtImg(activeStage.art, activeStage.name, 'cavern-vista-bg'),
     el('div', { class: 'cavern-vista-scrim' }, []),
     stageProps,
@@ -2764,13 +2767,47 @@ function renderCavern(): void {
     ],
     { className: 'panel-cavern', scrollTop: true },
   );
+  // After a place / stage fanfare, keep the living vista in frame
+  if (app.screen === 'cavern') {
+    requestAnimationFrame(() => {
+      const vistaEl = document.getElementById('cavern-vista');
+      if (vistaEl && overlay.scrollTop > 80) {
+        /* keep top after full re-render from scrollTop:true */
+      }
+    });
+  }
 }
 
 /**
  * Reward placement ceremony: mine-set video + the purchased prop flying in.
  * (Generated placement reel in public/cavern/place.webm|.mp4)
  */
+/**
+ * Pin a full-bleed ceremony layer to the game root (not the scrollable overlay),
+ * so placement / stage-complete always fills the visible phone frame.
+ */
+function mountCeremonyLayer(layer: HTMLElement): void {
+  // Reset overlay scroll so any follow-up cavern UI starts at the top/vista
+  overlay.scrollTop = 0;
+  layer.classList.add('ceremony-root-layer');
+  // Prefer game-root so absolute inset matches the 720×1280 stage, not the page.
+  (root ?? overlay).append(layer);
+}
+
+function scrollCavernVistaIntoView(): void {
+  requestAnimationFrame(() => {
+    const vista = document.getElementById('cavern-vista');
+    if (vista) {
+      vista.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      overlay.scrollTop = 0;
+    }
+  });
+}
+
 function playPlacementCeremony(up: MetaUpgrade, onDone: () => void): void {
+  // Snap scroll to top immediately so the player sees the ceremony, not mid-list
+  overlay.scrollTop = 0;
   const layer = el('div', { class: 'place-ceremony' }, []);
   const stageArt =
     META_STAGES.find((s) => s.id === up.stage)?.art ?? 'cavern/stages/stage1.webp';
@@ -2800,7 +2837,7 @@ function playPlacementCeremony(up: MetaUpgrade, onDone: () => void): void {
   const skip = btn('Continue', () => finish(), 'gold');
 
   layer.append(vid, prop, caption, skip);
-  overlay.append(layer);
+  mountCeremonyLayer(layer);
   haptic('special');
   // Soft whoosh bed under the placement reel
   try {
@@ -2874,7 +2911,7 @@ function showStageCompleteFanfare(stageId: number, onDone: () => void): void {
       ),
     ]),
   ]);
-  overlay.append(layer);
+  mountCeremonyLayer(layer);
   haptic('special');
   audio.starDing(0);
   window.setTimeout(() => audio.starDing(1), 180);
@@ -2928,15 +2965,19 @@ function metaUpgradeRow(
         }
         haptic('forge');
         const after = economy.getSnapshot().meta.stagesComplete;
+        // Jump camera to the mine vista before / after ceremony
+        overlay.scrollTop = 0;
         playPlacementCeremony(res.upgrade, () => {
           if (after > before) {
             showStageCompleteFanfare(after, () => {
               pushToast(`Chamber complete · new stage open!`, '#ffd24a', 2800);
               renderOverlay();
+              scrollCavernVistaIntoView();
             });
           } else {
             pushToast(`${res.upgrade.name} is in the cavern`, '#b8f0ff', 2000);
             renderOverlay();
+            scrollCavernVistaIntoView();
           }
         });
       },

@@ -61,9 +61,11 @@ Crystal art and trimmed SFX already live under `public/gen/` and `public/sfx/`. 
 - Baked **crystal atlas** + match VFX sheets
 - Procedural synth + **glass / whoosh** samples
 - Simulated lives, store, boosters, DDA, telemetry dashboard
-- 30 data-driven levels
+- **40** data-driven levels (four map chapters through Core Spire)
 - Research-driven **cognitive UX** (juice timing, cascade pitch, near-miss continue, hidden DDA) — see `docs/COGNITIVE_UX.md`
 - **Crystal Cavern** meta loop — wins mint *essence*; spend it furnishing staged mine chambers (Playrix-style dual loop)
+- Live-ops: endless album, hybrid events, daily dive goal, cozy idle drip
+- Pitch one-pager: [`docs/PITCH.md`](docs/PITCH.md)
 
 ### What it is *not*
 

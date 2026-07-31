@@ -1,0 +1,28 @@
+{
+  "id": 40,
+  "name": "Heart of the Spire",
+  "width": 9,
+  "height": 9,
+  "moves": 26,
+  "objectives": [
+    { "kind": "crust", "target": 31 },
+    { "kind": "defuse", "target": 6 },
+    { "kind": "collect", "target": 3 },
+    { "kind": "contain", "target": 18 }
+  ],
+  "stars": [5200, 7800, 11200],
+  "colors": ["ember", "aurum", "solar", "verdant", "tidal", "void"],
+  "layout": [
+    "##.....##",
+    "#..B.B..#",
+    "..11111..",
+    ".1122211.",
+    "B1233321B",
+    ".1122211.",
+    "..11111..",
+    "#..B.B..#",
+    "##.....##"
+  ],
+  "shadowPeriod": 4,
+  "bombFuse": 14
+}
