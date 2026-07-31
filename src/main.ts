@@ -828,9 +828,26 @@ function playMatchVfx(events: readonly GameEvent[]): void {
   if (maxCascade >= 1) {
     juice.cascadeBanner(maxCascade);
     if (maxCascade >= 2) haptic('cascade');
-  } else if (matchHits > 0 && maxCascade === 0) {
-    /* single clear haptics already fired */
   }
+
+  // Combo end fanfare — when a multi-step cascade fully resolves
+  for (const ev of events) {
+    if (ev.t === 'cascadeEnd' && ev.steps >= 3) {
+      juice.powerBanner(ev.steps >= 5 ? 'UNSTOPPABLE!' : 'COMBO CLEAR!');
+      juice.burst(
+        canvasView.logicalWidth / 2,
+        canvasView.logicalHeight * 0.45,
+        '#ffe9a8',
+        20 + ev.steps * 4,
+      );
+      juice.requestHitStop(40 + ev.steps * 8);
+      shakeMs = Math.max(shakeMs, 120 + ev.steps * 20);
+      shakeMag = Math.max(shakeMag, 5 + ev.steps);
+      audio.starDing(Math.min(2, ev.steps - 1));
+      haptic('cascade');
+    }
+  }
+  void matchHits;
 }
 
 /** After forge: re-hint to fire the new power. */
@@ -1276,6 +1293,18 @@ function renderTitle(): void {
   overlay.style.justifyContent = 'flex-end';
   overlay.style.paddingBottom = '10%';
 
+  // Daily login gift (credits + essence) — show once when claimed
+  const gift = economy.getSnapshot().pendingDailyGift;
+  if (gift) {
+    window.setTimeout(() => {
+      const g = economy.getSnapshot().pendingDailyGift;
+      if (!g) return;
+      pushToast(`Daily gift · +${g.credits}¢ · +${g.essence}✧ essence`, '#ffd24a', 3200);
+      audio.starDing(1);
+      economy.consumeDailyGift();
+    }, 600);
+  }
+
   const wrap = el('div', { class: 'panel panel-title' }, []);
   wrap.append(
     el('h1', {}, ['CRYSTALLINE']),
@@ -1394,36 +1423,46 @@ function renderMap(): void {
   board.append(pathSvg);
 
   const nextPlayId = snap.progress.highestUnlocked;
-  const grid = el('div', { class: 'map-grid' }, []);
-  for (const lvl of LEVELS) {
-    const locked = lvl.id > snap.progress.highestUnlocked;
-    const stars = Number(
-      snap.progress.stars[lvl.id] ??
-        snap.progress.stars[String(lvl.id) as unknown as number] ??
-        0,
-    );
-    const isNext = lvl.id === nextPlayId && !locked;
-    const starText = stars > 0 ? '★'.repeat(stars) : locked ? '🔒' : '·';
-    const b = el(
-      'button',
-      {
-        class: `level-node${locked ? ' locked' : ''}${lvl.id === app.levelId ? ' current' : ''}${stars > 0 ? ' cleared' : ''}${isNext ? ' next-play' : ''}`,
-        type: 'button',
-        disabled: locked ? true : undefined,
-        title: stars > 0 ? `${stars} star${stars === 1 ? '' : 's'}` : locked ? 'Locked' : 'Play',
-      },
-      [`${lvl.id}`, el('div', { class: 'level-stars' }, [starText])],
-    ) as HTMLButtonElement;
-    if (!locked) {
-      b.addEventListener('click', () => {
-        app.levelId = lvl.id;
-        app.screen = 'prelevel';
-        renderOverlay();
-      });
+  const chapters: { title: string; levels: typeof LEVELS }[] = [
+    { title: 'I · Mouth of the Mine', levels: LEVELS.filter((l) => l.id <= 10) },
+    { title: 'II · Prism Gallery', levels: LEVELS.filter((l) => l.id > 10 && l.id <= 20) },
+    { title: 'III · Deep Geode', levels: LEVELS.filter((l) => l.id > 20) },
+  ];
+  let totalStars = 0;
+  for (const ch of chapters) {
+    board.append(el('div', { class: 'map-chapter' }, [ch.title]));
+    const grid = el('div', { class: 'map-grid' }, []);
+    for (const lvl of ch.levels) {
+      const locked = lvl.id > snap.progress.highestUnlocked;
+      const stars = Number(
+        snap.progress.stars[lvl.id] ??
+          snap.progress.stars[String(lvl.id) as unknown as number] ??
+          0,
+      );
+      totalStars += stars;
+      const isNext = lvl.id === nextPlayId && !locked;
+      const starText = stars > 0 ? '★'.repeat(stars) : locked ? '🔒' : '·';
+      const b = el(
+        'button',
+        {
+          class: `level-node${locked ? ' locked' : ''}${lvl.id === app.levelId ? ' current' : ''}${stars > 0 ? ' cleared' : ''}${isNext ? ' next-play' : ''}`,
+          type: 'button',
+          disabled: locked ? true : undefined,
+          title: stars > 0 ? `${stars} star${stars === 1 ? '' : 's'}` : locked ? 'Locked' : 'Play',
+        },
+        [`${lvl.id}`, el('div', { class: 'level-stars' }, [starText])],
+      ) as HTMLButtonElement;
+      if (!locked) {
+        b.addEventListener('click', () => {
+          app.levelId = lvl.id;
+          app.screen = 'prelevel';
+          renderOverlay();
+        });
+      }
+      grid.append(b);
     }
-    grid.append(b);
+    board.append(grid);
   }
-  board.append(grid);
 
   const meta = snap.meta;
   panel(
@@ -1433,7 +1472,7 @@ function renderMap(): void {
       board,
       el('div', { class: 'stat-grid' }, [
         stat('Lives', String(snap.lives.count)),
-        stat('Shards', String(snap.wallet.shards)),
+        stat('Stars', `${totalStars}`),
         stat('Essence', String(meta.essence)),
         stat('Cavern', `${meta.ownedCount}/${meta.totalCount}`),
       ]),
@@ -1466,10 +1505,16 @@ function renderPrelevel(): void {
       0,
   );
 
+  const bannerArt =
+    level.id <= 10
+      ? 'ui/prelevel_banner.webp'
+      : level.id <= 20
+        ? 'ui/prelevel_mid.webp'
+        : 'ui/prelevel_deep.webp';
   const banner = el('div', { class: 'level-banner' }, [
     el('img', {
       class: 'level-banner-art',
-      src: assetUrl('ui/prelevel_banner.webp'),
+      src: assetUrl(bannerArt),
       alt: '',
       decoding: 'async',
     }),
@@ -1553,22 +1598,27 @@ function renderContinueOffer(): void {
   const cost = ECONOMY_CONST.cost.extraMoves5;
   const shards = economy.getSnapshot().wallet.shards;
   panel(
-    'So close…',
+    'So close!',
     [
-      el('p', {}, [
-        r
-          ? `Score ${r.score.toLocaleString()} · objectives ~${progress}% done. One more push?`
-          : 'Out of moves — keep the chamber open?',
+      el('div', { class: 'continue-hero' }, [
+        el('div', { class: 'continue-pct' }, [`${progress}%`]),
+        el('div', { class: 'continue-copy' }, [
+          el('div', { class: 'continue-title' }, ['Keep going?']),
+          el('p', {}, [
+            r
+              ? `Score ${r.score.toLocaleString()} · almost there`
+              : 'Out of moves — one more push?',
+          ]),
+        ]),
       ]),
-      el('p', { class: 'hud-tip' }, [
-        'Simulated offer. +5 moves now, or walk away (spend a life). Demo · no real money.',
-      ]),
+      el('p', { class: 'hud-tip' }, [`+5 moves · or walk away (1 life)`]),
     ],
     [
-      btn(`+5 Moves · ${cost} shards`, () => acceptContinue('shards'), 'gold'),
-      btn('Watch Short · +5 Moves', () => acceptContinue('ad')),
-      btn('Give up', () => declineContinue(), 'secondary'),
+      btn(`+5 MOVES · ${cost}◆`, () => acceptContinue('shards'), 'gold'),
+      btn('WATCH · +5', () => acceptContinue('ad')),
+      btn('NO THANKS', () => declineContinue(), 'secondary'),
     ],
+    { className: 'panel-continue' },
   );
   void shards;
 }
@@ -1944,31 +1994,36 @@ function renderStore(): void {
 
 function renderLivesGate(): void {
   const snap = economy.getSnapshot();
-  const mins = Math.ceil(snap.lives.msUntilNext / 60000);
+  const mins = Math.max(1, Math.ceil(snap.lives.msUntilNext / 60000));
   panel(
-    'No Lives Left',
+    'Out of Lives',
     [
-      el('p', {}, [
-        `Next life in ~${mins} min. Or spend ${30} shards, watch a simulated ad, or visit the store.`,
+      el('div', { class: 'lives-hero' }, [
+        el('div', { class: 'lives-heart' }, ['♥']),
+        el('p', {}, [`Next life in ~${mins} min`]),
       ]),
+      el('p', { class: 'hud-tip' }, ['Refill now, or take a breather']),
     ],
     [
-      btn('Spend 30 Shards', () => {
+      btn(`REFILL · ${ECONOMY_CONST.cost.refillLives}◆`, () => {
         if (economy.refillLivesWithShards()) {
           app.screen = 'prelevel';
           renderOverlay();
+        } else {
+          pushToast('Need more shards', '#ff9a9a');
         }
-      }),
-      btn('Watch Short +1 Life', () => openAd('rewardedLife', 'lives'), 'secondary'),
-      btn('Store', () => {
+      }, 'gold'),
+      btn('WATCH · +1♥', () => openAd('rewardedLife', 'lives')),
+      btn('SHOP', () => {
         app.screen = 'store';
         renderOverlay();
       }, 'secondary'),
-      btn('Map', () => {
+      btn('LEVELS', () => {
         app.screen = 'map';
         renderOverlay();
       }, 'secondary'),
     ],
+    { className: 'panel-lives' },
   );
 }
 

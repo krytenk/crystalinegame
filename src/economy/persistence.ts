@@ -122,6 +122,14 @@ export interface EconomyAux {
   readonly metaEssence: number;
   readonly metaOwned: readonly string[];
   readonly metaTotalSpent: number;
+  /**
+   * Set when a daily gift is claimed this session (UI toast), then cleared.
+   * Not a durable day key — the day key remains `stipendDay`.
+   */
+  readonly pendingDailyGift: {
+    readonly credits: number;
+    readonly essence: number;
+  } | null;
 }
 
 export interface PersistedSave extends SaveData {
@@ -169,6 +177,7 @@ export function freshAux(now: number): EconomyAux {
     metaEssence: 0,
     metaOwned: [],
     metaTotalSpent: 0,
+    pendingDailyGift: null,
   };
 }
 
@@ -321,6 +330,7 @@ export function repair(raw: unknown, now: number): PersistedSave {
         ? (aux['metaOwned'] as unknown[]).filter((x): x is string => typeof x === 'string')
         : [],
       metaTotalSpent: safeCount(aux['metaTotalSpent'], 0),
+      pendingDailyGift: null, // never restore mid-toast across reloads
     },
   };
 }

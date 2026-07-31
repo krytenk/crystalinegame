@@ -35,6 +35,8 @@ export const ECONOMY_CONST = {
   startingShards: 50,
   /** Daily login stipend, so the simulation can continue after the wall bites. */
   dailyStipend: 50,
+  /** Daily essence gift for the Crystal Cavern meta loop. */
+  dailyEssence: 50,
 
   maxLives: 5,
   /** Milliseconds to regenerate one life. */

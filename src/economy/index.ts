@@ -70,6 +70,8 @@ export interface EconomySnapshot {
   readonly meta: MetaSnapshot;
   /** Essence granted on the most recent win (UI toast). */
   readonly lastEssenceGain: number;
+  /** Daily login gift just claimed (null after consume). */
+  readonly pendingDailyGift: { readonly credits: number; readonly essence: number } | null;
 }
 
 export class Economy {
@@ -200,6 +202,7 @@ export class Economy {
       ad: this.ads.progress(),
       meta: this.meta.snapshot(),
       lastEssenceGain: this.lastEssenceGain,
+      pendingDailyGift: this.aux.pendingDailyGift,
     };
   }
 
@@ -216,11 +219,27 @@ export class Economy {
     this.emit();
   }
 
+  /** Clear the daily-gift toast flag after the UI has shown it. */
+  consumeDailyGift(): void {
+    if (!this.aux.pendingDailyGift) return;
+    this.aux = { ...this.aux, pendingDailyGift: null };
+    this.persist();
+    this.emit();
+  }
+
   private claimDailyStipend(): void {
     const today = dayKey(this.now());
     if (this.aux.stipendDay === today) return;
-    this.wallet.grantCredits(ECONOMY_CONST.dailyStipend);
-    this.aux = { ...this.aux, stipendDay: today };
+    const credits = ECONOMY_CONST.dailyStipend;
+    const essence = ECONOMY_CONST.dailyEssence;
+    this.wallet.grantCredits(credits);
+    this.meta.grantEssence(essence);
+    this.syncMetaAux();
+    this.aux = {
+      ...this.aux,
+      stipendDay: today,
+      pendingDailyGift: { credits, essence },
+    };
   }
 
   beginLevel(_levelId: number): boolean {

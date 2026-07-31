@@ -454,6 +454,23 @@ export function injectStyles(): void {
       margin: 0;
       padding: 4px;
     }
+    .map-chapter {
+      position: relative;
+      z-index: 1;
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--gold);
+      text-shadow: 0 2px 0 rgba(0,0,0,0.45);
+      padding: 12px 6px 6px;
+      margin-top: 6px;
+    }
+    .map-board > .map-chapter:first-of-type {
+      margin-top: 0;
+      padding-top: 4px;
+    }
     .level-node.cleared {
       border-color: #c9a227;
       background:
@@ -1020,6 +1037,41 @@ export function injectStyles(): void {
       0% { transform: scale(0.3) rotate(-20deg); opacity: 0; }
       60% { transform: scale(1.25) rotate(8deg); opacity: 1; }
       100% { transform: scale(1) rotate(0); opacity: 1; }
+    }
+    /* Continue / lives heroes */
+    .continue-hero, .lives-hero {
+      display: flex; align-items: center; gap: 14px;
+      margin: 4px 0 12px;
+      padding: 14px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(90, 50, 160, 0.4), rgba(20, 12, 40, 0.95));
+      border: 2px solid rgba(255, 210, 74, 0.35);
+      box-shadow: 0 4px 0 rgba(0,0,0,0.35);
+    }
+    .continue-pct {
+      font-family: var(--font-title);
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: #ffd24a;
+      text-shadow: 0 2px 0 #3a2060;
+      min-width: 72px;
+      text-align: center;
+    }
+    .continue-title {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 1.1rem;
+      color: #fff6e8;
+      margin-bottom: 4px;
+    }
+    .lives-heart {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.6rem;
+      background: linear-gradient(180deg, #ff9aa8, #e03050);
+      box-shadow: 0 4px 0 #7a1020, inset 0 2px 0 rgba(255,255,255,0.35);
+      flex-shrink: 0;
     }
   `;
   document.head.appendChild(el);
