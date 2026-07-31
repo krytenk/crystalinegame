@@ -10,7 +10,14 @@ import { computeDda } from '@engine/dda';
 import type { Coord, ObjectiveKind } from '@engine/types';
 import type { GameEvent } from '@engine/events';
 import { POWER_NAME, type PowerKind } from '@engine/specials';
-import { ECONOMY_CONST, Economy, createBrowserStorage } from '@economy/index';
+import {
+  ECONOMY_CONST,
+  Economy,
+  META_STAGES,
+  META_UPGRADES,
+  createBrowserStorage,
+  type MetaUpgrade,
+} from '@economy/index';
 import {
   channelUrl,
   nextDiscworldShort,
@@ -43,6 +50,7 @@ type Screen =
   | 'play'
   | 'results'
   | 'continue'
+  | 'cavern'
   | 'store'
   | 'lives'
   | 'ad'
@@ -1020,6 +1028,9 @@ function renderOverlay(): void {
     case 'continue':
       renderContinueOffer();
       break;
+    case 'cavern':
+      renderCavern();
+      break;
     case 'store':
       renderStore();
       break;
@@ -1158,6 +1169,7 @@ function renderMap(): void {
     return b;
   });
 
+  const meta = snap.meta;
   panel(
     'Crystal Saga',
     [
@@ -1168,11 +1180,15 @@ function renderMap(): void {
       el('div', { class: 'stat-grid' }, [
         stat('Lives', String(snap.lives.count)),
         stat('Shards', String(snap.wallet.shards)),
-        stat('Credits', String(snap.wallet.credits)),
-        stat('Highest', String(snap.progress.highestUnlocked)),
+        stat('Essence', String(meta.essence)),
+        stat('Cavern', `${meta.ownedCount}/${meta.totalCount}`),
       ]),
     ],
     [
+      btn('Crystal Cavern', () => {
+        app.screen = 'cavern';
+        renderOverlay();
+      }, 'gold'),
       btn('Store', () => {
         app.screen = 'store';
         renderOverlay();
@@ -1301,9 +1317,16 @@ function renderResults(): void {
     renderOverlay();
     return;
   }
+  const snap = economy.getSnapshot();
   const starLine =
     r.status === 'won'
       ? `${'★'.repeat(Math.max(0, r.stars))}${'☆'.repeat(Math.max(0, 3 - r.stars))}  ·  ${r.stars}/3 stars`
+      : null;
+  const essenceLine =
+    r.status === 'won' && snap.lastEssenceGain > 0
+      ? el('p', { class: 'essence-gain' }, [
+          `+${snap.lastEssenceGain} essence → Crystal Cavern`,
+        ])
       : null;
   panel(
     r.status === 'won' ? 'Geode Cleared!' : 'Fracture…',
@@ -1314,6 +1337,7 @@ function renderResults(): void {
           : `Score ${r.score.toLocaleString()}. A life was spent. The research clock is ticking.`,
       ]),
       ...(starLine ? [el('h2', {}, [starLine])] : []),
+      ...(essenceLine ? [essenceLine] : []),
       ...(r.status === 'won' && r.stars === 1
         ? [el('p', {}, ['Objective complete — clear with more points or moves left for ★★ / ★★★.'])]
         : []),
@@ -1328,6 +1352,18 @@ function renderResults(): void {
         }
         renderOverlay();
       }),
+      ...(r.status === 'won'
+        ? [
+            btn(
+              'Furnish Cavern',
+              () => {
+                app.screen = 'cavern';
+                renderOverlay();
+              },
+              'gold',
+            ),
+          ]
+        : []),
       btn('Map', () => {
         app.screen = 'map';
         renderOverlay();
@@ -1338,6 +1374,133 @@ function renderResults(): void {
       }, 'secondary'),
     ],
   );
+}
+
+/**
+ * Crystal Cavern meta hub — long-term visual ownership after match-3 wins.
+ * Playrix dual-loop: puzzle → soft currency → decorate persistent space.
+ */
+function renderCavern(): void {
+  const snap = economy.getSnapshot();
+  const meta = snap.meta;
+  const ownedSet = new Set(meta.owned);
+
+  const glow =
+    0.18 +
+    meta.stagesComplete * 0.14 +
+    (meta.ownedCount / Math.max(1, meta.totalCount)) * 0.25;
+
+  const accents = el('div', { class: 'cavern-accents' }, []);
+  for (const up of META_UPGRADES) {
+    if (!ownedSet.has(up.id)) continue;
+    const chip = el('span', { class: 'cavern-chip', title: up.name }, [up.glyph]);
+    accents.append(chip);
+  }
+
+  const vista = el('div', { class: 'cavern-vista' }, [
+    el('div', { class: 'cavern-depth' }, [
+      el('span', { class: 'cavern-label' }, [
+        meta.stagesComplete >= 4
+          ? 'Deep Geode complete'
+          : `Furnishing stage ${Math.min(4, meta.stagesComplete + 1)}`,
+      ]),
+      el('span', { class: 'cavern-essence' }, [`✧ ${meta.essence} essence`]),
+    ]),
+    accents,
+  ]);
+  vista.style.setProperty('--cavern-glow', String(Math.min(0.85, glow)));
+
+  const stages = META_STAGES.map((stage) => {
+    const open = stage.id === 1 || meta.stagesComplete >= stage.id - 1;
+    const complete = meta.stagesComplete >= stage.id;
+    const section = el(
+      'div',
+      {
+        class: `cavern-stage${open ? '' : ' locked'}${complete ? ' complete' : ''}`,
+      },
+      [
+        el('h2', {}, [
+          complete ? `✓ ${stage.name}` : open ? stage.name : `🔒 ${stage.name}`,
+        ]),
+        el('p', { class: 'hud-tip' }, [stage.tagline]),
+      ],
+    );
+    if (!open) {
+      section.append(
+        el('p', { class: 'hud-tip' }, ['Complete every piece in the previous chamber first.']),
+      );
+      return section;
+    }
+    const list = el('div', { class: 'cavern-shop' }, []);
+    for (const up of META_UPGRADES.filter((u) => u.stage === stage.id).sort(
+      (a, b) => a.order - b.order,
+    )) {
+      list.append(metaUpgradeRow(up, ownedSet.has(up.id), meta.essence));
+    }
+    section.append(list);
+    return section;
+  });
+
+  panel(
+    'Crystal Cavern',
+    [
+      el('p', {}, [
+        'Wins mint essence. Spend it to furnish the living mine — a home that stays after the board clears.',
+      ]),
+      vista,
+      el('div', { class: 'stat-grid' }, [
+        stat('Essence', String(meta.essence)),
+        stat('Placed', `${meta.ownedCount}/${meta.totalCount}`),
+        stat('Stages', `${meta.stagesComplete}/4`),
+        stat('Spent', String(meta.totalSpent)),
+      ]),
+      ...stages,
+    ],
+    [
+      btn('Play levels', () => {
+        app.screen = 'map';
+        renderOverlay();
+      }),
+      btn('Store', () => {
+        app.screen = 'store';
+        renderOverlay();
+      }, 'secondary'),
+    ],
+  );
+}
+
+function metaUpgradeRow(up: MetaUpgrade, owned: boolean, essence: number): HTMLElement {
+  const row = el('div', { class: `cavern-item${owned ? ' owned' : ''}` }, [
+    el('div', { class: 'cavern-item-glyph' }, [up.glyph]),
+    el('div', { class: 'cavern-item-body' }, [
+      el('div', { class: 'name' }, [up.name]),
+      el('div', { class: 'blurb' }, [up.blurb]),
+    ]),
+  ]);
+  if (owned) {
+    row.append(el('div', { class: 'cavern-item-status' }, ['Placed']));
+  } else {
+    const can = essence >= up.cost;
+    const buy = btn(
+      `✧ ${up.cost}`,
+      () => {
+        const res = economy.buyMetaUpgrade(up.id);
+        if (!res.ok) {
+          if (res.reason === 'insufficient') pushToast('Need more essence — clear levels!', '#ff9a9a');
+          else if (res.reason === 'stageLocked') pushToast('Chamber still sealed', '#ff9a9a');
+          else pushToast('Already placed', '#b0c0e0');
+          return;
+        }
+        haptic('forge');
+        pushToast(`${res.upgrade.name} placed in the cavern`, '#b8f0ff', 2000);
+        renderOverlay();
+      },
+      can ? 'primary' : 'secondary',
+      !can,
+    );
+    row.append(buy);
+  }
+  return row;
 }
 
 function renderStore(): void {

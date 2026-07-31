@@ -31,6 +31,12 @@ import {
   type Storage,
   type Timer,
 } from './persistence';
+import {
+  essenceForWin,
+  MetaModel,
+  type MetaBuyResult,
+  type MetaSnapshot,
+} from './meta';
 import { StoreModel } from './store';
 import { TelemetryModel, type DashboardStats } from './telemetry';
 import { dayKey, systemClock, type Clock } from './time';
@@ -61,6 +67,9 @@ export interface EconomySnapshot {
   readonly dda: PersistedSave['dda'];
   readonly firstFailAt: number | null;
   readonly ad: AdProgress;
+  readonly meta: MetaSnapshot;
+  /** Essence granted on the most recent win (UI toast). */
+  readonly lastEssenceGain: number;
 }
 
 export class Economy {
@@ -74,10 +83,12 @@ export class Economy {
   private shop!: StoreModel;
   private ads!: AdsModel;
   private telemetry!: TelemetryModel;
+  private meta!: MetaModel;
   private progress!: PersistedSave['progress'];
   private settings!: PersistedSave['settings'];
   private dda!: PersistedSave['dda'];
   private aux!: EconomyAux;
+  private lastEssenceGain = 0;
 
   constructor(opts: EconomyOptions = {}) {
     this.now = opts.now ?? systemClock;
@@ -106,6 +117,12 @@ export class Economy {
       history: [...save.dda.history],
     };
     this.aux = { ...save.aux };
+    this.meta = new MetaModel({
+      essence: save.aux.metaEssence,
+      owned: save.aux.metaOwned,
+      totalSpent: save.aux.metaTotalSpent,
+    });
+    this.lastEssenceGain = 0;
 
     this.telemetry = new TelemetryModel(
       {
@@ -181,6 +198,8 @@ export class Economy {
       dda: this.dda,
       firstFailAt: this.aux.firstFailAt,
       ad: this.ads.progress(),
+      meta: this.meta.snapshot(),
+      lastEssenceGain: this.lastEssenceGain,
     };
   }
 
@@ -216,10 +235,16 @@ export class Economy {
     const id = Math.floor(levelId);
     const prev = Number(this.progress.stars[id] ?? 0);
     const nextStars = Math.max(prev, Math.min(3, Math.max(0, Math.floor(stars))));
+    const newStars = Math.max(0, nextStars - prev);
     this.progress = {
       highestUnlocked: Math.max(this.progress.highestUnlocked, id + 1),
       stars: { ...this.progress.stars, [id]: nextStars },
     };
+    // Meta dual-loop: wins mint essence for the Crystal Cavern.
+    const gain = essenceForWin({ stars: nextStars, newStars, levelId: id });
+    this.meta.grantEssence(gain);
+    this.lastEssenceGain = gain;
+    this.syncMetaAux();
     this.telemetry.noteLevelWon();
     this.telemetry.setDdaScalar(ddaScalar);
     this.dda = {
@@ -230,6 +255,26 @@ export class Economy {
     this.notePlay();
     this.persist();
     this.emit();
+  }
+
+  buyMetaUpgrade(id: string): MetaBuyResult {
+    const result = this.meta.buy(id);
+    if (result.ok) {
+      this.syncMetaAux();
+      this.persist();
+      this.emit();
+    }
+    return result;
+  }
+
+  private syncMetaAux(): void {
+    const m = this.meta.serialized;
+    this.aux = {
+      ...this.aux,
+      metaEssence: m.essence,
+      metaOwned: m.owned,
+      metaTotalSpent: m.totalSpent,
+    };
   }
 
   failLevel(ddaScalar: number): void {
@@ -416,6 +461,13 @@ export {
   nextDiscworldShort,
   youtubeEmbedUrl,
 } from './discworldShorts';
+export {
+  META_STAGES,
+  META_UPGRADES,
+  essenceForWin,
+  MetaModel,
+} from './meta';
+export type { MetaSnapshot, MetaUpgrade, MetaBuyResult, CavernStageId } from './meta';
 export {
   ECONOMY_CONST,
   BOOSTER_SLOT,

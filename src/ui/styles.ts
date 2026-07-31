@@ -422,6 +422,110 @@ export function injectStyles(): void {
       padding: 16px 28px;
       letter-spacing: 0.08em;
     }
+    /* ---- Crystal Cavern meta ---- */
+    .essence-gain {
+      color: #b8f0ff !important;
+      font-weight: 800 !important;
+      font-family: var(--font-display);
+      text-shadow: 0 0 16px rgba(100, 200, 255, 0.45);
+    }
+    .cavern-vista {
+      position: relative;
+      border-radius: 16px;
+      min-height: 120px;
+      margin: 8px 0 14px;
+      overflow: hidden;
+      border: 1px solid rgba(126, 208, 255, 0.28);
+      background:
+        radial-gradient(ellipse at 50% 80%, rgba(80, 160, 255, calc(var(--cavern-glow, 0.3))), transparent 60%),
+        radial-gradient(ellipse at 20% 30%, rgba(160, 80, 220, 0.18), transparent 50%),
+        linear-gradient(180deg, #12182c, #080c18 70%);
+      box-shadow: inset 0 0 40px rgba(0,0,0,0.45);
+      padding: 14px 12px 12px;
+    }
+    .cavern-depth {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 8px; flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .cavern-label {
+      font-family: var(--font-display);
+      font-weight: 700;
+      color: #c9ecff;
+      font-size: 0.95rem;
+    }
+    .cavern-essence {
+      font-weight: 800;
+      color: #7ed0ff;
+      font-size: 0.9rem;
+    }
+    .cavern-accents {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      min-height: 36px;
+    }
+    .cavern-chip {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      background: rgba(0,0,0,0.35);
+      border: 1px solid rgba(126, 208, 255, 0.35);
+      font-size: 1.1rem;
+      box-shadow: 0 0 12px rgba(80, 160, 255, 0.25);
+    }
+    .cavern-stage {
+      margin: 12px 0;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(0,0,0,0.22);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .cavern-stage.locked { opacity: 0.55; }
+    .cavern-stage.complete {
+      border-color: rgba(92, 224, 160, 0.35);
+      box-shadow: inset 0 0 20px rgba(60, 180, 120, 0.08);
+    }
+    .cavern-stage h2 {
+      font-size: 1rem !important;
+      margin-bottom: 4px !important;
+    }
+    .cavern-shop { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+    .cavern-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px;
+      border-radius: 12px;
+      background: rgba(0,0,0,0.28);
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .cavern-item.owned {
+      border-color: rgba(126, 208, 255, 0.3);
+      background: rgba(40, 80, 120, 0.2);
+    }
+    .cavern-item-glyph {
+      width: 40px; height: 40px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 10px;
+      background: rgba(20, 30, 50, 0.9);
+      font-size: 1.25rem;
+      flex-shrink: 0;
+    }
+    .cavern-item-body { flex: 1; min-width: 0; }
+    .cavern-item-body .name {
+      font-weight: 800;
+      font-family: var(--font-display);
+      font-size: 0.92rem;
+    }
+    .cavern-item-body .blurb {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .cavern-item-status {
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #7ed0ff;
+    }
   `;
   document.head.appendChild(el);
 }

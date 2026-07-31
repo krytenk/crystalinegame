@@ -105,6 +105,7 @@ Research mode: study the levers; label the demo; keep `docs/LEGAL.md` accurate.
 - [x] Research-timed clear / fall  
 - [x] Haptics layer  
 - [x] Near-miss continue offer  
+- [x] Meta **Crystal Cavern** loop (essence + staged furnishings)  
 - [ ] Optional collapse/blast mode (future experiment)  
-- [ ] Color-blind high-contrast palette preset  
-- [ ] Meta “cavern renovaton” loop (Playrix-style dual aesthetic)  
+- [ ] Color-blind high-contrast palette preset (on hold)  
+- [ ] Spoken VO (on hold — crystal theme uses musical climb)  

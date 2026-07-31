@@ -118,6 +118,10 @@ export interface EconomyAux {
   /** Day the daily stipend was last claimed, or `null` if never. */
   readonly stipendDay: string | null;
   readonly lastSessionAt: number;
+  /** Crystal Cavern soft currency + owned furnishing ids. */
+  readonly metaEssence: number;
+  readonly metaOwned: readonly string[];
+  readonly metaTotalSpent: number;
 }
 
 export interface PersistedSave extends SaveData {
@@ -162,6 +166,9 @@ export function freshAux(now: number): EconomyAux {
     rewardedToday: 0,
     stipendDay: null,
     lastSessionAt: 0,
+    metaEssence: 0,
+    metaOwned: [],
+    metaTotalSpent: 0,
   };
 }
 
@@ -309,6 +316,11 @@ export function repair(raw: unknown, now: number): PersistedSave {
       rewardedToday: safeCount(aux['rewardedToday'], 0),
       stipendDay: typeof aux['stipendDay'] === 'string' ? aux['stipendDay'] : null,
       lastSessionAt: safeCount(aux['lastSessionAt'], 0),
+      metaEssence: safeCount(aux['metaEssence'], 0),
+      metaOwned: Array.isArray(aux['metaOwned'])
+        ? (aux['metaOwned'] as unknown[]).filter((x): x is string => typeof x === 'string')
+        : [],
+      metaTotalSpent: safeCount(aux['metaTotalSpent'], 0),
     },
   };
 }
