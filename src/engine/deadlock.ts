@@ -33,7 +33,12 @@ export const swapWouldResolve = (grid: Grid2D<Cell>, a: Coord, b: Coord): boolea
 };
 
 /** Scan the whole board for any legal resolving swap. */
-export const hasLegalMove = (grid: Grid2D<Cell>): boolean => {
+export const hasLegalMove = (grid: Grid2D<Cell>): boolean => findLegalHint(grid) !== null;
+
+/**
+ * First legal swap for soft / comfort auto-hints (deterministic scan order).
+ */
+export const findLegalHint = (grid: Grid2D<Cell>): { a: Coord; b: Coord } | null => {
   for (let y = 0; y < grid.height; y++) {
     for (let x = 0; x < grid.width; x++) {
       const a = { x, y };
@@ -44,11 +49,11 @@ export const hasLegalMove = (grid: Grid2D<Cell>): boolean => {
       ]) {
         if (!grid.inBounds(b.x, b.y)) continue;
         if (!isAdjacent(a, b)) continue;
-        if (swapWouldResolve(grid, a, b)) return true;
+        if (swapWouldResolve(grid, a, b)) return { a, b };
       }
     }
   }
-  return false;
+  return null;
 };
 
 /**

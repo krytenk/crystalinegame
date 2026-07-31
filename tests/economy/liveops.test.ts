@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AlbumModel, needForCycle } from '../../src/economy/album';
+import { AlbumModel, needForCycle, pickAlbumCard, ALBUM_CARDS } from '../../src/economy/album';
 import { HybridEventModel, emptyEventPersist } from '../../src/economy/hybridEvent';
 import { idleRatePerHour, pendingIdleEssence } from '../../src/economy/idle';
 import {
@@ -27,7 +27,23 @@ describe('endless album', () => {
       },
     });
     expect(res.granted.length).toBeGreaterThan(0);
+    expect(res.granted[0]?.rarity).toBeDefined();
     void n;
+  });
+
+  it('biases toward rarer cards at higher stars', () => {
+    let raresLow = 0;
+    let raresHigh = 0;
+    const N = 400;
+    for (let i = 0; i < N; i++) {
+      const lo = pickAlbumCard(() => (i + 0.5) / N, 0, 1);
+      const hi = pickAlbumCard(() => (i + 0.5) / N, 3, 25);
+      if (lo.rarity === 'rare') raresLow++;
+      if (hi.rarity === 'rare') raresHigh++;
+    }
+    expect(ALBUM_CARDS.some((c) => c.rarity === 'rare')).toBe(true);
+    // Same sequence of u, higher stars should not reduce rare weight
+    expect(raresHigh).toBeGreaterThanOrEqual(raresLow);
   });
 });
 

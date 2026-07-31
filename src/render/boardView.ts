@@ -26,6 +26,12 @@ export class BoardView {
   };
 
   glyphs = false;
+  /** Active conveyor row highlight (set by play loop from engine events). */
+  conveyor: {
+    row: number;
+    direction: 'left' | 'right';
+    until: number;
+  } | null = null;
   private press: Coord | null = null;
   private hover: Coord | null = null;
 
@@ -173,6 +179,21 @@ export class BoardView {
           ctx.stroke();
         }
       }
+    }
+
+    // Conveyor belt chrome under the shifting row
+    if (this.conveyor && now < this.conveyor.until) {
+      drawConveyorBelt(
+        ctx,
+        originX,
+        originY,
+        cell,
+        snap.width,
+        this.conveyor.row,
+        this.conveyor.direction,
+        now,
+        this.conveyor.until,
+      );
     }
 
     if (useAnim && animator) {
@@ -401,6 +422,57 @@ function drawLivingCore(
     s,
   );
   return true;
+}
+
+/** Sort-inspired belt under a shifting row — chevrons scroll with direction. */
+function drawConveyorBelt(
+  ctx: CanvasRenderingContext2D,
+  originX: number,
+  originY: number,
+  cell: number,
+  cols: number,
+  row: number,
+  direction: 'left' | 'right',
+  now: number,
+  until: number,
+): void {
+  const life = Math.max(0.15, (until - now) / 900);
+  const y0 = originY + row * cell;
+  const x0 = originX;
+  const w = cell * cols;
+  const h = cell;
+  ctx.save();
+  ctx.globalAlpha = 0.55 + 0.4 * life;
+  // Thin top/bottom rails (don't wash out gems)
+  ctx.fillStyle = 'rgba(80, 160, 255, 0.35)';
+  ctx.fillRect(x0 + 4, y0 + 2, w - 8, 4);
+  ctx.fillRect(x0 + 4, y0 + h - 6, w - 8, 4);
+  ctx.strokeStyle = 'rgba(255, 210, 100, 0.85)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x0 + 6, y0 + 4);
+  ctx.lineTo(x0 + w - 6, y0 + 4);
+  ctx.moveTo(x0 + 6, y0 + h - 4);
+  ctx.lineTo(x0 + w - 6, y0 + h - 4);
+  ctx.stroke();
+  // Scrolling chevrons along the bottom rail
+  const dir = direction === 'left' ? -1 : 1;
+  const scroll = ((now * 0.1 * dir) % (cell * 0.5) + cell) % cell;
+  ctx.fillStyle = 'rgba(200, 235, 255, 0.75)';
+  ctx.font = `800 ${Math.floor(cell * 0.22)}px "Nunito",sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const mark = direction === 'left' ? '◀' : '▶';
+  for (let i = 0; i < cols; i++) {
+    const cx = x0 + i * cell + cell / 2 + scroll * dir * 0.35;
+    ctx.fillText(mark, cx, y0 + h - 8);
+  }
+  // Row frame glow
+  ctx.strokeStyle = `rgba(126, 208, 255, ${0.45 + 0.4 * life})`;
+  ctx.lineWidth = 3;
+  roundRect(ctx, x0 + 1, y0 + 1, w - 2, h - 2, 11);
+  ctx.stroke();
+  ctx.restore();
 }
 
 /**

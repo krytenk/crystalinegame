@@ -1936,6 +1936,23 @@ export function injectStyles(): void {
       border-color: rgba(255, 210, 74, 0.55);
       box-shadow: 0 0 12px rgba(255, 180, 40, 0.2), 0 3px 0 rgba(0,0,0,0.3);
     }
+    .album-slot.rarity-uncommon {
+      border-color: rgba(126, 208, 255, 0.4);
+    }
+    .album-slot.rarity-rare {
+      border-color: rgba(255, 180, 80, 0.55);
+      box-shadow: 0 0 14px rgba(255, 160, 40, 0.22), 0 3px 0 rgba(0,0,0,0.3);
+    }
+    .album-rarity-tag {
+      font-size: 0.55rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      color: var(--muted);
+    }
+    .album-rarity-tag.uncommon { color: #7ed0ff; }
+    .album-rarity-tag.rare { color: #ffd24a; }
     .album-glyph { font-size: 1.4rem; margin-bottom: 4px; }
     .album-name {
       font-family: var(--font-display);

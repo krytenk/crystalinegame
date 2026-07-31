@@ -92,7 +92,8 @@ export interface EconomySnapshot {
   readonly comfortOwned: boolean;
   /** Last album page reward (0 if none this win). */
   readonly lastAlbumPageReward: number;
-  readonly lastAlbumGranted: readonly string[];
+  readonly lastAlbumGranted: readonly { readonly id: string; readonly rarity: string }[];
+  readonly lastAlbumRareCount: number;
 }
 
 export class Economy {
@@ -116,7 +117,8 @@ export class Economy {
   private aux!: EconomyAux;
   private lastEssenceGain = 0;
   private lastAlbumPageReward = 0;
-  private lastAlbumGranted: string[] = [];
+  private lastAlbumGranted: { id: string; rarity: string }[] = [];
+  private lastAlbumRareCount = 0;
 
   constructor(opts: EconomyOptions = {}) {
     this.now = opts.now ?? systemClock;
@@ -157,6 +159,7 @@ export class Economy {
     this.lastEssenceGain = 0;
     this.lastAlbumPageReward = 0;
     this.lastAlbumGranted = [];
+    this.lastAlbumRareCount = 0;
 
     this.telemetry = new TelemetryModel(
       {
@@ -259,6 +262,7 @@ export class Economy {
       comfortOwned: this.aux.comfortOwned || this.shop.owns('ease.comfort'),
       lastAlbumPageReward: this.lastAlbumPageReward,
       lastAlbumGranted: this.lastAlbumGranted,
+      lastAlbumRareCount: this.lastAlbumRareCount,
     };
   }
 
@@ -330,7 +334,8 @@ export class Economy {
         return (seed & 0xffff) / 0x10000;
       },
     });
-    this.lastAlbumGranted = [...albumRes.granted];
+    this.lastAlbumGranted = albumRes.granted.map((g) => ({ id: g.id, rarity: g.rarity }));
+    this.lastAlbumRareCount = albumRes.rareCount;
     this.lastAlbumPageReward = albumRes.pageReward;
     if (albumRes.pageReward > 0) {
       this.meta.grantEssence(albumRes.pageReward);

@@ -34,6 +34,7 @@ import { BoardView } from '@render/boardView';
 import { assetUrl } from '@render/assetUrl';
 import { JuiceSystem } from '@render/juice';
 import { tierFromMatch, VfxPlayer } from '@render/vfx';
+import { findLegalHint } from '@engine/deadlock';
 import {
   AHA_SWAP_B,
   findFireHint,
@@ -94,6 +95,10 @@ interface AppState {
   paused: boolean;
   /** After a win, offer the Geode Warden crack micro-beat once. */
   pendingGeode: boolean;
+  /** Soft comfort / ethical auto-hint (not tutorial). */
+  softHint: { a: Coord; b: Coord } | null;
+  /** Last player input during play (ms) for idle auto-hint. */
+  lastInputAt: number;
 }
 
 const AHA_KEY = 'crystalline.ahaDone';
@@ -118,6 +123,8 @@ const app: AppState = {
   titleBorn: 0,
   paused: false,
   pendingGeode: false,
+  softHint: null,
+  lastInputAt: 0,
 };
 
 const powerLabel = (kind: string): string => {
@@ -255,8 +262,10 @@ function loop(): void {
     const bw = cell * snap.width;
     const bh = cell * snap.height;
     if (!app.paused) {
+      tickSoftHint(now);
       drawBoardDust(ctx, originX, originY, bw, bh, now);
       drawAhaHint(ctx, now);
+      drawSoftHint(ctx, now);
     } else {
       // Dim board while paused
       ctx.fillStyle = 'rgba(6, 4, 16, 0.35)';
@@ -757,9 +766,62 @@ function drawToasts(ctx: CanvasRenderingContext2D, now: number): void {
   }
 }
 
+function notePlayInput(): void {
+  app.lastInputAt = performance.now();
+  app.softHint = null;
+}
+
+/** Ethical ease-of-play: soft hint after idle. Comfort Tools shortens the wait. */
+function tickSoftHint(now: number): void {
+  if (!app.session || app.paused || app.pickaxeMode) return;
+  if (app.ahaPhase !== 'done') return; // tutorial owns the board
+  if (boardAnim.busy) return;
+  if (app.softHint) return;
+  const snap = economy.getSnapshot();
+  const delay = snap.settings.reducedMotion
+    ? 14_000
+    : snap.comfortOwned
+      ? 4_500
+      : 10_000;
+  if (app.lastInputAt <= 0) app.lastInputAt = now;
+  if (now - app.lastInputAt < delay) return;
+  const hint = findLegalHint(app.session._state.grid);
+  if (hint) app.softHint = hint;
+}
+
+function drawSoftHint(ctx: CanvasRenderingContext2D, now: number): void {
+  if (!app.softHint || app.ahaPhase !== 'done') return;
+  const { originX, originY, cell } = boardView.layout;
+  const pulse = 0.5 + 0.5 * Math.sin(now * 0.007);
+  const color = `rgba(160, 220, 255, ${0.45 + pulse * 0.4})`;
+  for (const c of [app.softHint.a, app.softHint.b]) {
+    const cx = originX + c.x * cell + cell / 2;
+    const cy = originY + c.y * cell + cell / 2;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3 + pulse * 1.5;
+    ctx.shadowColor = '#7ed0ff';
+    ctx.shadowBlur = 12;
+    roundRectPath(ctx, cx - cell * 0.4, cy - cell * 0.4, cell * 0.8, cell * 0.8, 12);
+    ctx.stroke();
+    ctx.restore();
+  }
+  const a = app.softHint.a;
+  const b = app.softHint.b;
+  const mx = originX + ((a.x + b.x) / 2) * cell + cell / 2;
+  const my = originY + ((a.y + b.y) / 2) * cell + cell / 2 - cell * 0.55;
+  ctx.save();
+  ctx.font = '800 12px "Nunito", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(200, 230, 255, 0.9)';
+  ctx.fillText(economy.getSnapshot().comfortOwned ? 'HINT' : 'TRY THIS', mx, my);
+  ctx.restore();
+}
+
 function bindInput(): void {
   canvas.addEventListener('pointerdown', (e) => {
     if (app.screen !== 'play' || app.paused) return;
+    notePlayInput();
     audio.resume();
     canvas.setPointerCapture(e.pointerId);
     const p = canvasView.clientToLogical(e.clientX, e.clientY);
@@ -1020,13 +1082,18 @@ function playMatchVfx(events: readonly GameEvent[]): void {
     if (maxCascade >= 2) haptic('cascade');
   }
 
-  // Conveyor belt feedback (mid/deep levels)
+  // Conveyor belt feedback (mid/deep levels) + board chrome
   for (const ev of events) {
     if (ev.t === 'conveyor') {
+      boardView.conveyor = {
+        row: ev.row,
+        direction: ev.direction,
+        until: performance.now() + 900,
+      };
       pushToast(
-        `Conveyor ${ev.direction === 'left' ? '←' : '→'} row ${ev.row + 1}`,
+        `Conveyor ${ev.direction === 'left' ? '◀' : '▶'}`,
         '#a8d8ff',
-        900,
+        700,
       );
     }
   }
@@ -1236,6 +1303,9 @@ function startLevel(
   app.paused = false;
   app.ahaHint = null;
   app.ahaPhase = 'done';
+  app.softHint = null;
+  app.lastInputAt = performance.now();
+  boardView.conveyor = null;
   hudScoreShown = 0;
   hudScorePulseUntil = 0;
   hudMovesPulseUntil = 0;
@@ -2362,9 +2432,12 @@ function renderResults(): void {
   const albumLine =
     r.status === 'won' && snap.lastAlbumGranted.length > 0
       ? el('p', { class: 'album-gain' }, [
-          `Album +${snap.lastAlbumGranted.length} card${snap.lastAlbumGranted.length === 1 ? '' : 's'}` +
+          `Album +${snap.lastAlbumGranted.length}` +
+            (snap.lastAlbumRareCount > 0
+              ? ` · ${snap.lastAlbumRareCount} rare!`
+              : ' cards') +
             (snap.lastAlbumPageReward > 0
-              ? ` · page complete +${snap.lastAlbumPageReward}✧!`
+              ? ` · page +${snap.lastAlbumPageReward}✧`
               : ''),
         ])
       : null;
@@ -2808,11 +2881,19 @@ function renderAlbum(): void {
   const grid = el('div', { class: 'album-grid' }, []);
   for (const slot of a.slots) {
     grid.append(
-      el('div', { class: `album-slot${slot.complete ? ' done' : ''}` }, [
-        el('div', { class: 'album-glyph' }, [slot.glyph]),
-        el('div', { class: 'album-name' }, [slot.name]),
-        el('div', { class: 'album-count' }, [`${slot.count}/${slot.need}`]),
-      ]),
+      el(
+        'div',
+        {
+          class: `album-slot rarity-${slot.rarity}${slot.complete ? ' done' : ''}`,
+          title: slot.blurb,
+        },
+        [
+          el('div', { class: `album-rarity-tag ${slot.rarity}` }, [slot.rarity]),
+          el('div', { class: 'album-glyph' }, [slot.glyph]),
+          el('div', { class: 'album-name' }, [slot.name]),
+          el('div', { class: 'album-count' }, [`${slot.count}/${slot.need}`]),
+        ],
+      ),
     );
   }
   panel(
