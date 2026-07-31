@@ -227,7 +227,7 @@ export class JuiceSystem {
       ctx.translate(f.x, f.y);
       ctx.scale(pop, pop);
       // Thick outline for readability over particle chaos (mobile arm's-length).
-      ctx.font = '800 26px "GalacticKnights", "CrystallineDisplay", "Cinzel", serif';
+      ctx.font = '700 26px "DragonBlaze", "DragonWarrior", "GalacticKnights", "Cinzel", serif';
       ctx.lineWidth = 5;
       ctx.strokeStyle = 'rgba(0,0,0,0.72)';
       ctx.strokeText(f.text, 0, 0);
@@ -250,7 +250,7 @@ export class JuiceSystem {
         ctx.globalAlpha = Math.max(0, fade);
         ctx.translate(viewW / 2, 240);
         ctx.scale(pop, pop);
-        ctx.font = '800 40px "GalacticKnights", "CrystallineDisplay", "Cinzel", serif';
+        ctx.font = '700 40px "DragonBlaze", "DragonWarrior", "GalacticKnights", "Cinzel", serif';
         ctx.textAlign = 'center';
         ctx.lineWidth = 6;
         ctx.strokeStyle = 'rgba(0,0,0,0.65)';

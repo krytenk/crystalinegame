@@ -342,7 +342,7 @@ function drawTitleCanvas(ctx: CanvasRenderingContext2D, now: number): void {
   ctx.translate(w / 2, h * 0.22);
   ctx.scale(pulse, pulse);
   ctx.textAlign = 'center';
-  ctx.font = '800 64px "GalacticKnights", "CrystallineDisplay", "Cinzel", serif';
+  ctx.font = '700 64px "DragonBlaze", "DragonWarrior", "GalacticKnights", "Cinzel", serif';
   ctx.lineWidth = 8;
   ctx.strokeStyle = 'rgba(30, 16, 60, 0.85)';
   ctx.strokeText('CRYSTALLINE', 0, 0);
@@ -353,7 +353,7 @@ function drawTitleCanvas(ctx: CanvasRenderingContext2D, now: number): void {
   ctx.restore();
 
   ctx.textAlign = 'center';
-  ctx.font = '700 17px "CrystallineBody", "Nunito", sans-serif';
+  ctx.font = '700 17px "ScreenTechno", "Nunito", sans-serif';
   ctx.fillStyle = 'rgba(220,210,255,0.8)';
   ctx.shadowBlur = 0;
   ctx.fillText('Match · Forge · Cascade · Build', w / 2, h * 0.30);
@@ -488,7 +488,7 @@ function drawAhaHint(ctx: CanvasRenderingContext2D, now: number): void {
   ctx.stroke();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = '800 15px "CrystallineDisplay", "Nunito", sans-serif';
+  ctx.font = '700 15px "ScreenTechno", "Nunito", sans-serif';
   ctx.fillStyle = '#fff6e8';
   ctx.fillText(label, mx, my - 8);
   ctx.font = '700 12px "Nunito", sans-serif';
@@ -499,8 +499,9 @@ function drawAhaHint(ctx: CanvasRenderingContext2D, now: number): void {
 
 function drawChrome(ctx: CanvasRenderingContext2D, now: number): void {
   const snap = economy.getSnapshot();
-  const display = '"CrystallineDisplay", "Cinzel", "Palatino Linotype", serif';
-  const body = '"CrystallineBody", "Nunito", "Segoe UI", system-ui, sans-serif';
+  const display = '"ScreenTechno", "CrystallineDisplay", "Nunito", system-ui, sans-serif';
+  const title = '"DragonBlaze", "DragonWarrior", "GalacticKnights", "Cinzel", serif';
+  const body = '"Nunito", "Segoe UI", system-ui, sans-serif';
   const reduceMotion = snap.settings.reducedMotion;
 
   // Soft top bar — studio casual HUD (not a website header)
@@ -516,7 +517,7 @@ function drawChrome(ctx: CanvasRenderingContext2D, now: number): void {
   ctx.stroke();
 
   // Wordmark with stroke for mobile readability
-  ctx.font = `800 30px ${display}`;
+  ctx.font = `700 30px ${title}`;
   ctx.textAlign = 'left';
   ctx.lineWidth = 5;
   ctx.strokeStyle = 'rgba(30, 16, 60, 0.9)';

@@ -22,7 +22,48 @@ export function injectStyles(): void {
   const el = document.createElement('style');
   el.id = 'crystalline-styles';
   el.textContent = `
-    /* Galactic Knights — wordmark / big titles (more legible, epic) */
+    /*
+     * FontBundles stack (commercial licence via FontBundles subscription).
+     * Title = epic fantasy wordmark · Display = mobile casual CTAs · Body = readable.
+     */
+    @font-face {
+      font-family: "DragonBlaze";
+      src: url("./fonts/DragonBlaze.woff2") format("woff2"),
+           url("./fonts/DragonBlaze/DragonBlaze-Regular.woff") format("woff"),
+           url("./fonts/DragonBlaze/DragonBlaze-Regular.ttf") format("truetype");
+      font-weight: 400 800;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "DragonWarrior";
+      src: url("./fonts/DragonWarrior.ttf") format("truetype");
+      font-weight: 400 800;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "BjornKnight";
+      src: url("./fonts/BjornKnight.ttf") format("truetype");
+      font-weight: 400 800;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "ScreenTechno";
+      src: url("./fonts/ScreenTechno.ttf") format("truetype");
+      font-weight: 400 800;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "HeroicDragon";
+      src: url("./fonts/HeroicDragon.ttf") format("truetype");
+      font-weight: 400 800;
+      font-style: normal;
+      font-display: swap;
+    }
+    /* Legacy / fallback faces still shipped */
     @font-face {
       font-family: "GalacticKnights";
       src: url("./fonts/GalacticKnights-Regular.woff") format("woff");
@@ -30,7 +71,6 @@ export function injectStyles(): void {
       font-style: normal;
       font-display: swap;
     }
-    /* Diamond Shape (FontBundles) — buttons, CTAs, gem-game punch */
     @font-face {
       font-family: "CrystallineDisplay";
       src: url("./fonts/display.woff2") format("woff2");
@@ -38,7 +78,6 @@ export function injectStyles(): void {
       font-style: normal;
       font-display: swap;
     }
-    /* Outline variant for optional logo stroke look */
     @font-face {
       font-family: "CrystallineDisplayOutline";
       src: url("./fonts/display-outline.woff2") format("woff2");
@@ -46,7 +85,6 @@ export function injectStyles(): void {
       font-style: normal;
       font-display: swap;
     }
-    /* Optional second FontBundles face for UI body — drop as body.woff2 */
     @font-face {
       font-family: "CrystallineBody";
       src: url("./fonts/body.woff2") format("woff2");
@@ -77,9 +115,11 @@ export function injectStyles(): void {
       --ok: #4dde8a;
       --sim: #ff9a62;
       --btn-lip: 5px;
-      --font-title: "GalacticKnights", "CrystallineDisplay", "Cinzel", serif;
-      --font-display: "CrystallineDisplay", "GalacticKnights", "Cinzel", serif;
-      --font-display-outline: "CrystallineDisplayOutline", "CrystallineDisplay", "Cinzel", serif;
+      /* DragonBlaze wordmark · Screen Techno CTAs · Nunito body */
+      --font-title: "DragonBlaze", "DragonWarrior", "GalacticKnights", "Cinzel", serif;
+      --font-display: "ScreenTechno", "CrystallineDisplay", "Nunito", system-ui, sans-serif;
+      --font-display-outline: "CrystallineDisplayOutline", "ScreenTechno", "Cinzel", serif;
+      --font-accent: "BjornKnight", "HeroicDragon", "DragonWarrior", serif;
       --font-body: "CrystallineBody", "Nunito", "Segoe UI", system-ui, sans-serif;
       font-family: var(--font-body);
     }
@@ -281,13 +321,18 @@ export function injectStyles(): void {
     }
     .panel h1 {
       font-family: var(--font-title);
-      font-size: clamp(1.7rem, 5vw, 2.25rem);
+      font-size: clamp(1.75rem, 5.2vw, 2.35rem);
       color: #fff6e8;
       text-shadow:
         0 2px 0 #3a2060,
         0 4px 0 #1a0c30,
         0 0 24px rgba(255, 200, 80, 0.35);
-      letter-spacing: 0.04em;
+      letter-spacing: 0.02em;
+      font-weight: 700;
+    }
+    .panel.panel-title h1 {
+      letter-spacing: 0.06em;
+      font-size: clamp(1.9rem, 6vw, 2.55rem);
     }
     .panel h2 {
       font-size: 1.15rem;
@@ -329,6 +374,7 @@ export function injectStyles(): void {
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
       font-family: var(--font-display);
+      letter-spacing: 0.04em;
       font-weight: 800;
       font-size: 1.02rem;
       letter-spacing: 0.04em;

@@ -9,8 +9,9 @@ __pycache__/
 # Font source packages / comparison dumps (runtime woff/woff2 stay tracked)
 public/fonts/Diamond Shape/
 public/fonts/Diamond Shape.zip
+public/fonts/DragonBlaze.zip
 public/fonts/font-compare.png
-public/fonts/README.md
+public/fonts/_preview_*.png
 public/sfx/README.md
 
 # Unused long riser kept only locally if re-downloaded
