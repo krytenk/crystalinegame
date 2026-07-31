@@ -16,3 +16,14 @@ public/sfx/README.md
 
 # Unused long riser kept only locally if re-downloaded
 # (gameplay uses trimmed public/sfx/*.ogg)
+
+# Capacitor / Android
+android/.gradle/
+android/**/build/
+android/local.properties
+android/app/src/main/assets/public/
+android/captures/
+*.apk
+*.aab
+!release/.gitkeep
+release/*.apk

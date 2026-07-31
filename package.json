@@ -11,11 +11,21 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "assets": "python3 tools/build_assets.py"
+    "assets": "python3 tools/build_assets.py",
+    "cap:sync": "npm run build && npx cap sync android",
+    "android:apk": "npm run cap:sync && node tools/build-android-apk.mjs",
+    "android:open": "npx cap open android"
   },
   "devDependencies": {
     "typescript": "^5.7.2",
     "vite": "^6.0.7",
     "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/splash-screen": "^8.0.2"
   }
 }

@@ -48,6 +48,17 @@ npm run build      # production build → dist/
 npm run preview    # serve dist/ locally
 npm test           # unit tests
 npm run typecheck  # TypeScript
+npm run android:apk  # Capacitor → debug APK in release/
+```
+
+### Android APK
+
+Sideload build (Capacitor WebView shell). See **[docs/ANDROID.md](docs/ANDROID.md)**.
+
+```bash
+npm run android:apk
+# → release/crystalline-debug.apk
+adb install -r release/crystalline-debug.apk
 ```
 
 Crystal art and trimmed SFX already live under `public/gen/` and `public/sfx/`. You do **not** need the Python bake tools just to play.
