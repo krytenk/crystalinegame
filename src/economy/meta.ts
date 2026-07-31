@@ -16,8 +16,10 @@ export interface MetaUpgrade {
   /** Soft-currency cost (essence). */
   readonly cost: number;
   readonly stage: CavernStageId;
-  /** Emoji / glyph for list UI (no external art required). */
+  /** Fallback glyph if art fails to load. */
   readonly glyph: string;
+  /** Path under site root, e.g. `cavern/icons/s1_lamp.webp`. */
+  readonly art: string;
   /** Order within stage (lower first). */
   readonly order: number;
 }
@@ -26,14 +28,38 @@ export interface MetaStage {
   readonly id: CavernStageId;
   readonly name: string;
   readonly tagline: string;
+  /** Wide vista for the cavern hub. */
+  readonly art: string;
 }
 
 export const META_STAGES: readonly MetaStage[] = [
-  { id: 1, name: 'Mouth of the Mine', tagline: 'Light the first crystal and claim the entrance.' },
-  { id: 2, name: 'Prism Gallery', tagline: 'Power crystals hum in the middle halls.' },
-  { id: 3, name: 'Living Core Vault', tagline: 'Where the mountain still remembers.' },
-  { id: 4, name: 'Deep Geode', tagline: 'A chamber only the stubborn reach.' },
+  {
+    id: 1,
+    name: 'Mouth of the Mine',
+    tagline: 'Light the first crystal and claim the entrance.',
+    art: 'cavern/stages/stage1.webp',
+  },
+  {
+    id: 2,
+    name: 'Prism Gallery',
+    tagline: 'Power crystals hum in the middle halls.',
+    art: 'cavern/stages/stage2.webp',
+  },
+  {
+    id: 3,
+    name: 'Living Core Vault',
+    tagline: 'Where the mountain still remembers.',
+    art: 'cavern/stages/stage3.webp',
+  },
+  {
+    id: 4,
+    name: 'Deep Geode',
+    tagline: 'A chamber only the stubborn reach.',
+    art: 'cavern/stages/stage4.webp',
+  },
 ];
+
+const icon = (file: string) => `cavern/icons/${file}.webp`;
 
 /**
  * Furnishing catalogue. Costs ramp so early wins feel generous and later
@@ -48,6 +74,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     cost: 40,
     stage: 1,
     glyph: '✦',
+    art: icon('s1_lamp'),
     order: 1,
   },
   {
@@ -57,6 +84,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     cost: 60,
     stage: 1,
     glyph: '◇',
+    art: icon('s1_vein'),
     order: 2,
   },
   {
@@ -66,6 +94,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     cost: 80,
     stage: 1,
     glyph: '▣',
+    art: icon('s1_cart'),
     order: 3,
   },
   {
@@ -75,6 +104,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     cost: 100,
     stage: 1,
     glyph: '⚑',
+    art: icon('s1_banner'),
     order: 4,
   },
   // Stage 2
@@ -85,6 +115,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     cost: 140,
     stage: 2,
     glyph: '◆',
+    art: icon('s2_prism'),
     order: 1,
   },
   {
@@ -94,6 +125,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     cost: 160,
     stage: 2,
     glyph: '○',
+    art: icon('s2_pool'),
     order: 2,
   },
   {
@@ -103,6 +135,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     cost: 180,
     stage: 2,
     glyph: '⌂',
+    art: icon('s2_arch'),
     order: 3,
   },
   {
@@ -112,6 +145,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     cost: 200,
     stage: 2,
     glyph: '♪',
+    art: icon('s2_chorus'),
     order: 4,
   },
   // Stage 3
@@ -122,6 +156,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     cost: 260,
     stage: 3,
     glyph: '◎',
+    art: icon('s3_core'),
     order: 1,
   },
   {
@@ -131,6 +166,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     cost: 280,
     stage: 3,
     glyph: '≡',
+    art: icon('s3_veins'),
     order: 2,
   },
   {
@@ -140,6 +176,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     cost: 300,
     stage: 3,
     glyph: '✶',
+    art: icon('s3_altar'),
     order: 3,
   },
   {
@@ -149,6 +186,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     cost: 320,
     stage: 3,
     glyph: '♜',
+    art: icon('s3_guardian'),
     order: 4,
   },
   // Stage 4
@@ -159,6 +197,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     cost: 400,
     stage: 4,
     glyph: '❋',
+    art: icon('s4_geode'),
     order: 1,
   },
   {
@@ -168,6 +207,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     cost: 450,
     stage: 4,
     glyph: '♛',
+    art: icon('s4_throne'),
     order: 2,
   },
   {
@@ -177,6 +217,7 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     cost: 500,
     stage: 4,
     glyph: '✧',
+    art: icon('s4_sky'),
     order: 3,
   },
 ];

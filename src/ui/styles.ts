@@ -432,18 +432,30 @@ export function injectStyles(): void {
     .cavern-vista {
       position: relative;
       border-radius: 16px;
-      min-height: 120px;
+      min-height: 168px;
       margin: 8px 0 14px;
       overflow: hidden;
       border: 1px solid rgba(126, 208, 255, 0.28);
-      background:
-        radial-gradient(ellipse at 50% 80%, rgba(80, 160, 255, calc(var(--cavern-glow, 0.3))), transparent 60%),
-        radial-gradient(ellipse at 20% 30%, rgba(160, 80, 220, 0.18), transparent 50%),
-        linear-gradient(180deg, #12182c, #080c18 70%);
+      background: #080c18;
       box-shadow: inset 0 0 40px rgba(0,0,0,0.45);
       padding: 14px 12px 12px;
     }
+    .cavern-vista-bg {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      opacity: 0.92;
+      pointer-events: none;
+    }
+    .cavern-vista-scrim {
+      position: absolute; inset: 0;
+      background:
+        linear-gradient(180deg, rgba(4,8,18,0.15), rgba(4,8,18,0.72) 70%, rgba(4,8,18,0.9)),
+        radial-gradient(ellipse at 50% 80%, rgba(80, 160, 255, calc(var(--cavern-glow, 0.3))), transparent 60%);
+      pointer-events: none;
+    }
     .cavern-depth {
+      position: relative; z-index: 1;
       display: flex; justify-content: space-between; align-items: center;
       gap: 8px; flex-wrap: wrap;
       margin-bottom: 10px;
@@ -460,17 +472,36 @@ export function injectStyles(): void {
       font-size: 0.9rem;
     }
     .cavern-accents {
+      position: relative; z-index: 1;
       display: flex; flex-wrap: wrap; gap: 8px;
-      min-height: 36px;
+      min-height: 44px;
     }
     .cavern-chip {
       display: inline-flex; align-items: center; justify-content: center;
-      width: 36px; height: 36px;
+      width: 48px; height: 48px;
+      border-radius: 12px;
+      background: rgba(0,0,0,0.45);
+      border: 1px solid rgba(126, 208, 255, 0.4);
+      overflow: hidden;
+      box-shadow: 0 0 14px rgba(80, 160, 255, 0.3);
+      padding: 0;
+    }
+    .cavern-chip-img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .cavern-stage-head {
+      display: flex; gap: 12px; align-items: flex-start;
+      margin-bottom: 6px;
+    }
+    .cavern-stage-thumb {
+      width: 72px; height: 48px;
+      object-fit: cover;
       border-radius: 10px;
-      background: rgba(0,0,0,0.35);
-      border: 1px solid rgba(126, 208, 255, 0.35);
-      font-size: 1.1rem;
-      box-shadow: 0 0 12px rgba(80, 160, 255, 0.25);
+      border: 1px solid rgba(126, 208, 255, 0.25);
+      flex-shrink: 0;
+      background: #0a1020;
     }
     .cavern-stage {
       margin: 12px 0;
@@ -500,13 +531,23 @@ export function injectStyles(): void {
       border-color: rgba(126, 208, 255, 0.3);
       background: rgba(40, 80, 120, 0.2);
     }
-    .cavern-item-glyph {
-      width: 40px; height: 40px;
-      display: flex; align-items: center; justify-content: center;
-      border-radius: 10px;
-      background: rgba(20, 30, 50, 0.9);
-      font-size: 1.25rem;
+    .cavern-item-art {
+      width: 56px; height: 56px;
+      border-radius: 12px;
+      overflow: hidden;
       flex-shrink: 0;
+      background: rgba(20, 30, 50, 0.95);
+      border: 1px solid rgba(126, 208, 255, 0.22);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+    }
+    .cavern-item-img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .cavern-item.owned .cavern-item-art {
+      border-color: rgba(126, 208, 255, 0.55);
+      box-shadow: 0 0 16px rgba(80, 180, 255, 0.35);
     }
     .cavern-item-body { flex: 1; min-width: 0; }
     .cavern-item-body .name {

@@ -30,6 +30,7 @@ import { drawGameBackground, loadBackground } from '@render/background';
 import { CanvasView } from '@render/canvas';
 import { BoardAnimator } from '@render/boardAnimator';
 import { BoardView } from '@render/boardView';
+import { assetUrl } from '@render/assetUrl';
 import { JuiceSystem } from '@render/juice';
 import { tierFromMatch, VfxPlayer } from '@render/vfx';
 import {
@@ -1380,6 +1381,20 @@ function renderResults(): void {
  * Crystal Cavern meta hub — long-term visual ownership after match-3 wins.
  * Playrix dual-loop: puzzle → soft currency → decorate persistent space.
  */
+function metaArtImg(src: string, alt: string, cls: string): HTMLImageElement {
+  const img = el('img', {
+    class: cls,
+    src: assetUrl(src),
+    alt,
+    loading: 'lazy',
+    decoding: 'async',
+  }) as HTMLImageElement;
+  img.onerror = () => {
+    img.style.display = 'none';
+  };
+  return img;
+}
+
 function renderCavern(): void {
   const snap = economy.getSnapshot();
   const meta = snap.meta;
@@ -1390,19 +1405,27 @@ function renderCavern(): void {
     meta.stagesComplete * 0.14 +
     (meta.ownedCount / Math.max(1, meta.totalCount)) * 0.25;
 
+  // Stage vista art for the chamber you're currently furnishing.
+  const activeStageId = Math.min(4, Math.max(1, meta.stagesComplete + 1)) as 1 | 2 | 3 | 4;
+  const activeStage = META_STAGES.find((s) => s.id === activeStageId) ?? META_STAGES[0]!;
+
   const accents = el('div', { class: 'cavern-accents' }, []);
   for (const up of META_UPGRADES) {
     if (!ownedSet.has(up.id)) continue;
-    const chip = el('span', { class: 'cavern-chip', title: up.name }, [up.glyph]);
+    const chip = el('span', { class: 'cavern-chip', title: up.name }, [
+      metaArtImg(up.art, up.name, 'cavern-chip-img'),
+    ]);
     accents.append(chip);
   }
 
   const vista = el('div', { class: 'cavern-vista' }, [
+    metaArtImg(activeStage.art, activeStage.name, 'cavern-vista-bg'),
+    el('div', { class: 'cavern-vista-scrim' }, []),
     el('div', { class: 'cavern-depth' }, [
       el('span', { class: 'cavern-label' }, [
         meta.stagesComplete >= 4
           ? 'Deep Geode complete'
-          : `Furnishing stage ${Math.min(4, meta.stagesComplete + 1)}`,
+          : `Furnishing · ${activeStage.name}`,
       ]),
       el('span', { class: 'cavern-essence' }, [`✧ ${meta.essence} essence`]),
     ]),
@@ -1419,10 +1442,15 @@ function renderCavern(): void {
         class: `cavern-stage${open ? '' : ' locked'}${complete ? ' complete' : ''}`,
       },
       [
-        el('h2', {}, [
-          complete ? `✓ ${stage.name}` : open ? stage.name : `🔒 ${stage.name}`,
+        el('div', { class: 'cavern-stage-head' }, [
+          metaArtImg(stage.art, stage.name, 'cavern-stage-thumb'),
+          el('div', {}, [
+            el('h2', {}, [
+              complete ? `✓ ${stage.name}` : open ? stage.name : `🔒 ${stage.name}`,
+            ]),
+            el('p', { class: 'hud-tip' }, [stage.tagline]),
+          ]),
         ]),
-        el('p', { class: 'hud-tip' }, [stage.tagline]),
       ],
     );
     if (!open) {
@@ -1470,8 +1498,11 @@ function renderCavern(): void {
 }
 
 function metaUpgradeRow(up: MetaUpgrade, owned: boolean, essence: number): HTMLElement {
+  const thumb = el('div', { class: 'cavern-item-art' }, [
+    metaArtImg(up.art, up.name, 'cavern-item-img'),
+  ]);
   const row = el('div', { class: `cavern-item${owned ? ' owned' : ''}` }, [
-    el('div', { class: 'cavern-item-glyph' }, [up.glyph]),
+    thumb,
     el('div', { class: 'cavern-item-body' }, [
       el('div', { class: 'name' }, [up.name]),
       el('div', { class: 'blurb' }, [up.blurb]),
