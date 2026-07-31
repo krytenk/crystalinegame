@@ -217,23 +217,72 @@ function drawPiece(
     piece.kind === 'supernova';
   const isCore = piece.kind === 'core';
   if (isPower || isCore) {
-    const aura = isCore
-      ? `rgba(255, 240, 180, ${0.35 + pulse * 0.45})`
+    // Outer bloom + rotating spark ring — powers must read as “special” at a glance
+    const mid = isCore
+      ? 'rgba(255, 240, 180, 0.55)'
       : piece.kind === 'supernova'
-        ? `rgba(255, 255, 255, ${0.35 + pulse * 0.4})`
+        ? 'rgba(255, 255, 255, 0.55)'
         : piece.kind === 'prism'
-          ? `rgba(220, 180, 255, ${0.25 + pulse * 0.35})`
+          ? 'rgba(220, 180, 255, 0.5)'
           : piece.kind === 'burst'
-            ? `rgba(255, 200, 120, ${0.22 + pulse * 0.3})`
-            : `rgba(120, 210, 255, ${0.22 + pulse * 0.3})`;
-    const r = isCore || piece.kind === 'supernova' ? cell * 0.62 : cell * 0.55;
-    const grd = ctx.createRadialGradient(cx, cy, cell * 0.1, cx, cy, r);
-    grd.addColorStop(0, aura);
+            ? 'rgba(255, 200, 120, 0.48)'
+            : 'rgba(120, 210, 255, 0.48)';
+    const edge = isCore
+      ? 'rgba(255, 240, 180, 0.14)'
+      : piece.kind === 'supernova'
+        ? 'rgba(255, 255, 255, 0.14)'
+        : piece.kind === 'prism'
+          ? 'rgba(220, 180, 255, 0.12)'
+          : piece.kind === 'burst'
+            ? 'rgba(255, 200, 120, 0.12)'
+            : 'rgba(120, 210, 255, 0.12)';
+    const r = isCore || piece.kind === 'supernova' ? cell * 0.72 : cell * 0.64;
+    const grd = ctx.createRadialGradient(cx, cy, cell * 0.08, cx, cy, r);
+    grd.addColorStop(0, mid);
+    grd.addColorStop(0.55, edge);
     grd.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = grd;
     ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.arc(cx, cy, r * (0.92 + pulse * 0.08), 0, Math.PI * 2);
     ctx.fill();
+
+    // Spark orbit
+    const sparks = isCore || piece.kind === 'supernova' ? 8 : 6;
+    const spin = performance.now() * 0.004;
+    for (let i = 0; i < sparks; i++) {
+      const a = spin + (i / sparks) * Math.PI * 2;
+      const rad = cell * (0.38 + pulse * 0.06);
+      const sx = cx + Math.cos(a) * rad;
+      const sy = cy + Math.sin(a) * rad;
+      const sg = ctx.createRadialGradient(sx, sy, 0, sx, sy, cell * 0.08);
+      sg.addColorStop(0, 'rgba(255,255,255,0.95)');
+      sg.addColorStop(0.4, mid);
+      sg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = sg;
+      ctx.beginPath();
+      ctx.arc(sx, sy, cell * 0.08, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Line powers: axis flash
+    if (piece.kind === 'line') {
+      ctx.save();
+      ctx.globalAlpha = 0.25 + pulse * 0.2;
+      ctx.strokeStyle = piece.orientation === 'v' ? 'rgba(140,220,255,0.9)' : 'rgba(140,220,255,0.9)';
+      ctx.lineWidth = 2 + pulse * 2;
+      ctx.shadowColor = '#7ed0ff';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      if (piece.orientation === 'v') {
+        ctx.moveTo(cx, cy - cell * 0.4);
+        ctx.lineTo(cx, cy + cell * 0.4);
+      } else {
+        ctx.moveTo(cx - cell * 0.4, cy);
+        ctx.lineTo(cx + cell * 0.4, cy);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
   const key = pieceFrame(piece);

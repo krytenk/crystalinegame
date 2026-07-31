@@ -381,11 +381,17 @@ export function injectStyles(): void {
       overflow: auto;
       border-radius: 20px;
       padding: 12px 8px 16px;
-      background:
-        radial-gradient(ellipse at 50% 0%, rgba(90, 50, 160, 0.25), transparent 55%),
-        linear-gradient(180deg, rgba(20, 14, 40, 0.9), rgba(10, 8, 22, 0.95));
-      border: 2px solid rgba(201, 162, 39, 0.28);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+      background: #100c22;
+      border: 2px solid rgba(201, 162, 39, 0.35);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 6px 0 rgba(0,0,0,0.35);
+    }
+    .map-board-bg {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      opacity: 0.55;
+      pointer-events: none;
+      border-radius: 18px;
     }
     .map-path {
       position: absolute;
@@ -557,14 +563,34 @@ export function injectStyles(): void {
     .panel .row { justify-content: center; }
     /* Pre-level hero */
     .level-banner {
+      position: relative;
       display: flex; gap: 14px; align-items: center;
       margin: 4px 0 14px;
-      padding: 12px;
+      padding: 0;
+      min-height: 108px;
       border-radius: 18px;
-      background:
-        linear-gradient(135deg, rgba(90, 50, 160, 0.45), rgba(20, 12, 40, 0.9));
-      border: 2px solid rgba(255, 210, 74, 0.35);
+      overflow: hidden;
+      border: 2px solid rgba(255, 210, 74, 0.4);
       box-shadow: 0 4px 0 rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.12);
+      background: #120c24;
+    }
+    .level-banner-art {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      opacity: 0.85;
+      pointer-events: none;
+    }
+    .level-banner-scrim {
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg, rgba(12,8,28,0.88) 0%, rgba(12,8,28,0.55) 55%, rgba(12,8,28,0.35) 100%);
+      pointer-events: none;
+    }
+    .level-banner-content {
+      position: relative; z-index: 1;
+      display: flex; gap: 14px; align-items: center;
+      padding: 14px 12px;
+      width: 100%;
     }
     .level-banner-num {
       width: 64px; height: 64px;
@@ -627,21 +653,36 @@ export function injectStyles(): void {
     }
     /* Results burst */
     .results-burst {
+      position: relative;
       text-align: center;
       margin: 6px 0 16px;
-      padding: 18px 12px 14px;
+      padding: 0;
+      min-height: 150px;
       border-radius: 22px;
-      background:
-        radial-gradient(circle at 50% 30%, rgba(255, 210, 80, 0.35), transparent 55%),
-        linear-gradient(180deg, rgba(60, 40, 100, 0.9), rgba(16, 10, 32, 0.95));
+      overflow: hidden;
       border: 3px solid rgba(255, 210, 74, 0.55);
-      box-shadow: 0 6px 0 rgba(80, 50, 10, 0.5), inset 0 2px 0 rgba(255,255,255,0.15);
+      box-shadow: 0 6px 0 rgba(80, 50, 10, 0.5);
+      background: #120c24;
     }
     .results-burst.fail {
-      border-color: rgba(180, 120, 255, 0.4);
+      border-color: rgba(180, 120, 255, 0.45);
+    }
+    .results-burst-art {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      opacity: 0.88;
+      pointer-events: none;
+    }
+    .results-burst-scrim {
+      position: absolute; inset: 0;
       background:
-        radial-gradient(circle at 50% 30%, rgba(120, 80, 200, 0.3), transparent 55%),
-        linear-gradient(180deg, rgba(40, 28, 70, 0.9), rgba(16, 10, 32, 0.95));
+        linear-gradient(180deg, rgba(12,8,28,0.25), rgba(12,8,28,0.82) 70%, rgba(8,4,18,0.92));
+      pointer-events: none;
+    }
+    .results-burst-content {
+      position: relative; z-index: 1;
+      padding: 22px 12px 16px;
     }
     .results-burst-stars {
       font-size: 1.6rem;

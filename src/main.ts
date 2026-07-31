@@ -273,20 +273,32 @@ function drawAhaHint(ctx: CanvasRenderingContext2D, now: number): void {
   if (!app.ahaHint || app.ahaPhase === 'done') return;
   const { originX, originY, cell } = boardView.layout;
   const pulse = 0.55 + 0.45 * Math.sin(now * 0.008);
-  const label = app.ahaPhase === 'forge' ? 'SWAP → FORGE' : 'SWAP → FIRE!';
-  const color =
-    app.ahaPhase === 'forge'
-      ? `rgba(255, 230, 120, ${0.45 + pulse * 0.5})`
-      : `rgba(180, 255, 220, ${0.5 + pulse * 0.45})`;
+  const forge = app.ahaPhase === 'forge';
+  const label = forge ? 'SWAP TO FORGE' : 'SWAP TO FIRE';
+  const tip = forge ? 'Match 4 in a line' : 'Swap the power into a gem';
+  const color = forge
+    ? `rgba(255, 220, 90, ${0.55 + pulse * 0.45})`
+    : `rgba(120, 255, 200, ${0.55 + pulse * 0.45})`;
+  const glow = forge ? '#ffe87a' : '#7dffc0';
+
   for (const c of [app.ahaHint.a, app.ahaHint.b]) {
     const cx = originX + c.x * cell + cell / 2;
     const cy = originY + c.y * cell + cell / 2;
     ctx.save();
+    // Soft fill pulse under gem
+    const g = ctx.createRadialGradient(cx, cy, cell * 0.1, cx, cy, cell * 0.55);
+    g.addColorStop(0, forge ? `rgba(255, 220, 80, ${0.25 + pulse * 0.2})` : `rgba(80, 255, 180, ${0.22 + pulse * 0.2})`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, cell * 0.55, 0, Math.PI * 2);
+    ctx.fill();
     ctx.strokeStyle = color;
-    ctx.lineWidth = 3 + pulse * 2;
-    ctx.shadowColor = app.ahaPhase === 'forge' ? '#ffe87a' : '#7dffc0';
-    ctx.shadowBlur = 14;
-    ctx.strokeRect(cx - cell * 0.42, cy - cell * 0.42, cell * 0.84, cell * 0.84);
+    ctx.lineWidth = 3.5 + pulse * 2;
+    ctx.shadowColor = glow;
+    ctx.shadowBlur = 16;
+    roundRectPath(ctx, cx - cell * 0.42, cy - cell * 0.42, cell * 0.84, cell * 0.84, 14);
+    ctx.stroke();
     ctx.restore();
   }
   const a = app.ahaHint.a;
@@ -295,17 +307,56 @@ function drawAhaHint(ctx: CanvasRenderingContext2D, now: number): void {
   const y0 = originY + a.y * cell + cell / 2;
   const x1 = originX + b.x * cell + cell / 2;
   const y1 = originY + b.y * cell + cell / 2;
+  const mx = (x0 + x1) / 2;
+  const my = Math.min(y0, y1) - cell * 0.72;
+
+  // Connector
   ctx.save();
   ctx.strokeStyle = color;
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 3.5;
+  ctx.shadowColor = glow;
+  ctx.shadowBlur = 12;
+  ctx.setLineDash([8, 6]);
+  ctx.lineDashOffset = -now * 0.02;
   ctx.beginPath();
   ctx.moveTo(x0, y0);
   ctx.lineTo(x1, y1);
   ctx.stroke();
-  ctx.font = '800 15px "CrystallineDisplay", "Nunito", sans-serif';
-  ctx.fillStyle = '#ffe9a8';
+  ctx.setLineDash([]);
+  // Arrow head
+  const ang = Math.atan2(y1 - y0, x1 - x0);
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x1 - 12 * Math.cos(ang - 0.4), y1 - 12 * Math.sin(ang - 0.4));
+  ctx.lineTo(x1 - 12 * Math.cos(ang + 0.4), y1 - 12 * Math.sin(ang + 0.4));
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.restore();
+
+  // Studio callout pill
+  const pillW = 220;
+  const pillH = 52;
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.45)';
+  ctx.shadowBlur = 12;
+  ctx.shadowOffsetY = 4;
+  ctx.fillStyle = 'rgba(18, 12, 36, 0.94)';
+  roundRectPath(ctx, mx - pillW / 2, my - pillH / 2, pillW, pillH, 16);
+  ctx.fill();
+  ctx.strokeStyle = glow;
+  ctx.lineWidth = 2.5;
+  ctx.shadowBlur = 0;
+  roundRectPath(ctx, mx - pillW / 2, my - pillH / 2, pillW, pillH, 16);
+  ctx.stroke();
   ctx.textAlign = 'center';
-  ctx.fillText(label, (x0 + x1) / 2, Math.min(y0, y1) - cell * 0.55);
+  ctx.textBaseline = 'middle';
+  ctx.font = '800 15px "CrystallineDisplay", "Nunito", sans-serif';
+  ctx.fillStyle = '#fff6e8';
+  ctx.fillText(label, mx, my - 8);
+  ctx.font = '700 12px "Nunito", sans-serif';
+  ctx.fillStyle = 'rgba(200, 190, 230, 0.9)';
+  ctx.fillText(tip, mx, my + 12);
   ctx.restore();
 }
 
@@ -671,12 +722,31 @@ function playMatchVfx(events: readonly GameEvent[]): void {
         ev.kind === 'supernova' ? 6 : ev.kind === 'prism' ? 6 : ev.kind === 'burst' ? 5 : 4;
       vfx.playAtCells(tier, ev.affected, cellToLogical);
       const p = cellToLogical(ev.at);
-      juice.burst(p.x, p.y, '#fff0c0', 20 + tier * 6);
+      const powerCol =
+        ev.kind === 'prism'
+          ? '#e0c0ff'
+          : ev.kind === 'burst'
+            ? '#ffc878'
+            : ev.kind === 'supernova' || ev.kind === 'core'
+              ? '#ffffff'
+              : '#7ed0ff';
+      juice.burst(p.x, p.y, powerCol, 28 + tier * 8);
+      juice.burst(p.x, p.y, '#fff0c0', 14 + tier * 4);
+      // Secondary pops along affected cells for “board wipe” read
+      const sample = ev.affected.slice(0, 12);
+      for (const c of sample) {
+        const q = cellToLogical(c);
+        juice.burst(q.x, q.y, powerCol, 4 + Math.floor(tier / 2));
+      }
       haptic('special');
       if (tier >= 5) {
-        shakeMs = Math.max(shakeMs, tier >= 6 ? 280 : 160);
-        shakeMag = Math.max(shakeMag, tier >= 6 ? 12 : 7);
-        juice.requestHitStop(tier >= 6 ? 80 : 50);
+        shakeMs = Math.max(shakeMs, tier >= 6 ? 320 : 180);
+        shakeMag = Math.max(shakeMag, tier >= 6 ? 14 : 8);
+        juice.requestHitStop(tier >= 6 ? 90 : 55);
+      } else {
+        shakeMs = Math.max(shakeMs, 90);
+        shakeMag = Math.max(shakeMag, 4);
+        juice.requestHitStop(30);
       }
       if (powerFires === 1) {
         juice.powerBanner(powerLabel(ev.kind).toUpperCase());
@@ -1203,7 +1273,14 @@ function boosterChip(
 function renderMap(): void {
   const snap = economy.getSnapshot();
   const cols = 5;
-  const board = el('div', { class: 'map-board' }, []);
+  const board = el('div', { class: 'map-board' }, [
+    el('img', {
+      class: 'map-board-bg',
+      src: assetUrl('ui/map_bg.webp'),
+      alt: '',
+      decoding: 'async',
+    }),
+  ]);
   const pathSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   pathSvg.setAttribute('class', 'map-path');
   pathSvg.setAttribute('viewBox', '0 0 100 100');
@@ -1297,14 +1374,23 @@ function renderPrelevel(): void {
   );
 
   const banner = el('div', { class: 'level-banner' }, [
-    el('div', { class: 'level-banner-num' }, [`${level.id}`]),
-    el('div', { class: 'level-banner-body' }, [
-      el('div', { class: 'level-banner-name' }, [level.name]),
-      el('div', { class: 'level-banner-meta' }, [
-        `${level.moves} moves  ·  ${level.width}×${level.height}`,
-      ]),
-      el('div', { class: 'level-banner-stars' }, [
-        best > 0 ? '★'.repeat(best) + '☆'.repeat(3 - best) : '☆☆☆  best',
+    el('img', {
+      class: 'level-banner-art',
+      src: assetUrl('ui/prelevel_banner.webp'),
+      alt: '',
+      decoding: 'async',
+    }),
+    el('div', { class: 'level-banner-scrim' }, []),
+    el('div', { class: 'level-banner-content' }, [
+      el('div', { class: 'level-banner-num' }, [`${level.id}`]),
+      el('div', { class: 'level-banner-body' }, [
+        el('div', { class: 'level-banner-name' }, [level.name]),
+        el('div', { class: 'level-banner-meta' }, [
+          `${level.moves} moves  ·  ${level.width}×${level.height}`,
+        ]),
+        el('div', { class: 'level-banner-stars' }, [
+          best > 0 ? '★'.repeat(best) + '☆'.repeat(3 - best) : '☆☆☆  best',
+        ]),
       ]),
     ]),
   ]);
@@ -1412,22 +1498,26 @@ function renderResults(): void {
           `+${snap.lastEssenceGain} essence → Crystal Cavern`,
         ])
       : null;
-  const burst =
-    r.status === 'won'
-      ? el('div', { class: 'results-burst' }, [
-          el('div', { class: 'results-burst-stars' }, [
-            starLine ?? '★',
-          ]),
-          el('div', { class: 'results-burst-score' }, [
-            r.score.toLocaleString(),
-          ]),
-          el('div', { class: 'results-burst-label' }, ['SCORE']),
-        ])
-      : el('div', { class: 'results-burst fail' }, [
-          el('div', { class: 'results-burst-stars' }, ['◆']),
-          el('div', { class: 'results-burst-score' }, [r.score.toLocaleString()]),
-          el('div', { class: 'results-burst-label' }, ['SCORE']),
-        ]);
+  const burst = el(
+    'div',
+    { class: r.status === 'won' ? 'results-burst' : 'results-burst fail' },
+    [
+      el('img', {
+        class: 'results-burst-art',
+        src: assetUrl(r.status === 'won' ? 'ui/win_banner.webp' : 'ui/fail_banner.webp'),
+        alt: '',
+        decoding: 'async',
+      }),
+      el('div', { class: 'results-burst-scrim' }, []),
+      el('div', { class: 'results-burst-content' }, [
+        el('div', { class: 'results-burst-stars' }, [
+          r.status === 'won' ? (starLine ?? '★') : '◆',
+        ]),
+        el('div', { class: 'results-burst-score' }, [r.score.toLocaleString()]),
+        el('div', { class: 'results-burst-label' }, ['SCORE']),
+      ]),
+    ],
+  );
 
   panel(
     r.status === 'won' ? 'Level Clear!' : 'Almost…',
