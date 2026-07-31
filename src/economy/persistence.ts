@@ -140,6 +140,8 @@ export interface EconomyAux {
   readonly adsFreeUntil: number | null;
   /** Comfort Tools pack owned (ease of play). */
   readonly comfortOwned: boolean;
+  /** Soft daily clears goal + win streak. */
+  readonly dailyGoals: unknown;
 }
 
 export interface PersistedSave extends SaveData {
@@ -196,7 +198,21 @@ export function freshAux(now: number): EconomyAux {
     idle: { lastClaimAt: now },
     adsFreeUntil: null,
     comfortOwned: false,
+    dailyGoals: emptyDailyGoalsBlob(now),
   };
+}
+
+function emptyDailyGoalsBlob(now: number): {
+  day: string;
+  clears: number;
+  claimed: boolean;
+  winStreak: number;
+  bestStreak: number;
+} {
+  // Local calendar day (same convention as dayKey) without importing time.ts.
+  const d = new Date(now);
+  const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return { day, clears: 0, claimed: false, winStreak: 0, bestStreak: 0 };
 }
 
 /** A brand-new player: seeded from `ECONOMY_CONST`, full lives, nothing owned. */
@@ -354,6 +370,7 @@ export function repair(raw: unknown, now: number): PersistedSave {
       idle: aux['idle'] ?? { lastClaimAt: now },
       adsFreeUntil: nullableNum(aux['adsFreeUntil']),
       comfortOwned: bool(aux['comfortOwned'], false),
+      dailyGoals: aux['dailyGoals'] ?? base.aux.dailyGoals,
     },
   };
 }

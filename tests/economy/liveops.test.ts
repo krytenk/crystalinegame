@@ -3,6 +3,12 @@ import { AlbumModel, needForCycle, pickAlbumCard, ALBUM_CARDS } from '../../src/
 import { HybridEventModel, emptyEventPersist } from '../../src/economy/hybridEvent';
 import { idleRatePerHour, pendingIdleEssence } from '../../src/economy/idle';
 import {
+  DailyGoalsModel,
+  DAILY_CLEAR_TARGET,
+  DAILY_GOAL_ESSENCE,
+  emptyDailyGoals,
+} from '../../src/economy/dailyGoals';
+import {
   conveyorShiftRow,
   levelHasConveyor,
   pickConveyorRow,
@@ -70,6 +76,19 @@ describe('idle cavern', () => {
     const p = pendingIdleEssence(last, now, 0, 0);
     expect(p).toBeGreaterThan(0);
     expect(p).toBeLessThanOrEqual(40 + 0);
+  });
+});
+
+describe('daily goals', () => {
+  it('tracks clears and claims once', () => {
+    const now = Date.UTC(2026, 6, 31, 12);
+    const m = new DailyGoalsModel(emptyDailyGoals(now));
+    for (let i = 0; i < DAILY_CLEAR_TARGET; i++) m.noteWin(now);
+    expect(m.snapshot(now).claimReady).toBe(true);
+    expect(m.claim(now)).toBe(DAILY_GOAL_ESSENCE);
+    expect(m.claim(now)).toBe(0);
+    m.noteFail(now);
+    expect(m.snapshot(now).winStreak).toBe(0);
   });
 });
 

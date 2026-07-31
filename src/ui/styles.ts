@@ -147,7 +147,10 @@ export function injectStyles(): void {
       display: flex; flex-direction: column;
       align-items: center;
       justify-content: flex-start;
-      padding: clamp(10px, 2.5vw, 22px);
+      padding: max(clamp(10px, 2.5vw, 22px), env(safe-area-inset-top, 0px))
+        max(clamp(10px, 2.5vw, 22px), env(safe-area-inset-right, 0px))
+        max(clamp(10px, 2.5vw, 22px), env(safe-area-inset-bottom, 0px))
+        max(clamp(10px, 2.5vw, 22px), env(safe-area-inset-left, 0px));
       background:
         radial-gradient(ellipse at 50% 12%, rgba(120, 70, 200, 0.22), transparent 50%),
         linear-gradient(180deg, rgba(8,4,20,0.35) 0%, rgba(6,4,16,0.78) 100%);
@@ -556,6 +559,60 @@ export function injectStyles(): void {
       white-space: nowrap;
       pointer-events: none;
       z-index: 3;
+    }
+    .level-belt {
+      position: absolute;
+      bottom: -2px;
+      right: -2px;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      font-size: 0.5rem;
+      font-weight: 900;
+      display: flex; align-items: center; justify-content: center;
+      color: #0a1830;
+      background: linear-gradient(180deg, #7ed0ff, #3a9ae0);
+      box-shadow: 0 2px 0 #1a4060;
+      pointer-events: none;
+      z-index: 3;
+    }
+    .level-node.has-belt {
+      border-color: rgba(94, 200, 255, 0.55);
+    }
+    .daily-goal-card {
+      margin: 0 0 12px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(90, 50, 40, 0.4), rgba(20, 12, 32, 0.95));
+      border: 2px solid rgba(255, 180, 100, 0.4);
+      box-shadow: 0 3px 0 rgba(0,0,0,0.3);
+    }
+    .daily-goal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .daily-goal-title {
+      font-family: var(--font-display);
+      font-weight: 800;
+      color: #fff6e8;
+      font-size: 0.92rem;
+    }
+    .daily-goal-streak {
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: #ffc878;
+    }
+    .daily-goal-card .btn {
+      width: 100%;
+      margin-top: 10px;
+    }
+    .streak-gain {
+      color: #ffc878 !important;
+      font-weight: 800 !important;
+      font-family: var(--font-display);
+      text-align: center;
     }
     @keyframes nextPulse {
       0%, 100% {
@@ -1586,8 +1643,8 @@ export function injectStyles(): void {
       justify-content: space-between;
       gap: 12px;
       width: min(100%, 420px);
-      margin: 0 auto 14px;
-      padding: 10px 12px;
+      margin: 0 auto max(14px, env(safe-area-inset-bottom, 0px));
+      padding: 12px 14px;
       border-radius: 22px;
       background:
         linear-gradient(180deg, rgba(36, 28, 64, 0.94), rgba(12, 8, 28, 0.96));
@@ -1605,7 +1662,8 @@ export function injectStyles(): void {
       flex: 1;
       min-width: 0;
       font-size: 1rem;
-      padding: 12px 10px;
+      padding: 14px 12px;
+      min-height: 52px;
     }
     .play-dock .play-tool.armed {
       animation: nextPulse 1.2s ease-in-out infinite;

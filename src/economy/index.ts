@@ -41,6 +41,11 @@ import {
   parseEventPersist,
   type HybridEventSnapshot,
 } from './hybridEvent';
+import {
+  DailyGoalsModel,
+  parseDailyGoals,
+  type DailyGoalsSnapshot,
+} from './dailyGoals';
 import { IdleModel, parseIdlePersist, type IdleSnapshot } from './idle';
 import {
   essenceForWin,
@@ -94,6 +99,7 @@ export interface EconomySnapshot {
   readonly lastAlbumPageReward: number;
   readonly lastAlbumGranted: readonly { readonly id: string; readonly rarity: string }[];
   readonly lastAlbumRareCount: number;
+  readonly daily: DailyGoalsSnapshot;
 }
 
 export class Economy {
@@ -111,6 +117,7 @@ export class Economy {
   private album!: AlbumModel;
   private hybridEvent!: HybridEventModel;
   private idle!: IdleModel;
+  private dailyGoals!: DailyGoalsModel;
   private progress!: PersistedSave['progress'];
   private settings!: PersistedSave['settings'];
   private dda!: PersistedSave['dda'];
@@ -156,6 +163,7 @@ export class Economy {
     this.hybridEvent = new HybridEventModel(parseEventPersist(save.aux.hybridEvent, this.now()));
     this.idle = new IdleModel(parseIdlePersist(save.aux.idle, this.now()));
     this.idle.touch(this.now());
+    this.dailyGoals = new DailyGoalsModel(parseDailyGoals(save.aux.dailyGoals, this.now()));
     this.lastEssenceGain = 0;
     this.lastAlbumPageReward = 0;
     this.lastAlbumGranted = [];
@@ -263,6 +271,7 @@ export class Economy {
       lastAlbumPageReward: this.lastAlbumPageReward,
       lastAlbumGranted: this.lastAlbumGranted,
       lastAlbumRareCount: this.lastAlbumRareCount,
+      daily: this.dailyGoals.snapshot(this.now()),
     };
   }
 
@@ -352,6 +361,8 @@ export class Economy {
     }
     if (due.shards > 0) this.wallet.grantShards(due.shards);
 
+    this.dailyGoals.noteWin(this.now());
+
     this.syncMetaAux();
     this.syncLiveOpsAux();
     this.telemetry.noteLevelWon();
@@ -403,6 +414,7 @@ export class Economy {
       album: this.album.serialized,
       hybridEvent: this.hybridEvent.serialized,
       idle: this.idle.serialized,
+      dailyGoals: this.dailyGoals.serialized,
     };
   }
 
@@ -443,6 +455,7 @@ export class Economy {
   failLevel(ddaScalar: number): void {
     this.telemetry.noteLevelFailed();
     this.telemetry.setDdaScalar(ddaScalar);
+    this.dailyGoals.noteFail(this.now());
     this.aux = {
       ...this.aux,
       firstFailAt: this.aux.firstFailAt ?? this.now(),
@@ -455,9 +468,24 @@ export class Economy {
     };
     // Rebuild shop so starter bundle unlocks after first fail.
     this.rebuildShop(this.shop.ownedSkus);
+    this.syncLiveOpsAux();
     this.notePlay();
     this.persist();
     this.emit();
+  }
+
+  /** Soft daily goal claim (3 clears → essence). Ethical: no miss-window punish. */
+  claimDailyGoal(): number {
+    const n = this.dailyGoals.claim(this.now());
+    if (n > 0) {
+      this.meta.grantEssence(n);
+      this.lastEssenceGain = n;
+      this.syncMetaAux();
+    }
+    this.syncLiveOpsAux();
+    this.persist();
+    this.emit();
+    return n;
   }
 
   private notePlay(): void {
@@ -618,6 +646,7 @@ export class Economy {
         album: this.album.serialized,
         hybridEvent: this.hybridEvent.serialized,
         idle: this.idle.serialized,
+        dailyGoals: this.dailyGoals.serialized,
       },
     };
     this.saveStore.save(data);
@@ -642,6 +671,8 @@ export type { AlbumSnapshot } from './album';
 export { EVENT_MILESTONES } from './hybridEvent';
 export type { HybridEventSnapshot } from './hybridEvent';
 export type { IdleSnapshot } from './idle';
+export type { DailyGoalsSnapshot } from './dailyGoals';
+export { DAILY_CLEAR_TARGET, DAILY_GOAL_ESSENCE } from './dailyGoals';
 export { CONVEYOR_FROM_LEVEL, levelHasConveyor } from '../engine/conveyor';
 export {
   ECONOMY_CONST,

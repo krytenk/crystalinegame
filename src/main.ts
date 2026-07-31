@@ -99,6 +99,8 @@ interface AppState {
   softHint: { a: Coord; b: Coord } | null;
   /** Last player input during play (ms) for idle auto-hint. */
   lastInputAt: number;
+  /** Comfort Tools: one free reshuffle this level when inventory empty. */
+  comfortReshuffleUsed: boolean;
 }
 
 const AHA_KEY = 'crystalline.ahaDone';
@@ -125,6 +127,7 @@ const app: AppState = {
   pendingGeode: false,
   softHint: null,
   lastInputAt: 0,
+  comfortReshuffleUsed: false,
 };
 
 const powerLabel = (kind: string): string => {
@@ -1305,6 +1308,7 @@ function startLevel(
   app.ahaPhase = 'done';
   app.softHint = null;
   app.lastInputAt = performance.now();
+  app.comfortReshuffleUsed = false;
   boardView.conveyor = null;
   hudScoreShown = 0;
   hudScorePulseUntil = 0;
@@ -1453,8 +1457,15 @@ function renderOverlay(): void {
     }, 'secondary');
     pauseBtn.title = 'Pause';
     pauseBtn.classList.add('play-tool', 'play-pause');
+    const comfortFree =
+      snap.comfortOwned &&
+      snap.boosters.reshuffle <= 0 &&
+      !app.comfortReshuffleUsed;
+    const reshuffleLabel = comfortFree
+      ? '⟲ FREE'
+      : `⟲ ×${snap.boosters.reshuffle}`;
     const reshuffleBtn = btn(
-      `⟲ ×${snap.boosters.reshuffle}`,
+      reshuffleLabel,
       () => {
         if (!app.session) return;
         if (economy.consumeBooster('reshuffle').ok) {
@@ -1463,15 +1474,32 @@ function renderOverlay(): void {
           boardAnim.sync(app.session.snapshot());
           pushToast('Board reshuffled', '#b8f0ff');
           haptic('forge');
+          notePlayInput();
+          renderOverlay();
+        } else if (comfortFree) {
+          app.comfortReshuffleUsed = true;
+          const events = app.session.useReshuffle();
+          audio.handle(events);
+          boardAnim.sync(app.session.snapshot());
+          pushToast('Comfort reshuffle · once this dive', '#c8ffe0', 2200);
+          haptic('forge');
+          notePlayInput();
           renderOverlay();
         } else {
-          pushToast('No reshuffles — buy in Store', '#ff9a9a');
+          pushToast(
+            snap.comfortOwned
+              ? 'Comfort free reshuffle already used'
+              : 'No reshuffles — buy in Store',
+            '#ff9a9a',
+          );
         }
       },
-      'secondary',
-      snap.boosters.reshuffle <= 0,
+      comfortFree ? 'gold' : 'secondary',
+      snap.boosters.reshuffle <= 0 && !comfortFree,
     );
-    reshuffleBtn.title = 'Reshuffle board';
+    reshuffleBtn.title = comfortFree
+      ? 'Comfort Tools free reshuffle'
+      : 'Reshuffle board';
     reshuffleBtn.classList.add('play-tool');
     const pickBtn = btn(
       app.pickaxeMode ? '✕' : `⛏ ×${snap.boosters.pickaxe}`,
@@ -2074,13 +2102,18 @@ function renderMap(): void {
       if (isNext) {
         kids.push(el('div', { class: 'level-you' }, ['YOU']));
       }
+      if (levelHasConveyor(lvl.id) && !locked) {
+        kids.push(el('div', { class: 'level-belt' }, ['▶']));
+      }
       const b = el(
         'button',
         {
-          class: `level-node${locked ? ' locked' : ''}${lvl.id === app.levelId ? ' current' : ''}${stars > 0 ? ' cleared' : ''}${isNext ? ' next-play' : ''}`,
+          class: `level-node${locked ? ' locked' : ''}${lvl.id === app.levelId ? ' current' : ''}${stars > 0 ? ' cleared' : ''}${isNext ? ' next-play' : ''}${levelHasConveyor(lvl.id) ? ' has-belt' : ''}`,
           type: 'button',
           disabled: locked ? true : undefined,
-          title: stars > 0 ? `${stars} star${stars === 1 ? '' : 's'}` : locked ? 'Locked' : 'Play',
+          title:
+            (stars > 0 ? `${stars} star${stars === 1 ? '' : 's'}` : locked ? 'Locked' : 'Play') +
+            (levelHasConveyor(lvl.id) ? ' · conveyor' : ''),
         },
         kids,
       ) as HTMLButtonElement;
@@ -2101,12 +2134,59 @@ function renderMap(): void {
 
   const meta = snap.meta;
   const idle = snap.idle;
+  const daily = snap.daily;
   panel(
     'Levels',
     [
       el('p', {}, ['Clear chambers · collect stars · furnish your cavern']),
       el('div', { class: 'goal-banner' }, [nextGoalHint(snap)]),
       essenceProgressBar(snap),
+      (() => {
+        const card = el('div', { class: 'daily-goal-card' }, [
+          el('div', { class: 'daily-goal-head' }, [
+            el('span', { class: 'daily-goal-title' }, ['Today’s dive']),
+            el('span', { class: 'daily-goal-streak' }, [
+              daily.winStreak > 0
+                ? `🔥 ${daily.winStreak} win streak`
+                : `Best streak ${daily.bestStreak}`,
+            ]),
+          ]),
+          el('div', { class: 'essence-track-wrap' }, [
+            el('div', { class: 'essence-track-label' }, [
+              `${Math.min(daily.clears, daily.target)}/${daily.target} clears` +
+                (daily.claimed
+                  ? ' · claimed'
+                  : daily.claimReady
+                    ? ` · +${daily.rewardEssence}✧ ready`
+                    : ''),
+            ]),
+            el('div', { class: 'essence-track' }, [
+              el('div', {
+                class: 'essence-track-fill',
+                style: `width:${daily.pct}%`,
+              }, []),
+            ]),
+          ]),
+        ]);
+        if (daily.claimReady) {
+          card.append(
+            btn(
+              `CLAIM DAILY · +${daily.rewardEssence}✧`,
+              () => {
+                const n = economy.claimDailyGoal();
+                if (n > 0) {
+                  audio.starDing(2);
+                  haptic('forge');
+                  pushToast(`Daily goal · +${n}✧`, '#ffd24a', 2400);
+                }
+                renderOverlay();
+              },
+              'gold',
+            ),
+          );
+        }
+        return card;
+      })(),
       (() => {
         const strip = el('div', { class: 'liveops-strip' }, []);
         const albumB = el(
@@ -2159,7 +2239,7 @@ function renderMap(): void {
         stat('Lives', String(snap.lives.count)),
         stat('Stars', `${totalStars}`),
         stat('Essence', String(meta.essence)),
-        stat('Cavern', `${meta.ownedCount}/${meta.totalCount}`),
+        stat('Streak', String(daily.winStreak)),
       ]),
     ],
     [
@@ -2442,6 +2522,17 @@ function renderResults(): void {
         ])
       : null;
 
+  if (r.status === 'won' && snap.lastAlbumRareCount > 0) {
+    window.setTimeout(() => audio.starDing(2), 400);
+    juice.powerBanner(
+      snap.lastAlbumRareCount > 1 ? 'RARE ALBUM PULLS!' : 'RARE ALBUM CARD!',
+    );
+  }
+  const streakLine =
+    r.status === 'won' && snap.daily.winStreak > 1
+      ? el('p', { class: 'streak-gain' }, [`🔥 ${snap.daily.winStreak} win streak`])
+      : null;
+
   panel(
     r.status === 'won' ? 'Level Clear!' : 'Almost…',
     [
@@ -2449,6 +2540,7 @@ function renderResults(): void {
       warden,
       ...(essenceLine ? [essenceLine] : []),
       ...(albumLine ? [albumLine] : []),
+      ...(streakLine ? [streakLine] : []),
       ...(nextHint ? [nextHint] : []),
       ...(r.status === 'won' ? [essenceProgressBar(snap)] : []),
       ...(r.status === 'won' && r.stars === 1
@@ -3330,6 +3422,24 @@ function renderSettings(): void {
           economy.updateSettings({ reducedMotion: !s.reducedMotion });
           renderOverlay();
         }),
+      ]),
+      el('div', { class: 'settings-section' }, [
+        el('div', { class: 'settings-section-title' }, ['Session status']),
+        el('div', { class: 'settings-about' }, [
+          el('div', {}, [
+            snap.comfortOwned
+              ? 'Comfort Tools · on (fast hints + free reshuffle / dive)'
+              : 'Comfort Tools · off (shop)',
+          ]),
+          el('div', { class: 'hud-tip' }, [
+            snap.adsFreeActive
+              ? 'Ad-free active'
+              : 'Interstitials on · 7d/30d passes in Shop',
+          ]),
+          el('div', { class: 'hud-tip' }, [
+            `Win streak ${snap.daily.winStreak} · best ${snap.daily.bestStreak} · today ${snap.daily.clears}/${snap.daily.target}`,
+          ]),
+        ]),
       ]),
       el('div', { class: 'settings-section' }, [
         el('div', { class: 'settings-section-title' }, ['Research']),
