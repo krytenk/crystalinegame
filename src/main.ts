@@ -1052,14 +1052,26 @@ function renderOverlay(): void {
   }
 }
 
-function panel(title: string, body: HTMLElement[], actions: HTMLElement[] = []): HTMLElement {
-  const p = el('div', { class: 'panel' }, [
+function panel(
+  title: string,
+  body: HTMLElement[],
+  actions: HTMLElement[] = [],
+  opts: { className?: string; scrollTop?: boolean } = {},
+): HTMLElement {
+  const p = el('div', { class: opts.className ? `panel ${opts.className}` : 'panel' }, [
     el('div', { class: 'sim-badge' }, ['demo build · no real money']),
     el('h1', {}, [title]),
     ...body,
     el('div', { class: 'row' }, actions),
   ]);
   overlay.append(p);
+  if (opts.scrollTop) {
+    // Ensure tall catalogues start at the title, not mid-list.
+    requestAnimationFrame(() => {
+      overlay.scrollTop = 0;
+      p.scrollIntoView({ block: 'start' });
+    });
+  }
   return p;
 }
 
@@ -1494,7 +1506,71 @@ function renderCavern(): void {
         renderOverlay();
       }, 'secondary'),
     ],
+    { className: 'panel-cavern', scrollTop: true },
   );
+}
+
+/**
+ * Reward placement ceremony: mine-set video + the purchased prop flying in.
+ * (Generated placement reel in public/cavern/place.webm|.mp4)
+ */
+function playPlacementCeremony(up: MetaUpgrade, onDone: () => void): void {
+  const layer = el('div', { class: 'place-ceremony' }, []);
+  const stageArt =
+    META_STAGES.find((s) => s.id === up.stage)?.art ?? 'cavern/stages/stage1.webp';
+
+  const vid = document.createElement('video');
+  vid.className = 'place-ceremony-video';
+  vid.muted = true;
+  vid.playsInline = true;
+  vid.setAttribute('playsinline', '');
+  vid.preload = 'auto';
+  // Prefer webm, fall back to mp4
+  const sWebm = document.createElement('source');
+  sWebm.src = assetUrl('cavern/place.webm');
+  sWebm.type = 'video/webm';
+  const sMp4 = document.createElement('source');
+  sMp4.src = assetUrl('cavern/place.mp4');
+  sMp4.type = 'video/mp4';
+  vid.append(sWebm, sMp4);
+  // Poster = real mine stage so it never feels empty while buffering
+  vid.poster = assetUrl(stageArt);
+
+  const prop = metaArtImg(up.art, up.name, 'place-ceremony-prop');
+  const caption = el('div', { class: 'place-ceremony-caption' }, [
+    el('div', { class: 'place-ceremony-title' }, [up.name]),
+    el('div', { class: 'place-ceremony-sub' }, ['Placed in the mine']),
+  ]);
+  const skip = btn('Continue', () => finish(), 'gold');
+
+  layer.append(vid, prop, caption, skip);
+  overlay.append(layer);
+  haptic('special');
+  // Soft whoosh bed under the placement reel
+  try {
+    const sfx = new Audio(assetUrl('sfx/whoosh-motion.ogg'));
+    sfx.volume = 0.45;
+    void sfx.play();
+  } catch {
+    /* ignore */
+  }
+  try {
+    void vid.play();
+  } catch {
+    /* autoplay policies */
+  }
+
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    layer.remove();
+    onDone();
+  };
+
+  vid.addEventListener('ended', () => finish());
+  // Safety: never trap the player if media fails
+  window.setTimeout(() => finish(), 2800);
 }
 
 function metaUpgradeRow(up: MetaUpgrade, owned: boolean, essence: number): HTMLElement {
@@ -1523,8 +1599,11 @@ function metaUpgradeRow(up: MetaUpgrade, owned: boolean, essence: number): HTMLE
           return;
         }
         haptic('forge');
-        pushToast(`${res.upgrade.name} placed in the cavern`, '#b8f0ff', 2000);
-        renderOverlay();
+        // Don't rebuild the list mid-ceremony — play placement video first.
+        playPlacementCeremony(res.upgrade, () => {
+          pushToast(`${res.upgrade.name} is in the cavern`, '#b8f0ff', 2000);
+          renderOverlay();
+        });
       },
       can ? 'primary' : 'secondary',
       !can,

@@ -140,18 +140,30 @@ export function injectStyles(): void {
     .overlay {
       position: absolute; inset: 0;
       display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
+      align-items: center;
+      /*
+       * flex-start + margin:auto on the panel: short panels stay centered,
+       * tall ones (Crystal Cavern) scroll from the TRUE top — justify-content:center
+       * was clipping Mouth of the Mine / Prism Gallery headers.
+       */
+      justify-content: flex-start;
       padding: clamp(12px, 3vw, 28px);
       background:
         radial-gradient(ellipse at 50% 20%, rgba(60,40,120,0.25), transparent 55%),
         rgba(4, 8, 18, 0.62);
       backdrop-filter: blur(8px);
       z-index: 10;
-      overflow: auto;
+      overflow-x: hidden;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
     }
     .overlay.hidden { display: none; }
     .panel {
       width: min(100%, 460px);
+      flex-shrink: 0;
+      margin-top: auto;
+      margin-bottom: auto;
       background:
         linear-gradient(165deg, rgba(40,52,92,0.95), rgba(14,18,36,0.96) 55%, rgba(10,14,28,0.98));
       border: 1px solid rgba(140, 200, 255, 0.28);
@@ -160,6 +172,12 @@ export function injectStyles(): void {
       box-shadow:
         0 20px 50px rgba(0,0,0,0.55),
         inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    /* Cavern catalogue is intentionally long — pin scroll start to title */
+    .panel.panel-cavern {
+      margin-top: 0;
+      margin-bottom: 24px;
+      max-width: min(100%, 480px);
     }
     .panel h1, .panel h2 {
       margin: 0 0 8px;
@@ -566,6 +584,63 @@ export function injectStyles(): void {
       text-transform: uppercase;
       letter-spacing: 0.06em;
       color: #7ed0ff;
+    }
+    /* Placement ceremony overlay */
+    .place-ceremony {
+      position: absolute; inset: 0;
+      z-index: 40;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: flex-end;
+      padding: 20px 16px 28px;
+      background: rgba(2, 4, 12, 0.88);
+      animation: placeFadeIn 0.25s ease-out;
+    }
+    @keyframes placeFadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .place-ceremony-video {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      opacity: 0.92;
+    }
+    .place-ceremony-prop {
+      position: relative; z-index: 2;
+      width: min(42%, 180px);
+      height: auto;
+      aspect-ratio: 1;
+      object-fit: contain;
+      margin-bottom: 18%;
+      filter: drop-shadow(0 12px 28px rgba(80, 180, 255, 0.55));
+      animation: placeDrop 1.35s cubic-bezier(0.22, 1.2, 0.36, 1) both;
+    }
+    @keyframes placeDrop {
+      0% { transform: translateY(-120%) scale(0.45); opacity: 0; }
+      55% { opacity: 1; }
+      70% { transform: translateY(6%) scale(1.08); }
+      100% { transform: translateY(0) scale(1); }
+    }
+    .place-ceremony-caption {
+      position: relative; z-index: 2;
+      text-align: center;
+      margin-bottom: 14px;
+    }
+    .place-ceremony-title {
+      font-family: var(--font-title);
+      font-size: 1.45rem;
+      font-weight: 700;
+      color: #c9ecff;
+      text-shadow: 0 0 24px rgba(100, 200, 255, 0.5);
+    }
+    .place-ceremony-sub {
+      font-size: 0.85rem;
+      color: rgba(200, 220, 255, 0.8);
+      margin-top: 4px;
+      font-weight: 700;
+    }
+    .place-ceremony .btn {
+      position: relative; z-index: 2;
     }
   `;
   document.head.appendChild(el);
