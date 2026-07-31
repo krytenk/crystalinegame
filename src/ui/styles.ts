@@ -393,11 +393,38 @@ export function injectStyles(): void {
       pointer-events: none;
       border-radius: 18px;
     }
+    /* Per-chapter map section with local path trail */
+    .map-section {
+      position: relative;
+      z-index: 1;
+      margin: 0 0 14px;
+      padding: 10px 8px 12px;
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(20, 14, 40, 0.55), rgba(8, 6, 18, 0.35));
+      border: 1px solid rgba(201, 162, 39, 0.22);
+    }
+    .map-section:last-child { margin-bottom: 2px; }
+    .map-section.locked { opacity: 0.72; }
+    .map-section.done {
+      border-color: rgba(126, 208, 255, 0.35);
+      box-shadow: inset 0 0 24px rgba(60, 140, 255, 0.08);
+    }
+    .map-section.depth-mid {
+      border-color: rgba(140, 100, 220, 0.3);
+    }
+    .map-section.depth-deep {
+      border-color: rgba(80, 160, 255, 0.32);
+      background: linear-gradient(180deg, rgba(12, 24, 48, 0.55), rgba(6, 10, 22, 0.4));
+    }
+    .map-grid-wrap {
+      position: relative;
+      margin-top: 6px;
+    }
     .map-path {
       position: absolute;
-      inset: 12px 8px 16px;
-      width: calc(100% - 16px);
-      height: calc(100% - 28px);
+      inset: 4px 2px;
+      width: calc(100% - 4px);
+      height: calc(100% - 8px);
       pointer-events: none;
       z-index: 0;
       overflow: visible;
@@ -408,24 +435,57 @@ export function injectStyles(): void {
       stroke-linejoin: round;
     }
     .map-path-dim {
-      stroke: rgba(140, 120, 180, 0.28);
-      stroke-width: 1.6;
+      stroke: rgba(140, 120, 180, 0.32);
+      stroke-width: 1.8;
       stroke-dasharray: 3 2.5;
     }
     .map-path-progress {
-      stroke: rgba(255, 200, 80, 0.75);
-      stroke-width: 2.2;
-      stroke-dasharray: 4 2;
-      filter: drop-shadow(0 0 4px rgba(255, 180, 40, 0.55));
-      animation: pathShimmer 2.4s linear infinite;
+      stroke: rgba(255, 200, 80, 0.88);
+      stroke-width: 2.6;
+      stroke-dasharray: 5 2.5;
+      filter: drop-shadow(0 0 5px rgba(255, 180, 40, 0.65));
+      animation: pathShimmer 2.2s linear infinite;
+    }
+    .map-path-dot {
+      fill: rgba(255, 210, 100, 0.75);
+      stroke: rgba(80, 40, 0, 0.35);
+      stroke-width: 0.3;
+    }
+    .map-path-dot-tip {
+      fill: #ffe56a;
+      filter: drop-shadow(0 0 3px rgba(255, 200, 60, 0.9));
+      animation: pathDotPulse 1.2s ease-in-out infinite;
     }
     @keyframes pathShimmer {
-      to { stroke-dashoffset: -24; }
+      to { stroke-dashoffset: -28; }
+    }
+    @keyframes pathDotPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.55; }
     }
     .level-node.next-play {
       animation: nextPulse 1.4s ease-in-out infinite;
       border-color: #ffe06a !important;
       z-index: 2;
+      position: relative;
+    }
+    .level-you {
+      position: absolute;
+      top: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.48rem;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      color: #2a1800;
+      background: linear-gradient(180deg, #ffe56a, #f0b020);
+      padding: 2px 5px;
+      border-radius: 6px;
+      box-shadow: 0 2px 0 #8a5008;
+      line-height: 1.1;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 3;
     }
     @keyframes nextPulse {
       0%, 100% {
@@ -457,19 +517,53 @@ export function injectStyles(): void {
     .map-chapter {
       position: relative;
       z-index: 1;
+      padding: 2px 4px 6px;
+    }
+    .map-chapter-title {
       font-family: var(--font-display);
       font-weight: 800;
-      font-size: 0.78rem;
+      font-size: 0.8rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--gold);
       text-shadow: 0 2px 0 rgba(0,0,0,0.45);
-      padding: 12px 6px 6px;
-      margin-top: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
-    .map-board > .map-chapter:first-of-type {
-      margin-top: 0;
-      padding-top: 4px;
+    .map-chapter-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      font-size: 0.65rem;
+      color: #0a1830;
+      background: linear-gradient(180deg, #7ed0ff, #3a9ae0);
+      box-shadow: 0 2px 0 #1a4060;
+    }
+    .map-chapter-meta {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: rgba(200, 220, 255, 0.7);
+      margin-top: 3px;
+      letter-spacing: 0.02em;
+    }
+    .map-chapter-track {
+      margin-top: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(201, 162, 39, 0.3);
+      overflow: hidden;
+    }
+    .map-chapter-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #c9a227, #ffe56a);
+      box-shadow: 0 0 8px rgba(255, 200, 60, 0.45);
+      transition: width 0.4s ease;
+      min-width: 0;
     }
     .level-node.cleared {
       border-color: #c9a227;
@@ -478,6 +572,7 @@ export function injectStyles(): void {
         linear-gradient(160deg, #6a4a20, #3a2810 55%, #241808);
     }
     .level-node {
+      position: relative;
       aspect-ratio: 1;
       border-radius: 50%;
       border: 3px solid #6a4a18;
@@ -655,6 +750,15 @@ export function injectStyles(): void {
       box-shadow: 0 4px 0 #8a5008, inset 0 2px 0 rgba(255,255,255,0.5);
       flex-shrink: 0;
     }
+    .level-banner-chapter {
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 2px;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    }
     .level-banner-name {
       font-family: var(--font-display);
       font-weight: 800;
@@ -674,6 +778,23 @@ export function injectStyles(): void {
       font-size: 1rem;
       letter-spacing: 0.08em;
       text-shadow: 0 1px 0 rgba(0,0,0,0.5);
+    }
+    .level-banner.depth-mid {
+      border-color: rgba(180, 140, 255, 0.45);
+    }
+    .level-banner.depth-deep {
+      border-color: rgba(94, 200, 255, 0.5);
+    }
+    .goal-banner.soft {
+      font-size: 0.82rem;
+      padding: 8px 12px;
+      border-width: 1.5px;
+      box-shadow: 0 2px 0 rgba(0,0,0,0.25);
+    }
+    .hud-tip.star-nudge {
+      color: rgba(255, 220, 140, 0.85);
+      font-weight: 700;
+      margin-bottom: 8px;
     }
     .goal-row {
       display: flex; flex-wrap: wrap; gap: 8px;
@@ -1230,6 +1351,88 @@ export function injectStyles(): void {
       background: linear-gradient(180deg, #ff9aa8, #e03050);
       box-shadow: 0 4px 0 #7a1020, inset 0 2px 0 rgba(255,255,255,0.35);
       flex-shrink: 0;
+    }
+    /* Stage-complete fanfare (Pass 7) */
+    .stage-complete {
+      position: absolute; inset: 0;
+      z-index: 55;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+      background: rgba(2, 4, 12, 0.88);
+      backdrop-filter: blur(8px);
+      animation: placeFadeIn 0.3s ease-out;
+      overflow: hidden;
+    }
+    .stage-complete-sparks {
+      position: absolute; inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .stage-spark {
+      position: absolute;
+      left: var(--x, 50%);
+      top: 110%;
+      font-size: 0.9rem;
+      color: hsl(var(--hue, 40), 90%, 70%);
+      opacity: 0;
+      animation: stageSpark 2.4s ease-out infinite;
+      animation-delay: var(--delay, 0s);
+      text-shadow: 0 0 10px currentColor;
+    }
+    @keyframes stageSpark {
+      0% { transform: translateY(0) scale(0.4) rotate(0deg); opacity: 0; }
+      15% { opacity: 1; }
+      100% { transform: translateY(-120vh) scale(1.1) rotate(180deg); opacity: 0; }
+    }
+    .stage-complete-card {
+      position: relative;
+      z-index: 1;
+      width: min(360px, 100%);
+      padding: 18px 16px 16px;
+      border-radius: 22px;
+      text-align: center;
+      background:
+        radial-gradient(circle at 40% 15%, rgba(255, 220, 120, 0.2), transparent 50%),
+        linear-gradient(165deg, #3a2868, #141028 55%, #0a0818);
+      border: 3px solid rgba(255, 210, 74, 0.6);
+      box-shadow:
+        0 12px 0 rgba(0,0,0,0.4),
+        0 0 48px rgba(255, 180, 60, 0.3),
+        inset 0 1px 0 rgba(255,255,255,0.12);
+    }
+    .stage-complete-art {
+      width: 100%;
+      height: 110px;
+      object-fit: cover;
+      border-radius: 14px;
+      border: 2px solid rgba(126, 208, 255, 0.35);
+      margin-bottom: 12px;
+      box-shadow: 0 0 24px rgba(80, 160, 255, 0.25);
+    }
+    .stage-complete-kicker {
+      font-family: var(--font-display);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      color: var(--gold);
+      margin-bottom: 4px;
+    }
+    .stage-complete-title {
+      font-family: var(--font-title);
+      font-size: 1.45rem;
+      font-weight: 700;
+      color: #fff6e8;
+      margin: 0 0 6px;
+      text-shadow: 0 2px 0 #3a2060, 0 0 20px rgba(255, 200, 80, 0.35);
+    }
+    .stage-complete-sub {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: rgba(200, 220, 255, 0.85);
+      margin: 0 0 14px;
+    }
+    .stage-complete-card .btn {
+      width: 100%;
     }
   `;
   document.head.appendChild(el);

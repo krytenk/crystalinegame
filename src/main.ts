@@ -1430,6 +1430,99 @@ function boosterChip(
   return b;
 }
 
+/** Chapter metadata for map depth labels (levels 1–10 / 11–20 / 21+). */
+const MAP_CHAPTERS: readonly {
+  readonly roman: string;
+  readonly title: string;
+  readonly depth: string;
+  readonly maxId: number;
+  readonly minId: number;
+}[] = [
+  { roman: 'I', title: 'Mouth of the Mine', depth: 'shallow', minId: 1, maxId: 10 },
+  { roman: 'II', title: 'Prism Gallery', depth: 'mid', minId: 11, maxId: 20 },
+  { roman: 'III', title: 'Deep Geode', depth: 'deep', minId: 21, maxId: 999 },
+];
+
+function chapterForLevel(levelId: number): (typeof MAP_CHAPTERS)[number] {
+  return (
+    MAP_CHAPTERS.find((c) => levelId >= c.minId && levelId <= c.maxId) ?? MAP_CHAPTERS[0]!
+  );
+}
+
+/** Smooth snake path points for a single chapter grid (5-col zigzag). */
+function chapterPathPoints(
+  count: number,
+  cols = 5,
+): { x: number; y: number }[] {
+  const rows = Math.max(1, Math.ceil(count / cols));
+  const pts: { x: number; y: number }[] = [];
+  for (let i = 0; i < count; i++) {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const c = row % 2 === 1 ? cols - 1 - col : col;
+    pts.push({
+      x: ((c + 0.5) / cols) * 100,
+      y: ((row + 0.5) / rows) * 100,
+    });
+  }
+  return pts;
+}
+
+/** Per-chapter trail SVG — aligns with its own grid, not the whole board. */
+function buildChapterPathSvg(
+  levelCount: number,
+  /** How many nodes in this chapter are on the gold progress trail (0..levelCount). */
+  progressCount: number,
+): SVGSVGElement {
+  const pathSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  pathSvg.setAttribute('class', 'map-path');
+  pathSvg.setAttribute('viewBox', '0 0 100 100');
+  pathSvg.setAttribute('preserveAspectRatio', 'none');
+  const pts = chapterPathPoints(levelCount);
+  if (pts.length < 2) return pathSvg;
+
+  const ptsAttr = (list: { x: number; y: number }[]) =>
+    list.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+
+  const polyAll = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+  polyAll.setAttribute('points', ptsAttr(pts));
+  polyAll.setAttribute('class', 'map-path-line map-path-dim');
+  pathSvg.appendChild(polyAll);
+
+  const progN = Math.max(0, Math.min(levelCount, progressCount));
+  if (progN >= 2) {
+    const polyProg = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    polyProg.setAttribute('points', ptsAttr(pts.slice(0, progN)));
+    polyProg.setAttribute('class', 'map-path-line map-path-progress');
+    pathSvg.appendChild(polyProg);
+  }
+  // Milestone dots along the gold trail
+  for (let i = 0; i < progN; i++) {
+    const p = pts[i]!;
+    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    dot.setAttribute('cx', p.x.toFixed(1));
+    dot.setAttribute('cy', p.y.toFixed(1));
+    dot.setAttribute('r', i === progN - 1 ? '2.4' : '1.4');
+    dot.setAttribute(
+      'class',
+      i === progN - 1 ? 'map-path-dot map-path-dot-tip' : 'map-path-dot',
+    );
+    pathSvg.appendChild(dot);
+  }
+  return pathSvg;
+}
+
+function starCountForLevel(
+  stars: Record<number, number> | Record<string, number>,
+  levelId: number,
+): number {
+  return Number(
+    stars[levelId as keyof typeof stars] ??
+      stars[String(levelId) as keyof typeof stars] ??
+      0,
+  );
+}
+
 function renderMap(): void {
   const snap = economy.getSnapshot();
   const cols = 5;
@@ -1441,63 +1534,70 @@ function renderMap(): void {
       decoding: 'async',
     }),
   ]);
-  const pathSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  pathSvg.setAttribute('class', 'map-path');
-  pathSvg.setAttribute('viewBox', '0 0 100 100');
-  pathSvg.setAttribute('preserveAspectRatio', 'none');
-  const rowsTotal = Math.ceil(LEVELS.length / cols);
-  const ptsAll: { x: number; y: number }[] = [];
-  for (let i = 0; i < LEVELS.length; i++) {
-    const col = i % cols;
-    const row = Math.floor(i / cols);
-    const c = row % 2 === 1 ? cols - 1 - col : col;
-    ptsAll.push({
-      x: ((c + 0.5) / cols) * 100,
-      y: ((row + 0.5) / rowsTotal) * 100,
-    });
-  }
-  // Dim full trail
-  const polyAll = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-  polyAll.setAttribute('points', ptsAll.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '));
-  polyAll.setAttribute('class', 'map-path-line map-path-dim');
-  pathSvg.appendChild(polyAll);
-  // Gold trail only through unlocked progress (into the next playable level)
-  const unlockedIdx = Math.min(
-    LEVELS.length - 1,
-    Math.max(0, snap.progress.highestUnlocked - 1),
-  );
-  const progressPts = ptsAll.slice(0, unlockedIdx + 1);
-  if (progressPts.length >= 2) {
-    const polyProg = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-    polyProg.setAttribute(
-      'points',
-      progressPts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '),
-    );
-    polyProg.setAttribute('class', 'map-path-line map-path-progress');
-    pathSvg.appendChild(polyProg);
-  }
-  board.append(pathSvg);
 
   const nextPlayId = snap.progress.highestUnlocked;
-  const chapters: { title: string; levels: typeof LEVELS }[] = [
-    { title: 'I · Mouth of the Mine', levels: LEVELS.filter((l) => l.id <= 10) },
-    { title: 'II · Prism Gallery', levels: LEVELS.filter((l) => l.id > 10 && l.id <= 20) },
-    { title: 'III · Deep Geode', levels: LEVELS.filter((l) => l.id > 20) },
-  ];
   let totalStars = 0;
-  for (const ch of chapters) {
-    board.append(el('div', { class: 'map-chapter' }, [ch.title]));
+
+  for (const ch of MAP_CHAPTERS) {
+    const levels = LEVELS.filter((l) => l.id >= ch.minId && l.id <= ch.maxId);
+    if (levels.length === 0) continue;
+
+    let chStars = 0;
+    let chCleared = 0;
+    for (const lvl of levels) {
+      const s = starCountForLevel(snap.progress.stars, lvl.id);
+      chStars += s;
+      if (s > 0) chCleared += 1;
+    }
+    totalStars += chStars;
+    const maxStars = levels.length * 3;
+    const starPct = Math.min(100, Math.floor((chStars / Math.max(1, maxStars)) * 100));
+    const chapterOpen = levels.some((l) => l.id <= snap.progress.highestUnlocked);
+    const chapterDone = levels[levels.length - 1]!.id < snap.progress.highestUnlocked;
+
+    // Progress nodes in this chapter: unlocked through next playable
+    const progressInChapter = levels.filter((l) => l.id <= snap.progress.highestUnlocked).length;
+
+    const section = el(
+      'div',
+      {
+        class: `map-section depth-${ch.depth}${chapterOpen ? '' : ' locked'}${chapterDone ? ' done' : ''}`,
+      },
+      [],
+    );
+    section.append(
+      el('div', { class: 'map-chapter' }, [
+        el('div', { class: 'map-chapter-title' }, [
+          `${ch.roman} · ${ch.title}`,
+          chapterDone ? el('span', { class: 'map-chapter-badge' }, ['✓']) : '',
+        ].filter(Boolean) as (string | Node)[]),
+        el('div', { class: 'map-chapter-meta' }, [
+          `${chCleared}/${levels.length} cleared · ${chStars}/${maxStars}★`,
+        ]),
+        el('div', { class: 'map-chapter-track' }, [
+          el('div', {
+            class: 'map-chapter-fill',
+            style: `width:${starPct}%`,
+          }, []),
+        ]),
+      ]),
+    );
+
+    const gridWrap = el('div', { class: 'map-grid-wrap' }, []);
+    gridWrap.append(buildChapterPathSvg(levels.length, progressInChapter));
     const grid = el('div', { class: 'map-grid' }, []);
-    for (const lvl of ch.levels) {
+    for (const lvl of levels) {
       const locked = lvl.id > snap.progress.highestUnlocked;
-      const stars = Number(
-        snap.progress.stars[lvl.id] ??
-          snap.progress.stars[String(lvl.id) as unknown as number] ??
-          0,
-      );
-      totalStars += stars;
+      const stars = starCountForLevel(snap.progress.stars, lvl.id);
       const isNext = lvl.id === nextPlayId && !locked;
       const starText = stars > 0 ? '★'.repeat(stars) : locked ? '🔒' : '·';
+      const kids: (string | Node)[] = [
+        `${lvl.id}`,
+        el('div', { class: 'level-stars' }, [starText]),
+      ];
+      if (isNext) {
+        kids.push(el('div', { class: 'level-you' }, ['YOU']));
+      }
       const b = el(
         'button',
         {
@@ -1506,7 +1606,7 @@ function renderMap(): void {
           disabled: locked ? true : undefined,
           title: stars > 0 ? `${stars} star${stars === 1 ? '' : 's'}` : locked ? 'Locked' : 'Play',
         },
-        [`${lvl.id}`, el('div', { class: 'level-stars' }, [starText])],
+        kids,
       ) as HTMLButtonElement;
       if (!locked) {
         b.addEventListener('click', () => {
@@ -1517,7 +1617,10 @@ function renderMap(): void {
       }
       grid.append(b);
     }
-    board.append(grid);
+    gridWrap.append(grid);
+    section.append(gridWrap);
+    board.append(section);
+    void cols;
   }
 
   const meta = snap.meta;
@@ -1557,11 +1660,8 @@ function renderPrelevel(): void {
   const snap = economy.getSnapshot();
   if (snap.boosters.seedPrism <= 0) app.prep.seedPrism = false;
   if (snap.boosters.extraMoves <= 0) app.prep.extraMoves = false;
-  const best = Number(
-    snap.progress.stars[level.id] ??
-      snap.progress.stars[String(level.id) as unknown as number] ??
-      0,
-  );
+  const best = starCountForLevel(snap.progress.stars, level.id);
+  const ch = chapterForLevel(level.id);
 
   const bannerArt =
     level.id <= 10
@@ -1569,7 +1669,7 @@ function renderPrelevel(): void {
       : level.id <= 20
         ? 'ui/prelevel_mid.webp'
         : 'ui/prelevel_deep.webp';
-  const banner = el('div', { class: 'level-banner' }, [
+  const banner = el('div', { class: `level-banner depth-${ch.depth}` }, [
     el('img', {
       class: 'level-banner-art',
       src: assetUrl(bannerArt),
@@ -1580,6 +1680,7 @@ function renderPrelevel(): void {
     el('div', { class: 'level-banner-content' }, [
       el('div', { class: 'level-banner-num' }, [`${level.id}`]),
       el('div', { class: 'level-banner-body' }, [
+        el('div', { class: 'level-banner-chapter' }, [`${ch.roman} · ${ch.title}`]),
         el('div', { class: 'level-banner-name' }, [level.name]),
         el('div', { class: 'level-banner-meta' }, [
           `${level.moves} moves  ·  ${level.width}×${level.height}`,
@@ -1599,6 +1700,14 @@ function renderPrelevel(): void {
       ]),
     ),
   ]);
+
+  // Soft retention: tie this dive to cavern progress
+  const starNudge =
+    best < 3
+      ? best === 0
+        ? 'First clear mints essence · ★★★ pays discovery bonus'
+        : `Best ★${best} · push higher for more essence`
+      : '★★★ sealed · still farm essence on clears';
 
   const chips = el('div', { class: 'booster-row' }, [
     boosterChip(
@@ -1627,8 +1736,11 @@ function renderPrelevel(): void {
     `Level ${level.id}`,
     [
       banner,
+      el('div', { class: 'goal-banner soft' }, [nextGoalHint(snap)]),
+      essenceProgressBar(snap),
       el('p', { class: 'hud-tip' }, ['Goals']),
       goals,
+      el('p', { class: 'hud-tip star-nudge' }, [starNudge]),
       el('p', { class: 'hud-tip' }, ['Boosters (tap to arm)']),
       chips,
       el('p', { class: 'hud-tip' }, [
@@ -1745,13 +1857,27 @@ function renderResults(): void {
     scoreEl.textContent = r.score.toLocaleString();
   }
 
+  const nextHint =
+    r.status === 'won'
+      ? el('div', { class: 'goal-banner soft' }, [
+          snap.meta.nextAffordable
+            ? `Ready · place ${snap.meta.nextAffordable.name}`
+            : nextGoalHint(snap),
+        ])
+      : null;
+
   panel(
     r.status === 'won' ? 'Level Clear!' : 'Almost…',
     [
       burst,
       ...(essenceLine ? [essenceLine] : []),
+      ...(nextHint ? [nextHint] : []),
+      ...(r.status === 'won' ? [essenceProgressBar(snap)] : []),
       ...(r.status === 'won' && r.stars === 1
         ? [el('p', { class: 'hud-tip' }, ['More points or leftover moves → ★★ / ★★★'])]
+        : []),
+      ...(r.status === 'won' && r.stars === 3
+        ? [el('p', { class: 'hud-tip' }, ['Perfect clear · discovery essence banked'])]
         : []),
       ...(r.status === 'lost'
         ? [el('p', {}, ['A life was spent. Try again!'])]
@@ -1770,12 +1896,12 @@ function renderResults(): void {
       ...(r.status === 'won'
         ? [
             btn(
-              'CAVERN',
+              snap.meta.nextAffordable ? 'PLACE IN CAVERN' : 'CAVERN',
               () => {
                 app.screen = 'cavern';
                 renderOverlay();
               },
-              'secondary',
+              snap.meta.nextAffordable ? 'primary' : 'secondary',
             ),
           ]
         : []),
@@ -1984,6 +2110,72 @@ function playPlacementCeremony(up: MetaUpgrade, onDone: () => void): void {
   window.setTimeout(() => finish(), 2800);
 }
 
+/**
+ * Full-screen stage-complete fanfare (DOM — works over cavern overlay, not only canvas).
+ */
+function showStageCompleteFanfare(stageId: number, onDone: () => void): void {
+  if (document.getElementById('stage-complete-modal')) {
+    onDone();
+    return;
+  }
+  const stage = META_STAGES.find((s) => s.id === stageId);
+  const next = META_STAGES.find((s) => s.id === stageId + 1);
+  const sparks = el('div', { class: 'stage-complete-sparks' }, []);
+  for (let i = 0; i < 18; i++) {
+    sparks.append(
+      el('span', {
+        class: 'stage-spark',
+        style: `--i:${i};--x:${8 + (i * 37) % 84}%;--delay:${(i % 7) * 0.07}s;--hue:${(i * 23) % 360}`,
+      }, ['✦']),
+    );
+  }
+
+  const layer = el('div', { class: 'stage-complete', id: 'stage-complete-modal' }, [
+    sparks,
+    el('div', { class: 'stage-complete-card panel-enter' }, [
+      stage
+        ? metaArtImg(stage.art, stage.name, 'stage-complete-art')
+        : el('div', {}, []),
+      el('div', { class: 'stage-complete-kicker' }, ['CHAMBER COMPLETE']),
+      el('h2', { class: 'stage-complete-title' }, [
+        stage ? stage.name : `Stage ${stageId}`,
+      ]),
+      el('p', { class: 'stage-complete-sub' }, [
+        next
+          ? `New chamber open · ${next.name}`
+          : 'Deep Geode finished · the mine is yours',
+      ]),
+      btn(
+        next ? 'OPEN NEXT CHAMBER' : 'BEHOLD THE MINE',
+        () => {
+          layer.remove();
+          onDone();
+        },
+        'gold',
+      ),
+    ]),
+  ]);
+  overlay.append(layer);
+  haptic('special');
+  audio.starDing(0);
+  window.setTimeout(() => audio.starDing(1), 180);
+  window.setTimeout(() => audio.starDing(2), 360);
+  try {
+    const sfx = new Audio(assetUrl('sfx/whoosh-cinematic.ogg'));
+    sfx.volume = 0.5;
+    void sfx.play();
+  } catch {
+    /* ignore */
+  }
+  // Safety auto-dismiss
+  window.setTimeout(() => {
+    if (document.getElementById('stage-complete-modal')) {
+      layer.remove();
+      onDone();
+    }
+  }, 8000);
+}
+
 function metaUpgradeRow(
   up: MetaUpgrade,
   owned: boolean,
@@ -2019,13 +2211,14 @@ function metaUpgradeRow(
         const after = economy.getSnapshot().meta.stagesComplete;
         playPlacementCeremony(res.upgrade, () => {
           if (after > before) {
-            juice.powerBanner(`STAGE ${after} COMPLETE!`);
-            audio.starDing(2);
-            pushToast(`Chamber complete · new stage open!`, '#ffd24a', 2800);
+            showStageCompleteFanfare(after, () => {
+              pushToast(`Chamber complete · new stage open!`, '#ffd24a', 2800);
+              renderOverlay();
+            });
           } else {
             pushToast(`${res.upgrade.name} is in the cavern`, '#b8f0ff', 2000);
+            renderOverlay();
           }
-          renderOverlay();
         });
       },
       can ? 'primary' : 'secondary',
