@@ -22,7 +22,9 @@ export type CompanionBeat =
   | 'cavern'
   | 'cavernReady'
   | 'geode'
-  | 'geodeResult';
+  | 'geodeResult'
+  | 'coreSpire'
+  | 'streak';
 
 const LINES: Record<CompanionBeat, readonly string[]> = {
   title: [
@@ -68,6 +70,14 @@ const LINES: Record<CompanionBeat, readonly string[]> = {
     'Sparkles for the cavern fund!',
     'A fine crack. Bank it and keep diving.',
     'Jackpot vein! The Warden is impressed.',
+  ],
+  coreSpire: [
+    'Core Spire — the mountain’s spine. Conveyors never sleep.',
+    'Deep chambers. Steady hands. I am with you still.',
+  ],
+  streak: [
+    'The streak holds. Don’t rush the rock.',
+    'Heat in the lamp glass — keep the chain clean.',
   ],
 };
 

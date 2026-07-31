@@ -101,6 +101,8 @@ interface AppState {
   lastInputAt: number;
   /** Comfort Tools: one free reshuffle this level when inventory empty. */
   comfortReshuffleUsed: boolean;
+  /** Last cavern prop id placed — pulse on vista after ceremony. */
+  lastPlacedId: string | null;
 }
 
 const AHA_KEY = 'crystalline.ahaDone';
@@ -128,6 +130,7 @@ const app: AppState = {
   softHint: null,
   lastInputAt: 0,
   comfortReshuffleUsed: false,
+  lastPlacedId: null,
 };
 
 const powerLabel = (kind: string): string => {
@@ -332,10 +335,10 @@ function drawTitleCanvas(ctx: CanvasRenderingContext2D, now: number): void {
     }
   }
 
-  // Soft title on canvas (DOM carries the CTA)
+  // Soft title on canvas (DOM carries the CTA) — sit higher so the title panel has room
   const pulse = reduce ? 1 : 0.92 + 0.08 * Math.sin(age * 0.004);
   ctx.save();
-  ctx.translate(w / 2, h * 0.26);
+  ctx.translate(w / 2, h * 0.22);
   ctx.scale(pulse, pulse);
   ctx.textAlign = 'center';
   ctx.font = '800 64px "GalacticKnights", "CrystallineDisplay", "Cinzel", serif';
@@ -352,7 +355,7 @@ function drawTitleCanvas(ctx: CanvasRenderingContext2D, now: number): void {
   ctx.font = '700 17px "CrystallineBody", "Nunito", sans-serif';
   ctx.fillStyle = 'rgba(220,210,255,0.8)';
   ctx.shadowBlur = 0;
-  ctx.fillText('Match · Forge · Cascade · Build', w / 2, h * 0.34);
+  ctx.fillText('Match · Forge · Cascade · Build', w / 2, h * 0.30);
 }
 
 /** Slow floating sparkles for title / idle ambience. */
@@ -789,7 +792,10 @@ function tickSoftHint(now: number): void {
   if (app.lastInputAt <= 0) app.lastInputAt = now;
   if (now - app.lastInputAt < delay) return;
   const hint = findLegalHint(app.session._state.grid);
-  if (hint) app.softHint = hint;
+  if (hint) {
+    app.softHint = hint;
+    if (snap.comfortOwned) haptic('tap');
+  }
 }
 
 function drawSoftHint(ctx: CanvasRenderingContext2D, now: number): void {
@@ -1612,10 +1618,13 @@ function renderTitle(): void {
   overlay.style.paddingBottom = '8%';
 
   const snap = economy.getSnapshot();
+  const chOpen = chapterForLevel(Math.min(LEVEL_COUNT, snap.progress.highestUnlocked));
   const progressLine =
     snap.progress.highestUnlocked <= 1 && !app.ahaDone
       ? 'Your first dive awaits'
-      : `Chamber ${snap.progress.highestUnlocked} open · ${snap.meta.ownedCount}/${snap.meta.totalCount} cavern pieces`;
+      : `Lv ${snap.progress.highestUnlocked} · ${chOpen.roman} ${chOpen.title}` +
+        ` · cavern ${snap.meta.ownedCount}/${snap.meta.totalCount}` +
+        (snap.daily.winStreak > 1 ? ` · 🔥${snap.daily.winStreak}` : '');
 
   const wrap = el('div', { class: 'panel panel-title' }, []);
   wrap.append(
@@ -1857,7 +1866,7 @@ function showGeodeCrackModal(onDone?: () => void): void {
     grid.append(cell);
   }
 
-  const modal = el('div', { class: 'geode-crack', id: 'geode-crack-modal' }, [
+  const modal = el('div', { class: 'geode-crack ceremony-root-layer', id: 'geode-crack-modal' }, [
     el('div', { class: 'geode-crack-card panel-enter' }, [
       companionBubble('geode', app.levelId),
       el('div', { class: 'geode-crack-kicker' }, ['CRACK A GEODE']),
@@ -1877,13 +1886,13 @@ function showGeodeCrackModal(onDone?: () => void): void {
       ),
     ]),
   ]);
-  overlay.append(modal);
+  mountCeremonyLayer(modal);
   audio.starDing(0);
 }
 
 function showDailyGiftModal(gift: { credits: number; essence: number }): void {
   if (document.getElementById('daily-gift-modal')) return;
-  const modal = el('div', { class: 'daily-gift', id: 'daily-gift-modal' }, [
+  const modal = el('div', { class: 'daily-gift ceremony-root-layer', id: 'daily-gift-modal' }, [
     el('div', { class: 'daily-gift-card panel-enter' }, [
       companionBubble('daily', Number(gift.credits + gift.essence)),
       el('div', { class: 'daily-gift-kicker' }, ['DAILY GIFT']),
@@ -1906,7 +1915,7 @@ function showDailyGiftModal(gift: { credits: number; essence: number }): void {
       ),
     ]),
   ]);
-  overlay.append(modal);
+  mountCeremonyLayer(modal);
   audio.starDing(0);
 }
 
@@ -2324,6 +2333,9 @@ function renderPrelevel(): void {
         : `Best ★${best} · push higher for more essence`
       : '★★★ sealed · still farm essence on clears';
 
+  const wardenBeat: CompanionBeat =
+    level.id >= 31 ? 'coreSpire' : level.id >= 21 ? 'cavern' : 'title';
+
   const chips = el('div', { class: 'booster-row' }, [
     boosterChip(
       `Prism seed ${app.prep.seedPrism ? '✓' : ''}`,
@@ -2351,6 +2363,7 @@ function renderPrelevel(): void {
     `Level ${level.id}`,
     [
       banner,
+      companionBubble(wardenBeat, level.id + best),
       el('div', { class: 'goal-banner soft' }, [nextGoalHint(snap)]),
       essenceProgressBar(snap),
       el('p', { class: 'hud-tip' }, ['Goals']),
@@ -2493,9 +2506,13 @@ function renderResults(): void {
     r.status === 'won'
       ? r.stars >= 3
         ? 'winPerfect'
-        : 'win'
+        : snap.daily.winStreak >= 3
+          ? 'streak'
+          : app.levelId >= 31
+            ? 'coreSpire'
+            : 'win'
       : 'lose';
-  const warden = companionBubble(beat, r.score + r.stars * 11);
+  const warden = companionBubble(beat, r.score + r.stars * 11 + snap.daily.winStreak);
 
   const leaveResults = (screen: typeof app.screen, levelDelta = 0): void => {
     const go = () => {
@@ -2535,6 +2552,16 @@ function renderResults(): void {
     r.status === 'won' && snap.daily.winStreak > 1
       ? el('p', { class: 'streak-gain' }, [`🔥 ${snap.daily.winStreak} win streak`])
       : null;
+  const dailyProg =
+    r.status === 'won'
+      ? el('p', { class: 'hud-tip' }, [
+          snap.daily.claimReady
+            ? `Daily dive ready · claim +${snap.daily.rewardEssence}✧ on Levels`
+            : snap.daily.claimed
+              ? 'Daily dive claimed · keep streaking'
+              : `Daily dive ${Math.min(snap.daily.clears, snap.daily.target)}/${snap.daily.target}`,
+        ])
+      : null;
 
   panel(
     r.status === 'won' ? 'Level Clear!' : 'Almost…',
@@ -2544,6 +2571,7 @@ function renderResults(): void {
       ...(essenceLine ? [essenceLine] : []),
       ...(albumLine ? [albumLine] : []),
       ...(streakLine ? [streakLine] : []),
+      ...(dailyProg ? [dailyProg] : []),
       ...(nextHint ? [nextHint] : []),
       ...(r.status === 'won' ? [essenceProgressBar(snap)] : []),
       ...(r.status === 'won' && r.stars === 1
@@ -2642,9 +2670,11 @@ function renderCavern(): void {
   // Live-furnished stage: props sit on the mine backdrop
   const stageProps = el('div', { class: 'cavern-props' }, []);
   for (const up of meta.activeStageOwned) {
+    const just = app.lastPlacedId === up.id;
     const prop = el('div', {
-      class: 'cavern-prop',
+      class: `cavern-prop${just ? ' just-placed' : ''}`,
       title: up.name,
+      'data-prop-id': up.id,
       style: `left:${up.place.left}%;top:${up.place.top}%;transform:translate(-50%,-50%) scale(${up.place.scale ?? 1})`,
     }, [metaArtImg(up.art, up.name, 'cavern-prop-img')]);
     stageProps.append(prop);
@@ -2654,6 +2684,7 @@ function renderCavern(): void {
     const ghost = el('div', {
       class: 'cavern-prop ghost',
       title: up.name,
+      'data-prop-id': up.id,
       style: `left:${up.place.left}%;top:${up.place.top}%;transform:translate(-50%,-50%) scale(${(up.place.scale ?? 1) * 0.85})`,
     }, [metaArtImg(up.art, up.name, 'cavern-prop-img')]);
     stageProps.append(ghost);
@@ -2767,15 +2798,6 @@ function renderCavern(): void {
     ],
     { className: 'panel-cavern', scrollTop: true },
   );
-  // After a place / stage fanfare, keep the living vista in frame
-  if (app.screen === 'cavern') {
-    requestAnimationFrame(() => {
-      const vistaEl = document.getElementById('cavern-vista');
-      if (vistaEl && overlay.scrollTop > 80) {
-        /* keep top after full re-render from scrollTop:true */
-      }
-    });
-  }
 }
 
 /**
@@ -2794,14 +2816,28 @@ function mountCeremonyLayer(layer: HTMLElement): void {
   (root ?? overlay).append(layer);
 }
 
-function scrollCavernVistaIntoView(): void {
+function scrollCavernVistaIntoView(opts?: { highlightId?: string | null }): void {
   requestAnimationFrame(() => {
-    const vista = document.getElementById('cavern-vista');
-    if (vista) {
-      vista.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } else {
-      overlay.scrollTop = 0;
-    }
+    requestAnimationFrame(() => {
+      const vista = document.getElementById('cavern-vista');
+      if (vista) {
+        vista.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        overlay.scrollTop = 0;
+      }
+      const id = opts?.highlightId ?? app.lastPlacedId;
+      if (id) {
+        const safe =
+          typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+            ? CSS.escape(id)
+            : id.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        const prop = document.querySelector(`.cavern-prop[data-prop-id="${safe}"]`);
+        if (prop) {
+          prop.classList.add('just-placed');
+          window.setTimeout(() => prop.classList.remove('just-placed'), 2200);
+        }
+      }
+    });
   });
 }
 
@@ -2965,6 +3001,7 @@ function metaUpgradeRow(
         }
         haptic('forge');
         const after = economy.getSnapshot().meta.stagesComplete;
+        app.lastPlacedId = res.upgrade.id;
         // Jump camera to the mine vista before / after ceremony
         overlay.scrollTop = 0;
         playPlacementCeremony(res.upgrade, () => {
@@ -2972,12 +3009,18 @@ function metaUpgradeRow(
             showStageCompleteFanfare(after, () => {
               pushToast(`Chamber complete · new stage open!`, '#ffd24a', 2800);
               renderOverlay();
-              scrollCavernVistaIntoView();
+              scrollCavernVistaIntoView({ highlightId: res.upgrade.id });
+              window.setTimeout(() => {
+                app.lastPlacedId = null;
+              }, 2400);
             });
           } else {
             pushToast(`${res.upgrade.name} is in the cavern`, '#b8f0ff', 2000);
             renderOverlay();
-            scrollCavernVistaIntoView();
+            scrollCavernVistaIntoView({ highlightId: res.upgrade.id });
+            window.setTimeout(() => {
+              app.lastPlacedId = null;
+            }, 2400);
           }
         });
       },

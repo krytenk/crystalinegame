@@ -1165,6 +1165,23 @@ export function injectStyles(): void {
       70% { transform: scale(1.08) translateY(2px); }
       to { opacity: 1; transform: scale(1) translateY(0); }
     }
+    .cavern-prop.just-placed {
+      z-index: 4;
+      filter:
+        drop-shadow(0 0 18px rgba(255, 220, 100, 0.95))
+        drop-shadow(0 6px 14px rgba(0,0,0,0.55));
+      animation: propJustPlaced 1.1s cubic-bezier(0.22, 1.3, 0.36, 1) both;
+    }
+    .cavern-prop.just-placed .cavern-prop-img {
+      outline: 2px solid rgba(255, 210, 74, 0.9);
+      outline-offset: 3px;
+      border-radius: 12px;
+    }
+    @keyframes propJustPlaced {
+      0% { transform: translate(-50%, -50%) scale(0.35); opacity: 0; }
+      55% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
     .cavern-depth {
       position: absolute;
       left: 0; right: 0; bottom: 0;
@@ -1396,9 +1413,11 @@ export function injectStyles(): void {
       letter-spacing: 0.06em;
       color: #7ed0ff;
     }
-    /* Placement ceremony — pinned to game-root, ignores overlay scroll */
+    /* Ceremonies pinned to game-root — ignore overlay scroll position */
     .ceremony-root-layer.place-ceremony,
-    .ceremony-root-layer.stage-complete {
+    .ceremony-root-layer.stage-complete,
+    .ceremony-root-layer.geode-crack,
+    .ceremony-root-layer.daily-gift {
       position: absolute;
       inset: 0;
       z-index: 60;

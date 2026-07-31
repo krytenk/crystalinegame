@@ -24,6 +24,8 @@ describe('Geode Warden companion', () => {
       'cavernReady',
       'geode',
       'geodeResult',
+      'coreSpire',
+      'streak',
     ] as const) {
       expect(companionLine(beat, 0).length).toBeGreaterThan(8);
     }
