@@ -130,6 +130,16 @@ export interface EconomyAux {
     readonly credits: number;
     readonly essence: number;
   } | null;
+  /** Endless album progress (cycle + card counts). */
+  readonly album: unknown;
+  /** Hybrid Mine Rush event blob. */
+  readonly hybridEvent: unknown;
+  /** Idle cavern last claim. */
+  readonly idle: unknown;
+  /** Wall-clock ms until simulated ads are free (null = none). */
+  readonly adsFreeUntil: number | null;
+  /** Comfort Tools pack owned (ease of play). */
+  readonly comfortOwned: boolean;
 }
 
 export interface PersistedSave extends SaveData {
@@ -144,6 +154,9 @@ const SKU_IDS: readonly SkuId[] = [
   'bundle.starter',
   'lives.refill',
   'ads.remove',
+  'ads.pass7',
+  'ads.pass30',
+  'ease.comfort',
 ];
 
 export function freshMetrics(now: number): Metrics {
@@ -178,6 +191,11 @@ export function freshAux(now: number): EconomyAux {
     metaOwned: [],
     metaTotalSpent: 0,
     pendingDailyGift: null,
+    album: { cycle: 0, counts: {}, lastPageReward: 0 },
+    hybridEvent: null,
+    idle: { lastClaimAt: now },
+    adsFreeUntil: null,
+    comfortOwned: false,
   };
 }
 
@@ -331,6 +349,11 @@ export function repair(raw: unknown, now: number): PersistedSave {
         : [],
       metaTotalSpent: safeCount(aux['metaTotalSpent'], 0),
       pendingDailyGift: null, // never restore mid-toast across reloads
+      album: aux['album'] ?? base.aux.album,
+      hybridEvent: aux['hybridEvent'] ?? null,
+      idle: aux['idle'] ?? { lastClaimAt: now },
+      adsFreeUntil: nullableNum(aux['adsFreeUntil']),
+      comfortOwned: bool(aux['comfortOwned'], false),
     },
   };
 }

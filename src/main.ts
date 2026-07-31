@@ -16,6 +16,7 @@ import {
   META_STAGES,
   META_UPGRADES,
   createBrowserStorage,
+  levelHasConveyor,
   type MetaUpgrade,
 } from '@economy/index';
 import {
@@ -62,7 +63,9 @@ type Screen =
   | 'lives'
   | 'ad'
   | 'settings'
-  | 'dashboard';
+  | 'dashboard'
+  | 'album'
+  | 'event';
 
 interface AppState {
   screen: Screen;
@@ -1017,6 +1020,17 @@ function playMatchVfx(events: readonly GameEvent[]): void {
     if (maxCascade >= 2) haptic('cascade');
   }
 
+  // Conveyor belt feedback (mid/deep levels)
+  for (const ev of events) {
+    if (ev.t === 'conveyor') {
+      pushToast(
+        `Conveyor ${ev.direction === 'left' ? '←' : '→'} row ${ev.row + 1}`,
+        '#a8d8ff',
+        900,
+      );
+    }
+  }
+
   // Combo end fanfare — when a multi-step cascade fully resolves
   for (const ev of events) {
     if (ev.t === 'cascadeEnd' && ev.steps >= 3) {
@@ -1439,6 +1453,12 @@ function renderOverlay(): void {
       break;
     case 'cavern':
       renderCavern();
+      break;
+    case 'album':
+      renderAlbum();
+      break;
+    case 'event':
+      renderHybridEvent();
       break;
     case 'store':
       renderStore();
@@ -2010,12 +2030,60 @@ function renderMap(): void {
   }
 
   const meta = snap.meta;
+  const idle = snap.idle;
   panel(
     'Levels',
     [
       el('p', {}, ['Clear chambers · collect stars · furnish your cavern']),
       el('div', { class: 'goal-banner' }, [nextGoalHint(snap)]),
       essenceProgressBar(snap),
+      (() => {
+        const strip = el('div', { class: 'liveops-strip' }, []);
+        const albumB = el(
+          'button',
+          { class: 'liveops-chip', type: 'button' },
+          [`Album · cycle ${snap.album.cycle + 1} · ${snap.album.pct}%`],
+        ) as HTMLButtonElement;
+        albumB.addEventListener('click', () => {
+          app.screen = 'album';
+          renderOverlay();
+        });
+        const eventB = el(
+          'button',
+          { class: 'liveops-chip event', type: 'button' },
+          [`Event · ${snap.event.personal} pts · #${snap.event.leagueRank}`],
+        ) as HTMLButtonElement;
+        eventB.addEventListener('click', () => {
+          app.screen = 'event';
+          renderOverlay();
+        });
+        const idleB = el(
+          'button',
+          {
+            class: `liveops-chip idle${idle.pending > 0 ? '' : ' dim'}`,
+            type: 'button',
+          },
+          [
+            idle.pending > 0
+              ? `Idle · +${idle.pending}✧ claim`
+              : `Idle · ${idle.ratePerHour}✧/h`,
+          ],
+        ) as HTMLButtonElement;
+        idleB.addEventListener('click', () => {
+          if (idle.pending > 0) {
+            const n = economy.claimIdleEssence();
+            if (n > 0) {
+              audio.starDing(1);
+              pushToast(`Cavern idle · +${n}✧`, '#b8f0ff', 2200);
+            }
+          } else {
+            app.screen = 'cavern';
+          }
+          renderOverlay();
+        });
+        strip.append(albumB, eventB, idleB);
+        return strip;
+      })(),
       board,
       el('div', { class: 'stat-grid' }, [
         stat('Lives', String(snap.lives.count)),
@@ -2029,6 +2097,14 @@ function renderMap(): void {
         app.screen = 'cavern';
         renderOverlay();
       }, 'gold'),
+      btn('ALBUM', () => {
+        app.screen = 'album';
+        renderOverlay();
+      }, 'secondary'),
+      btn('EVENT', () => {
+        app.screen = 'event';
+        renderOverlay();
+      }, 'secondary'),
       btn('SHOP', () => {
         app.screen = 'store';
         renderOverlay();
@@ -2127,10 +2203,18 @@ function renderPrelevel(): void {
       el('p', { class: 'hud-tip' }, ['Goals']),
       goals,
       el('p', { class: 'hud-tip star-nudge' }, [starNudge]),
+      ...(levelHasConveyor(level.id)
+        ? [
+            el('p', { class: 'hud-tip conveyor-note' }, [
+              'Conveyor active · a playable row shifts after each move (Sort-inspired)',
+            ]),
+          ]
+        : []),
       el('p', { class: 'hud-tip' }, ['Boosters (tap to arm)']),
       chips,
       el('p', { class: 'hud-tip' }, [
-        `Bag · pickaxe ×${snap.boosters.pickaxe} · reshuffle ×${snap.boosters.reshuffle}`,
+        `Bag · pickaxe ×${snap.boosters.pickaxe} · reshuffle ×${snap.boosters.reshuffle}` +
+          (snap.comfortOwned ? ' · comfort on' : ''),
       ]),
     ],
     [
@@ -2275,12 +2359,23 @@ function renderResults(): void {
     }
   };
 
+  const albumLine =
+    r.status === 'won' && snap.lastAlbumGranted.length > 0
+      ? el('p', { class: 'album-gain' }, [
+          `Album +${snap.lastAlbumGranted.length} card${snap.lastAlbumGranted.length === 1 ? '' : 's'}` +
+            (snap.lastAlbumPageReward > 0
+              ? ` · page complete +${snap.lastAlbumPageReward}✧!`
+              : ''),
+        ])
+      : null;
+
   panel(
     r.status === 'won' ? 'Level Clear!' : 'Almost…',
     [
       burst,
       warden,
       ...(essenceLine ? [essenceLine] : []),
+      ...(albumLine ? [albumLine] : []),
       ...(nextHint ? [nextHint] : []),
       ...(r.status === 'won' ? [essenceProgressBar(snap)] : []),
       ...(r.status === 'won' && r.stars === 1
@@ -2447,6 +2542,29 @@ function renderCavern(): void {
     return section;
   });
 
+  const idleSnap = snap.idle;
+  const idleCard = el('div', { class: 'idle-card' }, [
+    el('div', { class: 'idle-card-title' }, ['Cozy idle drip']),
+    el('p', { class: 'hud-tip' }, [
+      `${idleSnap.ratePerHour}✧/hour from furnishings · cap ${idleSnap.cap} · no login punishment`,
+    ]),
+    idleSnap.pending > 0
+      ? btn(
+          `CLAIM · +${idleSnap.pending}✧`,
+          () => {
+            const n = economy.claimIdleEssence();
+            if (n > 0) {
+              audio.starDing(1);
+              haptic('forge');
+              pushToast(`Idle cavern · +${n}✧`, '#b8f0ff', 2200);
+            }
+            renderOverlay();
+          },
+          'gold',
+        )
+      : el('p', { class: 'hud-tip' }, ['Come back later — the mine keeps humming.']),
+  ]);
+
   panel(
     'Your Cavern',
     [
@@ -2457,6 +2575,7 @@ function renderCavern(): void {
       el('p', {}, [
         'Earn essence from clears. Furnish the living mine — pieces appear in the chamber.',
       ]),
+      idleCard,
       el('div', { class: 'goal-banner' }, [nextGoalHint(snap)]),
       essenceProgressBar(snap),
       vista,
@@ -2672,6 +2791,9 @@ const SKU_GLYPH: Record<string, string> = {
   'bundle.starter': '✦',
   'lives.refill': '♥',
   'ads.remove': '☁',
+  'ads.pass7': '☁7',
+  'ads.pass30': '☁30',
+  'ease.comfort': '☕',
 };
 
 const SKU_TAG_LABEL: Record<string, string> = {
@@ -2679,6 +2801,110 @@ const SKU_TAG_LABEL: Record<string, string> = {
   mostPopular: 'MOST POPULAR',
   limited: 'LIMITED',
 };
+
+function renderAlbum(): void {
+  const snap = economy.getSnapshot();
+  const a = snap.album;
+  const grid = el('div', { class: 'album-grid' }, []);
+  for (const slot of a.slots) {
+    grid.append(
+      el('div', { class: `album-slot${slot.complete ? ' done' : ''}` }, [
+        el('div', { class: 'album-glyph' }, [slot.glyph]),
+        el('div', { class: 'album-name' }, [slot.name]),
+        el('div', { class: 'album-count' }, [`${slot.count}/${slot.need}`]),
+      ]),
+    );
+  }
+  panel(
+    'Endless Album',
+    [
+      companionBubble('cavern', a.cycle + a.completeCount),
+      el('p', {}, [
+        `Cycle ${a.cycle + 1} · complete the page forever — needs rise each cycle, no content cliff.`,
+      ]),
+      el('div', { class: 'essence-track-wrap' }, [
+        el('div', { class: 'essence-track-label' }, [
+          `${a.completeCount}/${a.totalSlots} seals · ${a.pct}%`,
+        ]),
+        el('div', { class: 'essence-track' }, [
+          el('div', { class: 'essence-track-fill', style: `width:${a.pct}%` }, []),
+        ]),
+      ]),
+      grid,
+      el('p', { class: 'hud-tip' }, [
+        'Clear levels to pull cards. Stars and deep chambers grant more pulls.',
+      ]),
+    ],
+    [
+      btn('LEVELS', () => {
+        app.screen = 'map';
+        renderOverlay();
+      }, 'gold'),
+      btn('EVENT', () => {
+        app.screen = 'event';
+        renderOverlay();
+      }, 'secondary'),
+    ],
+    { className: 'panel-album', scrollTop: true },
+  );
+}
+
+function renderHybridEvent(): void {
+  const snap = economy.getSnapshot();
+  const ev = snap.event;
+  const days = Math.max(0, Math.ceil(ev.msLeft / 86_400_000));
+  const rows = ev.milestones.map((m) =>
+    el('div', { class: `event-mile${m.done ? ' done' : ''}${m.claimed ? ' claimed' : ''}` }, [
+      el('div', { class: 'event-mile-at' }, [`${m.at} pts`]),
+      el('div', { class: 'event-mile-body' }, [
+        el('div', { class: 'name' }, [m.label]),
+        el('div', { class: 'blurb' }, [
+          m.claimed
+            ? 'Claimed'
+            : m.done
+              ? 'Ready · auto-claimed on clear'
+              : `+${m.essence}✧ · +${m.shards}◆`,
+        ]),
+      ]),
+      el('div', { class: 'event-mile-flag' }, [m.claimed ? '✓' : m.done ? '●' : '○']),
+    ]),
+  );
+  panel(
+    'Mine Rush',
+    [
+      el('p', {}, [ev.tagline]),
+      el('div', { class: 'event-hero' }, [
+        el('div', { class: 'event-hero-pts' }, [String(ev.personal)]),
+        el('div', {}, [
+          el('div', { class: 'event-hero-label' }, ['Personal points']),
+          el('div', { class: 'hud-tip' }, [
+            `Soft league #${ev.leagueRank} · ${ev.leagueLabel} · ~${days}d left`,
+          ]),
+        ]),
+      ]),
+      el('p', { class: 'hud-tip' }, [
+        'Hybrid design: personal milestones always pay. League rank is flavour only — not a whale gate.',
+      ]),
+      ...rows,
+      ev.nextMilestone
+        ? el('div', { class: 'goal-banner soft' }, [
+            `Next · ${ev.nextMilestone.at - ev.personal} pts to ${ev.nextMilestone.label}`,
+          ])
+        : el('div', { class: 'goal-banner soft' }, ['All personal milestones sealed this week']),
+    ],
+    [
+      btn('LEVELS', () => {
+        app.screen = 'map';
+        renderOverlay();
+      }, 'gold'),
+      btn('ALBUM', () => {
+        app.screen = 'album';
+        renderOverlay();
+      }, 'secondary'),
+    ],
+    { className: 'panel-event', scrollTop: true },
+  );
+}
 
 function renderStore(): void {
   const snap = economy.getSnapshot();
@@ -2748,12 +2974,22 @@ function renderStore(): void {
     return row;
   });
 
+  const ethics = el('div', { class: 'ethics-banner' }, [
+    snap.adsFreeActive
+      ? `Ad-free active${snap.adsFreeUntil && !snap.ownedSkus.includes('ads.remove') ? ` · until ${new Date(snap.adsFreeUntil).toLocaleDateString()}` : ' · permanent'}`
+      : 'Ethical convenience: 7d / 30d ad passes · no forced appointment punish',
+    snap.comfortOwned ? ' · Comfort tools on' : '',
+  ]);
+
   panel(
     'Shop',
     [
-      el('div', { class: 'sim-badge' }, ['simulated · no real money']),
+      el('div', { class: 'sim-badge sim-badge-show' }, ['simulated · no real money']),
       wallet,
-      el('p', { class: 'hud-tip' }, ['Stock up before the next dive · research price ladder']),
+      ethics,
+      el('p', { class: 'hud-tip' }, [
+        'Ease of play over dark patterns · pay to skip friction, not to exist',
+      ]),
       ...items,
     ],
     [

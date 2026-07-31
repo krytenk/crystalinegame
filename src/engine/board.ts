@@ -21,6 +21,11 @@ import {
 } from './objectives';
 import { claimLivingCore, resolveCascades, triggerPowerSwap } from './resolve';
 import { createRng } from './rng';
+import {
+  conveyorShiftRow,
+  levelHasConveyor,
+  pickConveyorRow,
+} from './conveyor';
 import { buildSpawnTable, fillEmptyCells } from './spawn';
 import { isLivingCore, isPowerCrystal } from './specials';
 import { newCounters, type SessionState } from './state';
@@ -178,7 +183,23 @@ const ensurePlayable = (s: SessionState, events: GameEvent[]): void => {
   }
 };
 
-const afterMove = (s: SessionState, events: GameEvent[]): void => {
+const afterMove = (
+  s: SessionState,
+  events: GameEvent[],
+  opts: { spentMove?: boolean } = {},
+): void => {
+  // Sort-inspired belt: only when a player move was spent (mid/deep levels).
+  if (opts.spentMove && levelHasConveyor(s.level.id) && s.status === 'playing') {
+    const row = pickConveyorRow(s.grid);
+    const direction = s.moveIndex % 2 === 0 ? 'left' : 'right';
+    const conv = conveyorShiftRow(s.grid, row, direction);
+    if (conv.length > 0) {
+      events.push(...conv);
+      if (hasAnyMatch(s.grid)) {
+        events.push(...resolveCascades(s, []));
+      }
+    }
+  }
   events.push(...tickBombs(s));
   if (
     s.level.shadowPeriod !== undefined &&
@@ -283,7 +304,7 @@ export const createSession = (level: LevelDef, seed: number, ddaScalar = 0): Ses
         events.push(...claimLivingCore(state, coreAt));
         // No move spent for core claim via intentional swap-into — actually spend?
         // Treat as free reward: no move cost.
-        afterMove(state, events);
+        afterMove(state, events, { spentMove: false });
         endIfNeeded(state, events);
         return events;
       }
@@ -300,7 +321,7 @@ export const createSession = (level: LevelDef, seed: number, ddaScalar = 0): Ses
         events.push({ t: 'swap', a, b });
         commitMove(state, events);
         events.push(...triggerPowerSwap(state, a, atA, b, atB));
-        afterMove(state, events);
+        afterMove(state, events, { spentMove: true });
         return events;
       }
 
@@ -314,7 +335,7 @@ export const createSession = (level: LevelDef, seed: number, ddaScalar = 0): Ses
       events.push({ t: 'swap', a, b });
       commitMove(state, events);
       events.push(...resolveCascades(state, [a, b]));
-      afterMove(state, events);
+      afterMove(state, events, { spentMove: true });
       return events;
     },
 

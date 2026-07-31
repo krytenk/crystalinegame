@@ -105,6 +105,13 @@ export type GameEvent =
       readonly totalPoints: number;
     }
   | { readonly t: 'reshuffle'; readonly reason: 'deadlock' }
+  /** Sort-inspired edge belt: one playable row shifts after a spent move. */
+  | {
+      readonly t: 'conveyor';
+      readonly row: number;
+      readonly direction: 'left' | 'right';
+      readonly cells: number;
+    }
 
   // -- session ------------------------------------------------------------
   | { readonly t: 'scoreChanged'; readonly score: number; readonly delta: number }

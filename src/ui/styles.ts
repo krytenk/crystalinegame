@@ -1885,6 +1885,167 @@ export function injectStyles(): void {
     .geode-crack-card .companion-bubble {
       margin-top: 0;
     }
+    /* ---- Live-ops evolution: album, hybrid event, idle, ethics ---- */
+    .liveops-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0 0 12px;
+    }
+    .liveops-chip {
+      appearance: none;
+      border: 2px solid rgba(126, 208, 255, 0.35);
+      background: linear-gradient(180deg, rgba(40, 50, 90, 0.9), rgba(12, 10, 28, 0.95));
+      color: #e8f4ff;
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 0.72rem;
+      letter-spacing: 0.03em;
+      padding: 8px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+      box-shadow: 0 2px 0 rgba(0,0,0,0.3);
+    }
+    .liveops-chip.event {
+      border-color: rgba(255, 180, 100, 0.45);
+      color: #ffe8c8;
+    }
+    .liveops-chip.idle {
+      border-color: rgba(120, 220, 160, 0.45);
+      color: #c8ffe0;
+    }
+    .liveops-chip.dim { opacity: 0.7; }
+    .liveops-chip:active {
+      transform: translateY(1px);
+    }
+    .album-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin: 12px 0;
+    }
+    .album-slot {
+      padding: 12px 8px;
+      border-radius: 14px;
+      text-align: center;
+      background: linear-gradient(180deg, rgba(40, 30, 70, 0.9), rgba(12, 8, 28, 0.95));
+      border: 2px solid rgba(180, 140, 255, 0.22);
+      box-shadow: 0 3px 0 rgba(0,0,0,0.3);
+    }
+    .album-slot.done {
+      border-color: rgba(255, 210, 74, 0.55);
+      box-shadow: 0 0 12px rgba(255, 180, 40, 0.2), 0 3px 0 rgba(0,0,0,0.3);
+    }
+    .album-glyph { font-size: 1.4rem; margin-bottom: 4px; }
+    .album-name {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 0.72rem;
+      color: #fff6e8;
+    }
+    .album-count {
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: #7ed0ff;
+      margin-top: 2px;
+    }
+    .album-gain {
+      color: #e0c0ff !important;
+      font-weight: 800 !important;
+      font-family: var(--font-display);
+    }
+    .event-hero {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin: 8px 0 14px;
+      padding: 14px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(90, 50, 40, 0.45), rgba(20, 12, 32, 0.95));
+      border: 2px solid rgba(255, 180, 100, 0.4);
+    }
+    .event-hero-pts {
+      font-family: var(--font-title);
+      font-size: 2rem;
+      font-weight: 800;
+      color: #ffd24a;
+      min-width: 64px;
+      text-align: center;
+      text-shadow: 0 2px 0 #3a2060;
+    }
+    .event-hero-label {
+      font-family: var(--font-display);
+      font-weight: 800;
+      color: #fff6e8;
+    }
+    .event-mile {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      border-radius: 14px;
+      background: rgba(0,0,0,0.28);
+      border: 1.5px solid rgba(180, 140, 255, 0.2);
+    }
+    .event-mile.done { border-color: rgba(126, 208, 255, 0.4); }
+    .event-mile.claimed {
+      border-color: rgba(80, 200, 120, 0.45);
+      opacity: 0.85;
+    }
+    .event-mile-at {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 0.78rem;
+      color: var(--gold);
+      min-width: 52px;
+    }
+    .event-mile-body { flex: 1; min-width: 0; }
+    .event-mile-body .name {
+      font-weight: 800;
+      font-family: var(--font-display);
+      font-size: 0.9rem;
+    }
+    .event-mile-body .blurb {
+      font-size: 0.72rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .event-mile-flag {
+      font-weight: 800;
+      color: #7ed0ff;
+      font-size: 1.1rem;
+    }
+    .idle-card {
+      margin: 8px 0 12px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(30, 70, 50, 0.4), rgba(12, 20, 18, 0.92));
+      border: 2px solid rgba(120, 220, 160, 0.35);
+      box-shadow: 0 3px 0 rgba(0,0,0,0.3);
+    }
+    .idle-card-title {
+      font-family: var(--font-display);
+      font-weight: 800;
+      color: #c8ffe0;
+      margin-bottom: 4px;
+    }
+    .idle-card .btn { width: 100%; margin-top: 8px; }
+    .ethics-banner {
+      margin: 0 0 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: rgba(200, 230, 255, 0.9);
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(126, 208, 255, 0.25);
+      line-height: 1.35;
+    }
+    .conveyor-note {
+      color: rgba(160, 210, 255, 0.95) !important;
+      font-weight: 800 !important;
+    }
   `;
   document.head.appendChild(el);
 }

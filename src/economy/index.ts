@@ -32,6 +32,17 @@ import {
   type Timer,
 } from './persistence';
 import {
+  AlbumModel,
+  parseAlbumPersist,
+  type AlbumSnapshot,
+} from './album';
+import {
+  HybridEventModel,
+  parseEventPersist,
+  type HybridEventSnapshot,
+} from './hybridEvent';
+import { IdleModel, parseIdlePersist, type IdleSnapshot } from './idle';
+import {
   essenceForWin,
   MetaModel,
   type MetaBuyResult,
@@ -72,6 +83,16 @@ export interface EconomySnapshot {
   readonly lastEssenceGain: number;
   /** Daily login gift just claimed (null after consume). */
   readonly pendingDailyGift: { readonly credits: number; readonly essence: number } | null;
+  readonly album: AlbumSnapshot;
+  readonly event: HybridEventSnapshot;
+  readonly idle: IdleSnapshot;
+  /** Wall-clock when timed ad-free ends (null if inactive). */
+  readonly adsFreeUntil: number | null;
+  readonly adsFreeActive: boolean;
+  readonly comfortOwned: boolean;
+  /** Last album page reward (0 if none this win). */
+  readonly lastAlbumPageReward: number;
+  readonly lastAlbumGranted: readonly string[];
 }
 
 export class Economy {
@@ -86,11 +107,16 @@ export class Economy {
   private ads!: AdsModel;
   private telemetry!: TelemetryModel;
   private meta!: MetaModel;
+  private album!: AlbumModel;
+  private hybridEvent!: HybridEventModel;
+  private idle!: IdleModel;
   private progress!: PersistedSave['progress'];
   private settings!: PersistedSave['settings'];
   private dda!: PersistedSave['dda'];
   private aux!: EconomyAux;
   private lastEssenceGain = 0;
+  private lastAlbumPageReward = 0;
+  private lastAlbumGranted: string[] = [];
 
   constructor(opts: EconomyOptions = {}) {
     this.now = opts.now ?? systemClock;
@@ -124,7 +150,13 @@ export class Economy {
       owned: save.aux.metaOwned,
       totalSpent: save.aux.metaTotalSpent,
     });
+    this.album = new AlbumModel(parseAlbumPersist(save.aux.album));
+    this.hybridEvent = new HybridEventModel(parseEventPersist(save.aux.hybridEvent, this.now()));
+    this.idle = new IdleModel(parseIdlePersist(save.aux.idle, this.now()));
+    this.idle.touch(this.now());
     this.lastEssenceGain = 0;
+    this.lastAlbumPageReward = 0;
+    this.lastAlbumGranted = [];
 
     this.telemetry = new TelemetryModel(
       {
@@ -139,6 +171,12 @@ export class Economy {
     this.rebuildAds();
   }
 
+  private isAdsFreeActive(): boolean {
+    if (this.shop.owns('ads.remove')) return true;
+    const until = this.aux.adsFreeUntil;
+    return typeof until === 'number' && until > this.now();
+  }
+
   private rebuildShop(ownedSkus: readonly SkuId[]): void {
     this.shop = new StoreModel(
       {
@@ -146,6 +184,14 @@ export class Economy {
         lives: this.lives,
         boosters: this.boosters,
         hasFirstFail: () => this.aux.firstFailAt !== null,
+        grantAdsFreeDays: (days) => {
+          const add = Math.max(0, Math.floor(days)) * 86_400_000;
+          const base = Math.max(this.now(), this.aux.adsFreeUntil ?? 0);
+          this.aux = { ...this.aux, adsFreeUntil: base + add };
+        },
+        grantComfort: () => {
+          this.aux = { ...this.aux, comfortOwned: true };
+        },
         onPurchase: (sku) => {
           this.telemetry.notePurchase(sku.credits);
         },
@@ -160,7 +206,7 @@ export class Economy {
         now: this.now,
         lives: this.lives,
         boosters: this.boosters,
-        ownsAdRemoval: () => this.shop.owns('ads.remove'),
+        ownsAdRemoval: () => this.isAdsFreeActive(),
         onAdWatched: () => {
           this.telemetry.noteAdWatched();
         },
@@ -187,6 +233,8 @@ export class Economy {
 
   getSnapshot(): EconomySnapshot {
     this.claimDailyStipend();
+    this.hybridEvent.roll(this.now());
+    const meta = this.meta.snapshot();
     return {
       wallet: this.wallet.state,
       lives: this.lives.state,
@@ -200,9 +248,17 @@ export class Economy {
       dda: this.dda,
       firstFailAt: this.aux.firstFailAt,
       ad: this.ads.progress(),
-      meta: this.meta.snapshot(),
+      meta,
       lastEssenceGain: this.lastEssenceGain,
       pendingDailyGift: this.aux.pendingDailyGift,
+      album: this.album.snapshot(),
+      event: this.hybridEvent.snapshot(this.now()),
+      idle: this.idle.snapshot(this.now(), meta.stagesComplete, meta.ownedCount),
+      adsFreeUntil: this.aux.adsFreeUntil,
+      adsFreeActive: this.isAdsFreeActive(),
+      comfortOwned: this.aux.comfortOwned || this.shop.owns('ease.comfort'),
+      lastAlbumPageReward: this.lastAlbumPageReward,
+      lastAlbumGranted: this.lastAlbumGranted,
     };
   }
 
@@ -263,7 +319,36 @@ export class Economy {
     const gain = essenceForWin({ stars: nextStars, newStars, levelId: id });
     this.meta.grantEssence(gain);
     this.lastEssenceGain = gain;
+
+    // Endless album pulls + hybrid event points
+    let seed = (id * 9973 + nextStars * 131 + this.aux.totalPlays) >>> 0;
+    const albumRes = this.album.grantFromWin({
+      stars: nextStars,
+      levelId: id,
+      rand: () => {
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+        return (seed & 0xffff) / 0x10000;
+      },
+    });
+    this.lastAlbumGranted = [...albumRes.granted];
+    this.lastAlbumPageReward = albumRes.pageReward;
+    if (albumRes.pageReward > 0) {
+      this.meta.grantEssence(albumRes.pageReward);
+      this.lastEssenceGain += albumRes.pageReward;
+    }
+
+    this.hybridEvent.roll(this.now());
+    this.hybridEvent.addWin(nextStars);
+    // Auto-claim due personal milestones (ethical: always pay the track)
+    const due = this.hybridEvent.claimDue();
+    if (due.essence > 0) {
+      this.meta.grantEssence(due.essence);
+      this.lastEssenceGain += due.essence;
+    }
+    if (due.shards > 0) this.wallet.grantShards(due.shards);
+
     this.syncMetaAux();
+    this.syncLiveOpsAux();
     this.telemetry.noteLevelWon();
     this.telemetry.setDdaScalar(ddaScalar);
     this.dda = {
@@ -274,6 +359,46 @@ export class Economy {
     this.notePlay();
     this.persist();
     this.emit();
+  }
+
+  /** Claim cozy idle cavern drip. */
+  claimIdleEssence(): number {
+    const meta = this.meta.snapshot();
+    const n = this.idle.claim(this.now(), meta.stagesComplete, meta.ownedCount);
+    if (n > 0) {
+      this.meta.grantEssence(n);
+      this.lastEssenceGain = n;
+      this.syncMetaAux();
+    }
+    this.syncLiveOpsAux();
+    this.persist();
+    this.emit();
+    return n;
+  }
+
+  /** Manually claim hybrid event milestones if any pending (usually auto). */
+  claimEventMilestones(): { essence: number; shards: number; labels: string[] } {
+    this.hybridEvent.roll(this.now());
+    const due = this.hybridEvent.claimDue();
+    if (due.essence > 0) {
+      this.meta.grantEssence(due.essence);
+      this.lastEssenceGain = due.essence;
+      this.syncMetaAux();
+    }
+    if (due.shards > 0) this.wallet.grantShards(due.shards);
+    this.syncLiveOpsAux();
+    this.persist();
+    this.emit();
+    return due;
+  }
+
+  private syncLiveOpsAux(): void {
+    this.aux = {
+      ...this.aux,
+      album: this.album.serialized,
+      hybridEvent: this.hybridEvent.serialized,
+      idle: this.idle.serialized,
+    };
   }
 
   buyMetaUpgrade(id: string): MetaBuyResult {
@@ -342,6 +467,8 @@ export class Economy {
   purchase(id: SkuId): PurchaseResult {
     const result = this.shop.purchase(id);
     if (result.ok) {
+      // Ad passes change interstitial eligibility
+      this.rebuildAds();
       this.persist();
       this.emit();
     }
@@ -464,6 +591,7 @@ export class Economy {
   private persist(): void {
     const a = this.ads.serialized;
     const tel = this.telemetry.snapshot;
+    this.syncLiveOpsAux();
     const data: PersistedSave = {
       version: SAVE_VERSION,
       wallet: this.wallet.state,
@@ -482,6 +610,9 @@ export class Economy {
         totalPlays: a.totalPlays,
         interstitialsShown: a.interstitialsShown,
         lastSessionAt: tel.lastSessionAt,
+        album: this.album.serialized,
+        hybridEvent: this.hybridEvent.serialized,
+        idle: this.idle.serialized,
       },
     };
     this.saveStore.save(data);
@@ -501,6 +632,12 @@ export {
   MetaModel,
 } from './meta';
 export type { MetaSnapshot, MetaUpgrade, MetaBuyResult, CavernStageId } from './meta';
+export { ALBUM_CARDS, needForCycle } from './album';
+export type { AlbumSnapshot } from './album';
+export { EVENT_MILESTONES } from './hybridEvent';
+export type { HybridEventSnapshot } from './hybridEvent';
+export type { IdleSnapshot } from './idle';
+export { CONVEYOR_FROM_LEVEL, levelHasConveyor } from '../engine/conveyor';
 export {
   ECONOMY_CONST,
   BOOSTER_SLOT,

@@ -47,6 +47,8 @@ export const ECONOMY_CONST = {
     refillLives: 30,
     extraMoves5: 20,
     booster: 15,
+    /** Ethical convenience: auto-clear a soft deadlock once per level (shards). */
+    autoReshuffle: 12,
   },
 
   /** Opening booster pack so demo / first-run players can actually use them. */
@@ -91,7 +93,10 @@ export type SkuId =
   | 'shards.vault'
   | 'bundle.starter'
   | 'lives.refill'
-  | 'ads.remove';
+  | 'ads.remove'
+  | 'ads.pass7'
+  | 'ads.pass30'
+  | 'ease.comfort';
 
 export interface Sku {
   readonly id: SkuId;
@@ -102,6 +107,10 @@ export interface Sku {
   readonly grantShards?: number;
   readonly grantLives?: number;
   readonly grantBoosters?: Partial<Record<BoosterId, number>>;
+  /** Timed ad-free pass length (simulated). */
+  readonly grantAdsFreeDays?: number;
+  /** Permanent ease-of-play comfort pack (auto-hint, soft QoL). */
+  readonly grantComfort?: boolean;
   /** Marketing flags that drive the store's visual treatment. */
   readonly tag?: 'bestValue' | 'mostPopular' | 'limited';
   /** `starter` only appears after the player's first level failure. */

@@ -102,6 +102,31 @@ export const CATALOGUE: readonly Sku[] = [
     credits: 900,
     oneTime: true,
   },
+  {
+    id: 'ads.pass7',
+    name: 'Clear Skies · 7 Days',
+    blurb: 'Ethical convenience: no interstitial Shorts for a week. Stacks from purchase time.',
+    credits: 180,
+    grantAdsFreeDays: 7,
+    tag: 'bestValue',
+  },
+  {
+    id: 'ads.pass30',
+    name: 'Clear Skies · 30 Days',
+    blurb: 'Player-friendly month pass for ad-free dives. No hard paywall.',
+    credits: 420,
+    grantAdsFreeDays: 30,
+    tag: 'mostPopular',
+  },
+  {
+    id: 'ease.comfort',
+    name: 'Comfort Tools',
+    blurb: 'Ease of play: longer auto-hints and one free reshuffle per level when stuck. No dark timers.',
+    credits: 250,
+    grantComfort: true,
+    oneTime: true,
+    tag: 'limited',
+  },
 ] as const;
 
 const BY_ID: ReadonlyMap<SkuId, Sku> = new Map(CATALOGUE.map((s) => [s.id, s]));
@@ -124,6 +149,10 @@ export interface StoreDeps {
   readonly boosters: BoostersModel;
   /** Has the player failed a level yet? Gates `unlock: 'firstFail'`. */
   readonly hasFirstFail: () => boolean;
+  /** Timed ad-free pass (ethical convenience). */
+  readonly grantAdsFreeDays?: (days: number) => void;
+  /** Permanent ease-of-play comfort pack. */
+  readonly grantComfort?: () => void;
   /** Fired after a successful purchase so telemetry can record the spend. */
   readonly onPurchase?: (sku: Sku) => void;
 }
@@ -191,6 +220,8 @@ export class StoreModel {
       this.deps.lives.grant(sku.grantLives);
     }
     if (sku.grantBoosters) this.deps.boosters.grantMany(sku.grantBoosters);
+    if (sku.grantAdsFreeDays) this.deps.grantAdsFreeDays?.(sku.grantAdsFreeDays);
+    if (sku.grantComfort) this.deps.grantComfort?.();
     if (sku.oneTime === true) this.owned.add(sku.id);
 
     this.deps.onPurchase?.(sku);
