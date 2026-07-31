@@ -11,6 +11,7 @@ import type { Coord, ObjectiveKind } from '@engine/types';
 import type { GameEvent } from '@engine/events';
 import { POWER_NAME, type PowerKind } from '@engine/specials';
 import {
+  ALBUM_CARDS,
   ECONOMY_CONST,
   Economy,
   META_STAGES,
@@ -3051,33 +3052,105 @@ const SKU_TAG_LABEL: Record<string, string> = {
   limited: 'LIMITED',
 };
 
+/** Living crystal shard tile — real atlas gems + glow + fill progress. */
+function albumShardStage(slot: {
+  id: string;
+  name: string;
+  glyph: string;
+  rarity: string;
+  count: number;
+  need: number;
+  complete: boolean;
+  atlas: { x: number; y: number; w: number; h: number };
+  glow: string;
+  glowSoft: string;
+}): HTMLElement {
+  const pct = Math.min(100, Math.floor((slot.count / Math.max(1, slot.need)) * 100));
+  const empty = slot.count <= 0;
+  const stage = el('div', {
+    class: `album-shard-stage rarity-${slot.rarity}${slot.complete ? ' done' : ''}${empty ? ' empty' : ''}`,
+    style: `--shard-glow:${slot.glow};--shard-glow-soft:${slot.glowSoft}`,
+  }, []);
+
+  // Soft coloured aura
+  stage.append(el('div', { class: 'album-shard-aura' }, []));
+
+  // Real crystal sprite from board atlas
+  const sprite = el('div', {
+    class: 'album-shard-sprite',
+    style: [
+      `background-image:url(${assetUrl('gen/crystals@1x.webp')})`,
+      'background-size:1024px 640px',
+      `background-position:-${slot.atlas.x}px -${slot.atlas.y}px`,
+    ].join(';'),
+  }, []) as HTMLElement;
+  // Warden uses Living Core sheet as an extra living layer
+  if (slot.id === 'warden') {
+    const core = el('img', {
+      class: 'album-shard-core',
+      src: assetUrl('gen/living_core.webp'),
+      alt: '',
+      decoding: 'async',
+    }) as HTMLImageElement;
+    core.onerror = () => {
+      core.style.display = 'none';
+    };
+    stage.append(core);
+  }
+  stage.append(sprite);
+
+  // Sparkle motes
+  const sparks = el('div', { class: 'album-shard-sparks', 'aria-hidden': 'true' }, []);
+  for (let i = 0; i < 5; i++) {
+    sparks.append(
+      el('span', {
+        class: 'album-spark',
+        style: `--i:${i};--delay:${i * 0.35}s`,
+      }, ['✦']),
+    );
+  }
+  stage.append(sparks);
+
+  // Collection fill (how many shards banked toward need)
+  stage.append(
+    el('div', { class: 'album-shard-meter' }, [
+      el('div', { class: 'album-shard-meter-fill', style: `width:${pct}%` }, []),
+    ]),
+  );
+
+  return stage;
+}
+
 function renderAlbum(): void {
   const snap = economy.getSnapshot();
   const a = snap.album;
   const grid = el('div', { class: 'album-grid' }, []);
   for (const slot of a.slots) {
-    grid.append(
-      el(
-        'div',
-        {
-          class: `album-slot rarity-${slot.rarity}${slot.complete ? ' done' : ''}`,
-          title: slot.blurb,
-        },
-        [
-          el('div', { class: `album-rarity-tag ${slot.rarity}` }, [slot.rarity]),
-          el('div', { class: 'album-glyph' }, [slot.glyph]),
-          el('div', { class: 'album-name' }, [slot.name]),
-          el('div', { class: 'album-count' }, [`${slot.count}/${slot.need}`]),
-        ],
-      ),
+    const delay = (ALBUM_CARDS.findIndex((c) => c.id === slot.id) % 9) * 0.12;
+    const card = el(
+      'div',
+      {
+        class: `album-slot rarity-${slot.rarity}${slot.complete ? ' done' : ''}${slot.count <= 0 ? ' locked' : ''}`,
+        title: slot.blurb,
+        style: `--float-delay:${delay}s;--shard-glow:${slot.glow}`,
+      },
+      [
+        el('div', { class: `album-rarity-tag ${slot.rarity}` }, [slot.rarity]),
+        albumShardStage(slot),
+        el('div', { class: 'album-name' }, [slot.name]),
+        el('div', { class: 'album-count' }, [
+          slot.complete ? '✓ sealed' : `${slot.count}/${slot.need}`,
+        ]),
+      ],
     );
+    grid.append(card);
   }
   panel(
     'Endless Album',
     [
       companionBubble('cavern', a.cycle + a.completeCount),
       el('p', {}, [
-        `Cycle ${a.cycle + 1} · complete the page forever — needs rise each cycle, no content cliff.`,
+        `Cycle ${a.cycle + 1} · living crystal shards from your clears — complete the page, rise forever.`,
       ]),
       el('div', { class: 'essence-track-wrap' }, [
         el('div', { class: 'essence-track-label' }, [
@@ -3089,7 +3162,7 @@ function renderAlbum(): void {
       ]),
       grid,
       el('p', { class: 'hud-tip' }, [
-        'Clear levels to pull cards. Stars and deep chambers grant more pulls.',
+        'Shards are the same gems as the board. Stars and deep chambers pull rarer facets.',
       ]),
     ],
     [

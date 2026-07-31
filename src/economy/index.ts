@@ -666,8 +666,14 @@ export {
   MetaModel,
 } from './meta';
 export type { MetaSnapshot, MetaUpgrade, MetaBuyResult, CavernStageId } from './meta';
-export { ALBUM_CARDS, needForCycle } from './album';
-export type { AlbumSnapshot } from './album';
+export {
+  ALBUM_CARDS,
+  ALBUM_SHEET,
+  ALBUM_SHEET_SIZE,
+  needForCycle,
+  albumCard,
+} from './album';
+export type { AlbumSnapshot, AlbumSlotView, AlbumRarity } from './album';
 export { EVENT_MILESTONES } from './hybridEvent';
 export type { HybridEventSnapshot } from './hybridEvent';
 export type { IdleSnapshot } from './idle';

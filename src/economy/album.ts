@@ -7,6 +7,14 @@
 
 export type AlbumRarity = 'common' | 'uncommon' | 'rare';
 
+/** Sprite rect inside `gen/crystals@1x.webp` (1024×640, 128px cells). */
+export interface AlbumAtlasFrame {
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+}
+
 export interface AlbumCardDef {
   readonly id: string;
   readonly name: string;
@@ -15,19 +23,127 @@ export interface AlbumCardDef {
   readonly rarity: AlbumRarity;
   /** Relative weight in the drop table (before star bias). */
   readonly weight: number;
+  /** Real crystal atlas frame — album shards are the same gems as the board. */
+  readonly atlas: AlbumAtlasFrame;
+  /** CSS glow / rim colour for the living shard stage. */
+  readonly glow: string;
+  readonly glowSoft: string;
 }
 
 /** Fixed catalogue — cycles only raise `need`, never require new art packs. */
+export const ALBUM_SHEET = 'gen/crystals@1x.webp';
+/** Sheet pixel size for CSS background-size. */
+export const ALBUM_SHEET_SIZE = { w: 1024, h: 640 } as const;
+export const ALBUM_FRAME = 128;
+
+const F = (x: number, y: number): AlbumAtlasFrame => ({
+  x,
+  y,
+  w: ALBUM_FRAME,
+  h: ALBUM_FRAME,
+});
+
 export const ALBUM_CARDS: readonly AlbumCardDef[] = [
-  { id: 'ember', name: 'Ember Shard', glyph: '◆', blurb: 'Warm crystal common in the mouth of the mine.', rarity: 'common', weight: 28 },
-  { id: 'aqua', name: 'Aqua Facet', glyph: '◇', blurb: 'Cool blue cut from prism galleries.', rarity: 'common', weight: 26 },
-  { id: 'jade', name: 'Jade Vein', glyph: '✦', blurb: 'Soft green seam under the rails.', rarity: 'common', weight: 24 },
-  { id: 'violet', name: 'Violet Core', glyph: '❖', blurb: 'Deep hue from living vaults.', rarity: 'uncommon', weight: 14 },
-  { id: 'solar', name: 'Solar Chip', glyph: '★', blurb: 'Gold fleck that catches lamp-light.', rarity: 'uncommon', weight: 12 },
-  { id: 'line', name: 'Line Crystal', glyph: '═', blurb: 'Forged when four align true.', rarity: 'uncommon', weight: 10 },
-  { id: 'burst', name: 'Geode Burst', glyph: '◎', blurb: 'L/T power stamp for the album.', rarity: 'rare', weight: 5 },
-  { id: 'prism', name: 'Opal Prism', glyph: '⬠', blurb: 'Five-match rainbow seal.', rarity: 'rare', weight: 4 },
-  { id: 'warden', name: 'Warden Token', glyph: '⛏', blurb: 'A mark from the Geode Warden.', rarity: 'rare', weight: 3 },
+  {
+    id: 'ember',
+    name: 'Ember Shard',
+    glyph: '◆',
+    blurb: 'Warm crystal common in the mouth of the mine.',
+    rarity: 'common',
+    weight: 28,
+    atlas: F(0, 0),
+    glow: '#ff6a3a',
+    glowSoft: 'rgba(255, 100, 50, 0.55)',
+  },
+  {
+    id: 'aqua',
+    name: 'Tidal Facet',
+    glyph: '◇',
+    blurb: 'Cool blue cut from prism galleries.',
+    rarity: 'common',
+    weight: 26,
+    atlas: F(512, 256),
+    glow: '#3ec8ff',
+    glowSoft: 'rgba(60, 200, 255, 0.55)',
+  },
+  {
+    id: 'jade',
+    name: 'Verdant Shard',
+    glyph: '✦',
+    blurb: 'Soft green seam under the rails.',
+    rarity: 'common',
+    weight: 24,
+    atlas: F(896, 128),
+    glow: '#4dde8a',
+    glowSoft: 'rgba(70, 220, 130, 0.5)',
+  },
+  {
+    id: 'violet',
+    name: 'Void Facet',
+    glyph: '❖',
+    blurb: 'Deep hue from living vaults.',
+    rarity: 'uncommon',
+    weight: 14,
+    atlas: F(128, 384),
+    glow: '#b06aff',
+    glowSoft: 'rgba(170, 100, 255, 0.55)',
+  },
+  {
+    id: 'solar',
+    name: 'Solar Chip',
+    glyph: '★',
+    blurb: 'Gold fleck that catches lamp-light.',
+    rarity: 'uncommon',
+    weight: 12,
+    atlas: F(256, 128),
+    glow: '#ffd24a',
+    glowSoft: 'rgba(255, 210, 70, 0.55)',
+  },
+  {
+    id: 'line',
+    name: 'Line Crystal',
+    glyph: '═',
+    blurb: 'Forged when four align true.',
+    rarity: 'uncommon',
+    weight: 10,
+    atlas: F(128, 0),
+    glow: '#ff8a60',
+    glowSoft: 'rgba(255, 130, 90, 0.5)',
+  },
+  {
+    id: 'burst',
+    name: 'Geode Burst',
+    glyph: '◎',
+    blurb: 'L/T power stamp for the album.',
+    rarity: 'rare',
+    weight: 5,
+    atlas: F(0, 128),
+    glow: '#ffc060',
+    glowSoft: 'rgba(255, 190, 90, 0.65)',
+  },
+  {
+    id: 'prism',
+    name: 'Opal Prism',
+    glyph: '⬠',
+    blurb: 'Five-match rainbow seal.',
+    rarity: 'rare',
+    weight: 4,
+    atlas: F(768, 384),
+    glow: '#e0b0ff',
+    glowSoft: 'rgba(220, 170, 255, 0.65)',
+  },
+  {
+    id: 'warden',
+    name: 'Warden Core',
+    glyph: '⛏',
+    blurb: 'A spinning seal from the Geode Warden.',
+    rarity: 'rare',
+    weight: 3,
+    // prism cell as stand-in; stage also uses living_core img when present
+    atlas: F(768, 384),
+    glow: '#ffe56a',
+    glowSoft: 'rgba(255, 230, 100, 0.7)',
+  },
 ] as const;
 
 const BY_ID = new Map(ALBUM_CARDS.map((c) => [c.id, c]));
@@ -62,6 +178,9 @@ export interface AlbumSlotView {
   readonly count: number;
   readonly need: number;
   readonly complete: boolean;
+  readonly atlas: AlbumAtlasFrame;
+  readonly glow: string;
+  readonly glowSoft: string;
 }
 
 export interface AlbumGrant {
@@ -149,6 +268,9 @@ export class AlbumModel {
         count,
         need,
         complete: count >= need,
+        atlas: c.atlas,
+        glow: c.glow,
+        glowSoft: c.glowSoft,
       };
     });
     const completeCount = slots.filter((s) => s.complete).length;

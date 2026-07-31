@@ -2020,51 +2020,196 @@ export function injectStyles(): void {
     .album-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
+      gap: 12px;
       margin: 12px 0;
     }
     .album-slot {
-      padding: 12px 8px;
-      border-radius: 14px;
+      padding: 10px 8px 12px;
+      border-radius: 16px;
       text-align: center;
-      background: linear-gradient(180deg, rgba(40, 30, 70, 0.9), rgba(12, 8, 28, 0.95));
+      background:
+        radial-gradient(circle at 50% 28%, var(--shard-glow, rgba(126,208,255,0.2)), transparent 55%),
+        linear-gradient(180deg, rgba(40, 30, 70, 0.95), rgba(12, 8, 28, 0.98));
       border: 2px solid rgba(180, 140, 255, 0.22);
-      box-shadow: 0 3px 0 rgba(0,0,0,0.3);
+      box-shadow: 0 3px 0 rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
+      transition: transform 0.15s, border-color 0.2s;
+    }
+    .album-slot.locked {
+      filter: saturate(0.35);
     }
     .album-slot.done {
-      border-color: rgba(255, 210, 74, 0.55);
-      box-shadow: 0 0 12px rgba(255, 180, 40, 0.2), 0 3px 0 rgba(0,0,0,0.3);
+      border-color: rgba(255, 210, 74, 0.65);
+      box-shadow:
+        0 0 16px rgba(255, 180, 40, 0.28),
+        0 3px 0 rgba(0,0,0,0.3),
+        inset 0 0 20px rgba(255, 210, 74, 0.08);
     }
     .album-slot.rarity-uncommon {
-      border-color: rgba(126, 208, 255, 0.4);
+      border-color: rgba(126, 208, 255, 0.45);
     }
     .album-slot.rarity-rare {
-      border-color: rgba(255, 180, 80, 0.55);
-      box-shadow: 0 0 14px rgba(255, 160, 40, 0.22), 0 3px 0 rgba(0,0,0,0.3);
+      border-color: rgba(255, 180, 80, 0.6);
+      box-shadow:
+        0 0 18px rgba(255, 160, 40, 0.3),
+        0 3px 0 rgba(0,0,0,0.3);
     }
     .album-rarity-tag {
       font-size: 0.55rem;
       font-weight: 800;
       letter-spacing: 0.1em;
       text-transform: uppercase;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
       color: var(--muted);
     }
     .album-rarity-tag.uncommon { color: #7ed0ff; }
     .album-rarity-tag.rare { color: #ffd24a; }
-    .album-glyph { font-size: 1.4rem; margin-bottom: 4px; }
+    /* Living crystal shard stage */
+    .album-shard-stage {
+      position: relative;
+      width: 78px;
+      height: 86px;
+      margin: 0 auto 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .album-shard-aura {
+      position: absolute;
+      inset: 8% 12%;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--shard-glow-soft, rgba(126,208,255,0.45)), transparent 70%);
+      animation: shardAura 2.4s ease-in-out infinite;
+      pointer-events: none;
+    }
+    .album-shard-stage.empty .album-shard-aura {
+      opacity: 0.25;
+      animation: none;
+    }
+    .album-shard-sprite {
+      position: relative;
+      z-index: 2;
+      width: 72px;
+      height: 72px;
+      background-repeat: no-repeat;
+      image-rendering: auto;
+      filter:
+        drop-shadow(0 6px 10px rgba(0,0,0,0.55))
+        drop-shadow(0 0 10px var(--shard-glow-soft, rgba(126,208,255,0.4)));
+      animation: shardFloat 2.8s ease-in-out infinite;
+      animation-delay: var(--float-delay, 0s);
+    }
+    .album-slot.locked .album-shard-sprite {
+      filter: grayscale(0.85) brightness(0.55) drop-shadow(0 4px 6px rgba(0,0,0,0.4));
+      animation: none;
+      opacity: 0.55;
+    }
+    .album-slot.done .album-shard-sprite {
+      animation: shardFloat 2.2s ease-in-out infinite, shardShine 3s ease-in-out infinite;
+    }
+    .album-shard-core {
+      position: absolute;
+      z-index: 1;
+      width: 56px;
+      height: 56px;
+      object-fit: cover;
+      object-position: 0 0;
+      border-radius: 50%;
+      opacity: 0.85;
+      filter: drop-shadow(0 0 12px rgba(255, 220, 100, 0.6));
+      animation: shardSpin 6s linear infinite;
+      pointer-events: none;
+    }
+    .album-slot.locked .album-shard-core {
+      animation: none;
+      opacity: 0.25;
+      filter: grayscale(1);
+    }
+    .album-shard-sparks {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .album-spark {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      font-size: 0.55rem;
+      color: var(--shard-glow, #7ed0ff);
+      opacity: 0;
+      text-shadow: 0 0 6px currentColor;
+      animation: albumSpark 2.6s ease-in-out infinite;
+      animation-delay: var(--delay, 0s);
+    }
+    .album-slot.locked .album-spark { display: none; }
+    .album-shard-meter {
+      position: absolute;
+      left: 10%;
+      right: 10%;
+      bottom: 0;
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.12);
+      overflow: hidden;
+      z-index: 4;
+    }
+    .album-shard-meter-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--shard-glow, #5ec8ff), #ffd24a);
+      box-shadow: 0 0 8px var(--shard-glow-soft, rgba(126,208,255,0.5));
+      transition: width 0.4s ease;
+      min-width: 0;
+    }
+    @keyframes shardFloat {
+      0%, 100% { transform: translateY(0) rotate(-2deg); }
+      50% { transform: translateY(-7px) rotate(2deg); }
+    }
+    @keyframes shardAura {
+      0%, 100% { opacity: 0.55; transform: scale(0.92); }
+      50% { opacity: 1; transform: scale(1.08); }
+    }
+    @keyframes shardShine {
+      0%, 100% { filter:
+        drop-shadow(0 6px 10px rgba(0,0,0,0.55))
+        drop-shadow(0 0 10px var(--shard-glow-soft, rgba(126,208,255,0.4))); }
+      50% { filter:
+        drop-shadow(0 6px 10px rgba(0,0,0,0.55))
+        drop-shadow(0 0 18px var(--shard-glow, #ffd24a)); }
+    }
+    @keyframes shardSpin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes albumSpark {
+      0% { transform: translate(-50%, -50%) scale(0.4); opacity: 0; }
+      20% { opacity: 0.9; }
+      100% {
+        transform:
+          translate(
+            calc(-50% + (var(--i) - 2) * 14px),
+            calc(-50% - 28px - var(--i) * 4px)
+          )
+          scale(1);
+        opacity: 0;
+      }
+    }
     .album-name {
       font-family: var(--font-display);
       font-weight: 800;
       font-size: 0.72rem;
       color: #fff6e8;
+      line-height: 1.15;
+      min-height: 2.1em;
     }
     .album-count {
       font-size: 0.72rem;
       font-weight: 800;
       color: #7ed0ff;
-      margin-top: 2px;
+      margin-top: 3px;
     }
+    .album-slot.done .album-count { color: #ffd24a; }
     .album-gain {
       color: #e0c0ff !important;
       font-weight: 800 !important;
