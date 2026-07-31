@@ -57,24 +57,28 @@ export function injectStyles(): void {
 
     :root {
       color-scheme: dark;
-      --bg: #04060c;
-      --panel: rgba(16, 22, 42, 0.92);
-      --panel-2: rgba(28, 36, 68, 0.94);
-      --text: #f2f6ff;
-      --muted: #a7b6d4;
-      --accent: #7ed0ff;
-      --gold: #ffd679;
-      --danger: #ff6b7a;
-      --ok: #5ce0a0;
-      --sim: #ff9a62;
       /*
-       * Hybrid display stack:
-       *  - title  = Galactic Knights (readable epic wordmark)
-       *  - display = Diamond Shape (crystal / match-3 CTA punch)
-       *  - body   = Nunito (or body.woff2 when present)
+       * STUDIO CASUAL palette — original crystal-mine IP.
+       * Inspired by niche conventions (embossed CTAs, high-contrast board
+       * chrome, soft meta polish) without cloning any title's look.
        */
+      --bg: #0a0714;
+      --panel: #1a1430;
+      --panel-2: #241c42;
+      --panel-edge: #5a3d9a;
+      --panel-edge-hi: #c9a227;
+      --text: #fff8ef;
+      --muted: #c4b6d8;
+      --accent: #5ec8ff;
+      --accent-deep: #1a6fd4;
+      --gold: #ffd24a;
+      --gold-deep: #c47a08;
+      --danger: #ff5a72;
+      --ok: #4dde8a;
+      --sim: #ff9a62;
+      --btn-lip: 5px;
       --font-title: "GalacticKnights", "CrystallineDisplay", "Cinzel", serif;
-      --font-display: "CrystallineDisplay", "GalacticKnights", "Cinzel", "Palatino Linotype", serif;
+      --font-display: "CrystallineDisplay", "GalacticKnights", "Cinzel", serif;
       --font-display-outline: "CrystallineDisplayOutline", "CrystallineDisplay", "Cinzel", serif;
       --font-body: "CrystallineBody", "Nunito", "Segoe UI", system-ui, sans-serif;
       font-family: var(--font-body);
@@ -91,11 +95,11 @@ export function injectStyles(): void {
     #app {
       position: fixed; inset: 0;
       display: flex; align-items: center; justify-content: center;
-      /* Full-bleed cavern behind the phone frame */
       background:
-        linear-gradient(180deg, rgba(4,6,14,0.35), rgba(4,6,14,0.75)),
+        radial-gradient(ellipse at 50% 0%, rgba(90, 50, 160, 0.35), transparent 55%),
+        linear-gradient(180deg, rgba(8,4,18,0.25), rgba(6,4,14,0.82)),
         url("./bg/mine-cavern.jpg") center / cover no-repeat,
-        #04060c;
+        #0a0714;
     }
     /*
      * Size policy: fill the viewport. Portrait phone aspect is kept, so on a
@@ -131,27 +135,23 @@ export function injectStyles(): void {
     }
     @media (min-width: 700px) {
       #game-root canvas {
-        border-radius: 16px;
+        border-radius: 22px;
         box-shadow:
-          0 0 0 3px rgba(120, 170, 255, 0.18),
-          0 0 0 8px rgba(10, 14, 28, 0.85);
+          0 0 0 4px rgba(201, 162, 39, 0.35),
+          0 0 0 10px rgba(12, 8, 24, 0.9),
+          0 24px 60px rgba(0,0,0,0.55);
       }
     }
     .overlay {
       position: absolute; inset: 0;
       display: flex; flex-direction: column;
       align-items: center;
-      /*
-       * flex-start + margin:auto on the panel: short panels stay centered,
-       * tall ones (Crystal Cavern) scroll from the TRUE top — justify-content:center
-       * was clipping Mouth of the Mine / Prism Gallery headers.
-       */
       justify-content: flex-start;
-      padding: clamp(12px, 3vw, 28px);
+      padding: clamp(10px, 2.5vw, 22px);
       background:
-        radial-gradient(ellipse at 50% 20%, rgba(60,40,120,0.25), transparent 55%),
-        rgba(4, 8, 18, 0.62);
-      backdrop-filter: blur(8px);
+        radial-gradient(ellipse at 50% 12%, rgba(120, 70, 200, 0.22), transparent 50%),
+        linear-gradient(180deg, rgba(8,4,20,0.35) 0%, rgba(6,4,16,0.78) 100%);
+      backdrop-filter: blur(6px);
       z-index: 10;
       overflow-x: hidden;
       overflow-y: auto;
@@ -164,92 +164,144 @@ export function injectStyles(): void {
       flex-shrink: 0;
       margin-top: auto;
       margin-bottom: auto;
+      position: relative;
       background:
-        linear-gradient(165deg, rgba(40,52,92,0.95), rgba(14,18,36,0.96) 55%, rgba(10,14,28,0.98));
-      border: 1px solid rgba(140, 200, 255, 0.28);
-      border-radius: 22px;
-      padding: 22px 20px 18px;
+        linear-gradient(165deg, #2a2050 0%, #18122e 45%, #120e24 100%);
+      border: 3px solid var(--panel-edge);
+      border-radius: 26px;
+      padding: 26px 20px 20px;
       box-shadow:
-        0 20px 50px rgba(0,0,0,0.55),
-        inset 0 1px 0 rgba(255,255,255,0.08);
+        0 0 0 2px rgba(201, 162, 39, 0.45),
+        0 18px 0 rgba(8, 4, 18, 0.85),
+        0 28px 50px rgba(0,0,0,0.55),
+        inset 0 2px 0 rgba(255,255,255,0.12),
+        inset 0 -3px 12px rgba(0,0,0,0.35);
     }
-    /* Cavern catalogue is intentionally long — pin scroll start to title */
+    .panel::before {
+      content: "";
+      position: absolute;
+      inset: 6px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 210, 100, 0.12);
+      pointer-events: none;
+    }
     .panel.panel-cavern {
       margin-top: 0;
       margin-bottom: 24px;
       max-width: min(100%, 480px);
     }
+    .panel.panel-title {
+      text-align: center;
+      padding-top: 32px;
+      background:
+        linear-gradient(165deg, rgba(50, 36, 90, 0.92), rgba(16, 12, 32, 0.96) 60%);
+      border-color: rgba(201, 162, 39, 0.65);
+    }
     .panel h1, .panel h2 {
-      margin: 0 0 8px;
-      font-weight: 700;
-      letter-spacing: 0.03em;
+      margin: 0 0 10px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      position: relative;
     }
     .panel h1 {
       font-family: var(--font-title);
-      font-size: clamp(1.55rem, 4.5vw, 2.05rem);
-      color: #c9ecff;
-      text-shadow: 0 0 28px rgba(126, 208, 255, 0.4);
-      letter-spacing: 0.06em;
+      font-size: clamp(1.7rem, 5vw, 2.25rem);
+      color: #fff6e8;
+      text-shadow:
+        0 2px 0 #3a2060,
+        0 4px 0 #1a0c30,
+        0 0 24px rgba(255, 200, 80, 0.35);
+      letter-spacing: 0.04em;
     }
     .panel h2 {
-      font-size: 1.12rem;
-      color: #ffe6a8;
+      font-size: 1.15rem;
+      color: var(--gold);
       font-family: var(--font-display);
+      text-shadow: 0 2px 0 rgba(0,0,0,0.45);
     }
     .panel p {
       margin: 0 0 12px;
       color: var(--muted);
-      line-height: 1.45;
+      line-height: 1.4;
       font-size: 0.98rem;
-      font-weight: 600;
+      font-weight: 700;
     }
     .sim-badge {
+      display: none; /* studio shell: research note moved to settings */
+    }
+    .sim-badge.sim-badge-show {
       display: inline-block;
-      font-size: 0.62rem;
+      font-size: 0.58rem;
       font-weight: 800;
       letter-spacing: 0.1em;
       text-transform: uppercase;
-      color: rgba(255,230,200,0.75);
-      background: rgba(0,0,0,0.35);
-      border: 1px solid rgba(255,154,98,0.35);
+      color: rgba(255,230,200,0.7);
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,154,98,0.3);
       border-radius: 999px;
-      padding: 4px 10px;
-      margin-bottom: 12px;
+      padding: 3px 9px;
+      margin-bottom: 10px;
     }
-    .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; justify-content: center; }
+    /* 3D embossed CTAs — industry casual match-3 language */
     .btn {
       appearance: none; border: 0; cursor: pointer;
-      border-radius: 14px;
-      padding: 13px 18px;
+      border-radius: 999px;
+      padding: 14px 22px;
+      min-height: 52px;
       font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 0.95rem;
-      letter-spacing: 0.03em;
-      color: #061018;
-      background: linear-gradient(180deg, #b4ecff, #3aa8ff 60%, #2b7fd4);
+      font-weight: 800;
+      font-size: 1.02rem;
+      letter-spacing: 0.04em;
+      color: #fffdf8;
+      text-shadow: 0 1px 0 rgba(0,0,0,0.25);
+      background: linear-gradient(180deg, #7ad4ff 0%, #2f9aef 48%, #1a6fd4 100%);
       box-shadow:
-        0 4px 0 #14507a,
-        0 8px 18px rgba(40, 140, 255, 0.28);
-      transition: transform 0.06s ease, filter 0.12s ease;
+        0 var(--btn-lip) 0 #0d4a8a,
+        0 10px 20px rgba(30, 100, 220, 0.35),
+        inset 0 2px 0 rgba(255,255,255,0.45),
+        inset 0 -2px 4px rgba(0,0,0,0.15);
+      transition: transform 0.08s ease, filter 0.12s ease, box-shadow 0.08s ease;
     }
-    .btn:hover { filter: brightness(1.06); }
-    .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #14507a; }
+    .btn:hover { filter: brightness(1.07); }
+    .btn:active {
+      transform: translateY(4px);
+      box-shadow:
+        0 1px 0 #0d4a8a,
+        0 4px 10px rgba(30, 100, 220, 0.25),
+        inset 0 2px 0 rgba(255,255,255,0.3);
+    }
     .btn.secondary {
-      color: var(--text);
-      background: linear-gradient(180deg, #3a466e, #1c2440 70%);
-      box-shadow: 0 4px 0 #0a1020;
-      border: 1px solid rgba(255,255,255,0.1);
+      color: #f5f0ff;
+      background: linear-gradient(180deg, #4a3a72 0%, #2a2048 55%, #1a1430 100%);
+      box-shadow:
+        0 var(--btn-lip) 0 #0c0818,
+        0 8px 16px rgba(0,0,0,0.35),
+        inset 0 2px 0 rgba(255,255,255,0.12);
+      border: 1px solid rgba(180, 150, 255, 0.2);
     }
+    .btn.secondary:active { box-shadow: 0 1px 0 #0c0818, inset 0 2px 0 rgba(255,255,255,0.08); }
     .btn.danger {
-      background: linear-gradient(180deg, #ffb0b8, #ff5a6a 65%, #d03040);
-      box-shadow: 0 4px 0 #7a1820;
+      background: linear-gradient(180deg, #ff9aa8 0%, #ff4a62 50%, #c82038 100%);
+      box-shadow:
+        0 var(--btn-lip) 0 #7a1020,
+        0 8px 16px rgba(200, 40, 60, 0.3),
+        inset 0 2px 0 rgba(255,255,255,0.4);
     }
     .btn.gold {
-      background: linear-gradient(180deg, #ffe6a0, #f0b020 65%, #c88810);
-      color: #2a1800;
-      box-shadow: 0 4px 0 #7a5010;
+      background: linear-gradient(180deg, #ffe56a 0%, #ffb820 45%, #e08810 100%);
+      color: #3a2000;
+      text-shadow: 0 1px 0 rgba(255,255,255,0.35);
+      box-shadow:
+        0 var(--btn-lip) 0 #8a5008,
+        0 10px 22px rgba(240, 160, 20, 0.4),
+        inset 0 2px 0 rgba(255,255,255,0.55);
+      font-size: 1.18rem;
+      padding: 16px 32px;
+      letter-spacing: 0.06em;
     }
-    .btn:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(0.3); }
+    .btn.gold:active { box-shadow: 0 1px 0 #8a5008, inset 0 2px 0 rgba(255,255,255,0.4); }
+    .btn:disabled { opacity: 0.42; cursor: not-allowed; filter: grayscale(0.35); }
     .booster-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -258,30 +310,38 @@ export function injectStyles(): void {
     }
     .booster-chip {
       appearance: none;
-      border: 1px solid rgba(140,200,255,0.22);
-      border-radius: 14px;
-      padding: 10px 12px;
+      border: 2px solid rgba(180, 140, 255, 0.28);
+      border-radius: 18px;
+      padding: 12px 12px 10px;
       text-align: left;
       cursor: pointer;
       color: var(--text);
-      background: rgba(0,0,0,0.28);
+      background:
+        linear-gradient(165deg, rgba(60, 48, 100, 0.9), rgba(24, 18, 48, 0.95));
       font-family: var(--font-body);
-      font-weight: 700;
-      font-size: 0.86rem;
-      transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+      font-weight: 800;
+      font-size: 0.88rem;
+      box-shadow:
+        0 4px 0 rgba(8,4,18,0.9),
+        inset 0 1px 0 rgba(255,255,255,0.1);
+      transition: border-color 0.12s, transform 0.08s, box-shadow 0.12s;
     }
     .booster-chip .meta {
       display: block;
-      margin-top: 2px;
+      margin-top: 3px;
       font-size: 0.72rem;
       color: var(--muted);
-      font-weight: 600;
+      font-weight: 700;
     }
     .booster-chip.on {
-      border-color: rgba(126, 208, 255, 0.75);
-      background: rgba(50, 100, 180, 0.35);
-      box-shadow: 0 0 0 1px rgba(126,208,255,0.25), 0 0 16px rgba(80,160,255,0.2);
+      border-color: rgba(255, 210, 74, 0.85);
+      background: linear-gradient(165deg, rgba(90, 70, 40, 0.95), rgba(40, 28, 16, 0.98));
+      box-shadow:
+        0 4px 0 #5a3808,
+        0 0 16px rgba(255, 180, 40, 0.35),
+        inset 0 1px 0 rgba(255,255,255,0.2);
     }
+    .booster-chip:active:not(:disabled) { transform: translateY(2px); }
     .booster-chip:disabled {
       opacity: 0.4;
       cursor: not-allowed;
@@ -289,86 +349,109 @@ export function injectStyles(): void {
     .stat-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin: 12px 0;
+      gap: 10px;
+      margin: 14px 0;
     }
     .stat {
-      background: rgba(0,0,0,0.28);
-      border-radius: 12px;
-      padding: 10px 12px;
-      border: 1px solid rgba(255,255,255,0.05);
+      background: linear-gradient(180deg, rgba(40, 30, 70, 0.9), rgba(16, 12, 32, 0.95));
+      border-radius: 16px;
+      padding: 12px 12px 10px;
+      border: 2px solid rgba(180, 140, 255, 0.2);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 3px 0 rgba(0,0,0,0.35);
     }
     .stat .k {
-      font-size: 0.68rem;
+      font-size: 0.66rem;
       color: var(--muted);
       text-transform: uppercase;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.1em;
       font-weight: 800;
     }
     .stat .v {
       font-family: var(--font-display);
-      font-size: 1.15rem;
-      font-weight: 700;
+      font-size: 1.2rem;
+      font-weight: 800;
       color: var(--gold);
-      margin-top: 2px;
+      margin-top: 3px;
+      text-shadow: 0 2px 0 rgba(0,0,0,0.4);
     }
     .map-grid {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
-      gap: 10px;
-      max-height: min(52vh, 420px);
+      gap: 12px;
+      max-height: min(52vh, 440px);
       overflow: auto;
-      margin: 14px 0;
-      padding: 4px;
+      margin: 16px 0;
+      padding: 8px 4px 12px;
     }
     .level-node {
       aspect-ratio: 1;
-      border-radius: 14px;
-      border: 1px solid rgba(160, 200, 255, 0.16);
+      border-radius: 50%;
+      border: 3px solid #6a4a18;
       background:
-        radial-gradient(circle at 30% 25%, rgba(100,160,255,0.18), transparent 55%),
-        linear-gradient(160deg, #243058, #141a30);
-      color: var(--text);
+        radial-gradient(circle at 32% 28%, rgba(255, 230, 140, 0.55), transparent 42%),
+        radial-gradient(circle at 70% 75%, rgba(80, 40, 160, 0.5), transparent 50%),
+        linear-gradient(160deg, #5a3a90, #2a1850 55%, #1a1038);
+      color: #fff8ef;
       font-family: var(--font-display);
-      font-weight: 700;
+      font-weight: 800;
       cursor: pointer;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 2px;
-      font-size: 1.05rem;
-      line-height: 1.1;
+      gap: 1px;
+      font-size: 1.08rem;
+      line-height: 1.05;
       padding: 4px;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+      box-shadow:
+        0 5px 0 #2a1808,
+        0 8px 14px rgba(0,0,0,0.4),
+        inset 0 2px 0 rgba(255,255,255,0.25),
+        inset 0 -3px 6px rgba(0,0,0,0.25);
+      text-shadow: 0 2px 0 rgba(0,0,0,0.45);
     }
     .level-node .level-stars {
-      font-size: 0.7rem;
+      font-size: 0.62rem;
       color: var(--gold);
-      letter-spacing: 0.05em;
-      min-height: 0.9em;
+      letter-spacing: 0.02em;
+      min-height: 0.85em;
       font-family: var(--font-body);
+      filter: drop-shadow(0 1px 0 rgba(0,0,0,0.5));
     }
-    .level-node.locked { opacity: 0.32; cursor: not-allowed; }
+    .level-node.locked {
+      opacity: 0.38;
+      cursor: not-allowed;
+      filter: grayscale(0.45);
+      box-shadow: 0 4px 0 #1a1020, inset 0 1px 0 rgba(255,255,255,0.08);
+    }
     .level-node.current {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 2px rgba(110,203,255,0.4), 0 0 20px rgba(80,160,255,0.25);
+      border-color: #ffe06a;
+      box-shadow:
+        0 5px 0 #8a6010,
+        0 0 0 3px rgba(255, 210, 74, 0.45),
+        0 0 22px rgba(255, 180, 40, 0.45),
+        inset 0 2px 0 rgba(255,255,255,0.35);
+      transform: scale(1.06);
     }
+    .level-node:active:not(.locked) { transform: translateY(3px) scale(0.98); }
     .sku {
       display: flex; justify-content: space-between; align-items: center;
-      gap: 8px;
-      padding: 12px;
-      border-radius: 14px;
-      background: rgba(0,0,0,0.28);
-      margin-bottom: 8px;
-      border: 1px solid rgba(255,255,255,0.05);
+      gap: 10px;
+      padding: 12px 12px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(40, 30, 70, 0.9), rgba(16, 12, 32, 0.95));
+      margin-bottom: 10px;
+      border: 2px solid rgba(180, 140, 255, 0.18);
+      box-shadow: 0 3px 0 rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
     }
     .sku .name { font-weight: 800; font-family: var(--font-display); letter-spacing: 0.02em; }
-    .sku .blurb { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+    .sku .blurb { font-size: 0.78rem; color: var(--muted); margin-top: 2px; font-weight: 600; }
     .tag {
       font-size: 0.62rem; font-weight: 800; text-transform: uppercase;
-      color: #1a1000; background: var(--gold); border-radius: 6px; padding: 2px 6px;
+      color: #2a1800; background: linear-gradient(180deg, #ffe56a, #f0b020);
+      border-radius: 8px; padding: 3px 7px;
       margin-left: 6px;
+      box-shadow: 0 2px 0 #8a5008;
     }
     .ad-modal .timer {
       font-family: var(--font-display);
@@ -435,11 +518,6 @@ export function injectStyles(): void {
       margin-top: 6px;
     }
     .panel .row { justify-content: center; }
-    .btn.gold {
-      font-size: 1.15rem;
-      padding: 16px 28px;
-      letter-spacing: 0.08em;
-    }
     /* ---- Crystal Cavern meta ---- */
     .essence-gain {
       color: #b8f0ff !important;

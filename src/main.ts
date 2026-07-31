@@ -314,53 +314,82 @@ function drawChrome(ctx: CanvasRenderingContext2D, now: number): void {
   const display = '"CrystallineDisplay", "Cinzel", "Palatino Linotype", serif';
   const body = '"CrystallineBody", "Nunito", "Segoe UI", system-ui, sans-serif';
 
-  // Compact HUD so the board can claim more vertical space
-  const hg = ctx.createLinearGradient(0, 0, 0, 168);
-  hg.addColorStop(0, 'rgba(10, 14, 28, 0.82)');
-  hg.addColorStop(1, 'rgba(10, 14, 28, 0.08)');
-  ctx.fillStyle = hg;
-  ctx.fillRect(0, 0, 720, 168);
+  // Soft top bar — studio casual HUD (not a website header)
+  ctx.fillStyle = 'rgba(12, 8, 28, 0.82)';
+  roundRectPath(ctx, 12, 10, 696, 148, 22);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(201, 162, 39, 0.5)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+  ctx.lineWidth = 1;
+  roundRectPath(ctx, 18, 16, 684, 136, 18);
+  ctx.stroke();
 
-  ctx.fillStyle = '#c9ecff';
-  ctx.font = `700 28px ${display}`;
+  // Wordmark with stroke for mobile readability
+  ctx.font = `800 30px ${display}`;
   ctx.textAlign = 'left';
-  ctx.fillText('Crystalline', 24, 38);
+  ctx.lineWidth = 5;
+  ctx.strokeStyle = 'rgba(30, 16, 60, 0.9)';
+  ctx.strokeText('CRYSTALLINE', 32, 48);
+  ctx.fillStyle = '#fff6e8';
+  ctx.fillText('CRYSTALLINE', 32, 48);
 
-  ctx.fillStyle = 'rgba(255, 220, 170, 0.5)';
-  ctx.font = `600 11px ${body}`;
-  ctx.fillText('demo · no real purchases', 26, 56);
-
-  drawChip(ctx, 24, 72, `♥  ${snap.lives.count}/5`, '#ff7a8a', body);
-  drawChip(ctx, 146, 72, `◆  ${snap.wallet.shards}`, '#7ecbff', body);
-  drawChip(ctx, 286, 72, `¢  ${snap.wallet.credits}`, '#ffd679', body);
+  drawChip(ctx, 32, 68, `♥ ${snap.lives.count}`, '#ff7a8a', body, 96);
+  drawChip(ctx, 140, 68, `◆ ${snap.wallet.shards}`, '#7ecbff', body, 108);
+  drawChip(ctx, 260, 68, `✧ ${snap.meta.essence}`, '#ffd24a', body, 118);
 
   if (app.screen === 'play' && app.session) {
     const s = app.session.snapshot();
-    // Oversized moves/score — primary pattern-recognition resources stay free.
     const movesHot = s.movesLeft <= 5;
-    ctx.fillStyle = movesHot ? '#ffb0b8' : '#eef3ff';
-    ctx.font = `800 22px ${display}`;
-    ctx.fillText(`Moves  ${s.movesLeft}`, 24, 128);
-    ctx.fillStyle = '#eef3ff';
-    ctx.fillText(`Score  ${s.score.toLocaleString()}`, 200, 128);
+    // Moves badge
+    drawStatBadge(ctx, 32, 108, 'MOVES', String(s.movesLeft), movesHot ? '#ff6a7a' : '#5ec8ff', display);
+    drawStatBadge(ctx, 200, 108, 'SCORE', s.score.toLocaleString(), '#ffd24a', display);
     if (app.pickaxeMode) {
       ctx.fillStyle = '#ffd679';
-      ctx.font = `700 14px ${body}`;
-      ctx.fillText('Pickaxe ready — tap a gem to smash it', 24, 154);
+      ctx.font = `800 14px ${body}`;
+      ctx.fillText('TAP A GEM TO SMASH', 380, 132);
     } else {
       const obj = s.objectives
-        .map((o) => `${OBJECTIVE_LABEL[o.kind]}  ${o.current}/${o.target}`)
-        .join('   ·   ');
-      ctx.font = `700 14px ${body}`;
-      ctx.fillStyle = '#c4d4f0';
-      ctx.fillText(obj, 24, 154);
+        .map((o) => `${OBJECTIVE_LABEL[o.kind]} ${o.current}/${o.target}`)
+        .join('  ·  ');
+      ctx.font = `800 13px ${body}`;
+      ctx.fillStyle = '#d8c8f0';
+      ctx.fillText(obj, 380, 132);
     }
   } else {
-    ctx.fillStyle = '#b0c0e0';
-    ctx.font = `700 14px ${body}`;
-    ctx.fillText('Match gems · forge power crystals · chain combos', 24, 130);
+    ctx.fillStyle = '#c4b6d8';
+    ctx.font = `800 14px ${body}`;
+    ctx.fillText('Match · Forge · Cascade · Build', 32, 132);
   }
   void now;
+}
+
+function drawStatBadge(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  label: string,
+  value: string,
+  color: string,
+  font: string,
+): void {
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  roundRectPath(ctx, x, y, 150, 36, 12);
+  ctx.fill();
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = 0.55;
+  ctx.lineWidth = 2;
+  roundRectPath(ctx, x, y, 150, 36, 12);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.font = `800 10px ${font}`;
+  ctx.textAlign = 'left';
+  ctx.fillText(label, x + 12, y + 13);
+  ctx.fillStyle = color;
+  ctx.font = `800 18px ${font}`;
+  ctx.fillText(value, x + 12, y + 30);
 }
 
 function drawChip(
@@ -370,17 +399,37 @@ function drawChip(
   text: string,
   accent: string,
   font = '"Nunito", system-ui, sans-serif',
+  w = 112,
 ): void {
-  ctx.fillStyle = 'rgba(0,0,0,0.4)';
-  roundPill(ctx, x, y, 112, 30);
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  roundPill(ctx, x, y, w, 32);
   ctx.strokeStyle = accent;
-  ctx.globalAlpha = 0.5;
+  ctx.globalAlpha = 0.7;
+  ctx.lineWidth = 2;
   ctx.stroke();
   ctx.globalAlpha = 1;
   ctx.fillStyle = accent;
-  ctx.font = `800 14px ${font}`;
+  ctx.font = `800 15px ${font}`;
   ctx.textAlign = 'left';
-  ctx.fillText(text, x + 12, y + 20);
+  ctx.fillText(text, x + 12, y + 21);
+}
+
+function roundRectPath(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+): void {
+  const rr = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.closePath();
 }
 
 function roundPill(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number): void {
@@ -1059,7 +1108,6 @@ function panel(
   opts: { className?: string; scrollTop?: boolean } = {},
 ): HTMLElement {
   const p = el('div', { class: opts.className ? `panel ${opts.className}` : 'panel' }, [
-    el('div', { class: 'sim-badge' }, ['demo build · no real money']),
     el('h1', {}, [title]),
     ...body,
     el('div', { class: 'row' }, actions),
@@ -1078,24 +1126,21 @@ function panel(
 function renderTitle(): void {
   overlay.classList.remove('hidden');
   overlay.style.background =
-    'linear-gradient(180deg, rgba(4,8,18,0.15) 0%, rgba(4,8,18,0.55) 45%, rgba(4,8,18,0.82) 100%)';
+    'linear-gradient(180deg, rgba(10,6,24,0.1) 0%, rgba(10,6,24,0.45) 40%, rgba(8,4,18,0.88) 100%)';
   overlay.style.backdropFilter = 'none';
   overlay.style.justifyContent = 'flex-end';
-  overlay.style.paddingBottom = '12%';
+  overlay.style.paddingBottom = '10%';
 
-  const wrap = el('div', { class: 'panel' }, []);
-  wrap.style.background =
-    'linear-gradient(165deg, rgba(30,40,80,0.55), rgba(10,14,28,0.88))';
-  wrap.style.border = '1px solid rgba(160,210,255,0.35)';
-  wrap.style.textAlign = 'center';
+  const wrap = el('div', { class: 'panel panel-title' }, []);
   wrap.append(
-    el('p', {}, ['Deep under the mountain, living crystals remember every match.']),
+    el('h1', {}, ['CRYSTALLINE']),
+    el('p', {}, ['Match gems. Forge powers. Build your cavern.']),
     el('p', { class: 'hud-tip' }, [
-      'Match 4+ to forge Power Crystals. Swap powers together for chain reactions.',
+      'Match 4+ for Power Crystals · Chain combos · Furnish the mine',
     ]),
     el('div', { class: 'row' }, [
       btn(
-        'DIVE IN',
+        'PLAY',
         () => {
           audio.titleSting();
           audio.stopPad();
@@ -1111,7 +1156,7 @@ function renderTitle(): void {
         'gold',
       ),
       btn(
-        'Saga Map',
+        'LEVELS',
         () => {
           audio.resume();
           audio.stopPad();
@@ -1184,10 +1229,10 @@ function renderMap(): void {
 
   const meta = snap.meta;
   panel(
-    'Crystal Saga',
+    'Levels',
     [
       el('p', {}, [
-        `${LEVEL_COUNT} chambers deep in the living mine. Match gems, forge powers, chain combos.`,
+        `Clear chambers · collect stars · furnish your cavern`,
       ]),
       el('div', { class: 'map-grid' }, nodes),
       el('div', { class: 'stat-grid' }, [
@@ -1198,11 +1243,11 @@ function renderMap(): void {
       ]),
     ],
     [
-      btn('Crystal Cavern', () => {
+      btn('CAVERN', () => {
         app.screen = 'cavern';
         renderOverlay();
       }, 'gold'),
-      btn('Store', () => {
+      btn('SHOP', () => {
         app.screen = 'store';
         renderOverlay();
       }, 'secondary'),
@@ -1342,12 +1387,12 @@ function renderResults(): void {
         ])
       : null;
   panel(
-    r.status === 'won' ? 'Geode Cleared!' : 'Fracture…',
+    r.status === 'won' ? 'Level Clear!' : 'Almost…',
     [
       el('p', {}, [
         r.status === 'won'
           ? `Score ${r.score.toLocaleString()}`
-          : `Score ${r.score.toLocaleString()}. A life was spent. The research clock is ticking.`,
+          : `Score ${r.score.toLocaleString()}. A life was spent.`,
       ]),
       ...(starLine ? [el('h2', {}, [starLine])] : []),
       ...(essenceLine ? [essenceLine] : []),
@@ -1356,7 +1401,7 @@ function renderResults(): void {
         : []),
     ],
     [
-      btn(r.status === 'won' ? 'Next' : 'Retry', () => {
+      btn(r.status === 'won' ? 'NEXT' : 'RETRY', () => {
         if (r.status === 'won' && app.levelId < LEVEL_COUNT) {
           app.levelId += 1;
           app.screen = 'prelevel';
@@ -1364,11 +1409,11 @@ function renderResults(): void {
           app.screen = r.status === 'lost' ? 'prelevel' : 'map';
         }
         renderOverlay();
-      }),
+      }, r.status === 'won' ? 'primary' : 'gold'),
       ...(r.status === 'won'
         ? [
             btn(
-              'Furnish Cavern',
+              'CAVERN',
               () => {
                 app.screen = 'cavern';
                 renderOverlay();
@@ -1377,12 +1422,8 @@ function renderResults(): void {
             ),
           ]
         : []),
-      btn('Map', () => {
+      btn('LEVELS', () => {
         app.screen = 'map';
-        renderOverlay();
-      }, 'secondary'),
-      btn('Store', () => {
-        app.screen = 'store';
         renderOverlay();
       }, 'secondary'),
     ],
@@ -1482,10 +1523,10 @@ function renderCavern(): void {
   });
 
   panel(
-    'Crystal Cavern',
+    'Your Cavern',
     [
       el('p', {}, [
-        'Wins mint essence. Spend it to furnish the living mine — a home that stays after the board clears.',
+        'Earn essence from clears. Furnish chambers. Your mine grows with every win.',
       ]),
       vista,
       el('div', { class: 'stat-grid' }, [
@@ -1634,10 +1675,10 @@ function renderStore(): void {
   });
 
   panel(
-    'Crystal Exchange',
+    'Shop',
     [
       el('p', {}, [
-        `Credits ${snap.wallet.credits} · Shards ${snap.wallet.shards} · All prices fictional.`,
+        `Credits ${snap.wallet.credits}  ·  Shards ${snap.wallet.shards}`,
       ]),
       ...items,
     ],

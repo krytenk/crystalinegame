@@ -69,6 +69,7 @@ Implemented in `boardAnimator` + `juice` + match VFX. Haptics (`src/audio/haptic
 | Large, thick, readable | Rounded display sans | Galactic Knights titles; Diamond Shape CTAs; Nunito body |
 | Outline / shadow | Text over particles | HUD chips + stroked score floats |
 | Minimal lore | No novel in-HUD | Short toasts, aha tutorial only |
+| Studio casual shell | Embossed CTAs, gem map nodes, gold frames | Original crystal-mine palette (not candy/royal clones) |
 
 ---
 
