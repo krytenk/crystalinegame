@@ -1,5 +1,11 @@
 /** Tiny DOM helpers. */
 
+/** Optional UI tick (wired from main once AudioDirector exists). */
+let uiTapHook: (() => void) | null = null;
+export const setUiTapHook = (fn: (() => void) | null): void => {
+  uiTapHook = fn;
+};
+
 export const el = <K extends keyof HTMLElementTagNameMap>(
   tag: K,
   attrs: Record<string, string | boolean | undefined> = {},
@@ -44,6 +50,11 @@ export const btn = (
   b.addEventListener('click', (e) => {
     e.preventDefault();
     if (b.disabled) return;
+    try {
+      uiTapHook?.();
+    } catch {
+      /* ignore */
+    }
     onClick();
   });
   return b;

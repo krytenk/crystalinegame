@@ -41,7 +41,7 @@ import {
 } from '@engine/tutorial';
 import { getLevel, LEVEL_COUNT, LEVELS } from './levels';
 import { injectStyles } from './ui/styles';
-import { btn, clear, el } from './ui/dom';
+import { btn, clear, el, setUiTapHook } from './ui/dom';
 
 type Screen =
   | 'boot'
@@ -170,20 +170,29 @@ function mount(): void {
   audio.setEnabled(economy.getSnapshot().settings.sfx);
   boardView.glyphs = economy.getSnapshot().settings.glyphs;
 
+  setUiTapHook(() => audio.uiTap());
+
+  // Boot splash while atlas loads
+  app.screen = 'boot';
+  renderOverlay();
+
   void atlas.load().then(async () => {
     try {
       await vfx.load(atlas.vfx);
     } catch {
       // Procedural fallback bursts still work.
     }
-    app.screen = 'title';
-    app.titleBorn = performance.now();
-    titleFxAt = app.titleBorn + 400;
-    renderOverlay();
+    // Brief branded hold so splash reads as intentional
+    window.setTimeout(() => {
+      app.screen = 'title';
+      app.titleBorn = performance.now();
+      titleFxAt = app.titleBorn + 400;
+      audio.panelWhoosh();
+      renderOverlay();
+    }, 480);
   });
 
   loop();
-  renderOverlay();
 }
 
 function loop(): void {
@@ -220,6 +229,8 @@ function loop(): void {
     boardAnim.setLayout(boardView.layout);
     if (!frozen) boardAnim.update(now);
     boardView.draw(ctx, snap, atlas, canvasView.dprBucket, now, boardAnim);
+    const { originX, originY, cell } = boardView.layout;
+    drawBoardDust(ctx, originX, originY, cell * snap.width, cell * snap.height, now);
     drawAhaHint(ctx, now);
   }
 
@@ -247,6 +258,9 @@ function drawTitleCanvas(ctx: CanvasRenderingContext2D, now: number): void {
     titleFxAt = now + 2800 + Math.random() * 1200;
   }
 
+  // Ambient sparkles
+  drawAmbientSparkles(ctx, w, h, now, 18);
+
   // Soft title on canvas (DOM carries the CTA)
   const pulse = 0.92 + 0.08 * Math.sin(age * 0.004);
   ctx.save();
@@ -254,19 +268,67 @@ function drawTitleCanvas(ctx: CanvasRenderingContext2D, now: number): void {
   ctx.scale(pulse, pulse);
   ctx.textAlign = 'center';
   ctx.font = '800 64px "GalacticKnights", "CrystallineDisplay", "Cinzel", serif';
-  ctx.fillStyle = 'rgba(0,0,0,0.45)';
-  ctx.fillText('Crystalline', 3, 3);
-  ctx.fillStyle = '#dff4ff';
-  ctx.shadowColor = '#7ed0ff';
+  ctx.lineWidth = 8;
+  ctx.strokeStyle = 'rgba(30, 16, 60, 0.85)';
+  ctx.strokeText('CRYSTALLINE', 0, 0);
+  ctx.fillStyle = '#fff6e8';
+  ctx.shadowColor = '#ffd24a';
   ctx.shadowBlur = 28;
-  ctx.fillText('Crystalline', 0, 0);
+  ctx.fillText('CRYSTALLINE', 0, 0);
   ctx.restore();
 
   ctx.textAlign = 'center';
-  ctx.font = '600 18px "CrystallineBody", "Nunito", sans-serif';
-  ctx.fillStyle = 'rgba(200,220,255,0.75)';
+  ctx.font = '700 17px "CrystallineBody", "Nunito", sans-serif';
+  ctx.fillStyle = 'rgba(220,210,255,0.8)';
   ctx.shadowBlur = 0;
-  ctx.fillText('Deep under the mountain, living crystals remember every match.', w / 2, h * 0.36);
+  ctx.fillText('Match · Forge · Cascade · Build', w / 2, h * 0.36);
+}
+
+/** Slow floating sparkles for title / idle ambience. */
+function drawAmbientSparkles(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  now: number,
+  count: number,
+): void {
+  for (let i = 0; i < count; i++) {
+    const seed = i * 97.13;
+    const x = ((Math.sin(seed) * 0.5 + 0.5) * w * 0.9 + w * 0.05 + now * 0.008 * ((i % 5) + 1)) % w;
+    const y =
+      (Math.cos(seed * 1.3) * 0.5 + 0.5) * h * 0.7 +
+      h * 0.1 +
+      Math.sin(now * 0.001 + seed) * 20;
+    const a = 0.15 + 0.35 * (0.5 + 0.5 * Math.sin(now * 0.003 + seed));
+    const r = 1.2 + (i % 4);
+    ctx.fillStyle = `rgba(200, 230, 255, ${a})`;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/** Gentle dust over the board pad — keeps the mine “alive” between moves. */
+function drawBoardDust(
+  ctx: CanvasRenderingContext2D,
+  ox: number,
+  oy: number,
+  bw: number,
+  bh: number,
+  now: number,
+): void {
+  ctx.save();
+  for (let i = 0; i < 14; i++) {
+    const seed = i * 41.7;
+    const x = ox + ((Math.sin(seed + now * 0.0003) * 0.5 + 0.5) * bw);
+    const y = oy + ((i / 14) * bh + ((now * 0.012 * (0.5 + (i % 3))) % bh));
+    const a = 0.08 + 0.12 * (0.5 + 0.5 * Math.sin(now * 0.004 + seed));
+    ctx.fillStyle = `rgba(180, 210, 255, ${a})`;
+    ctx.beginPath();
+    ctx.arc(x, y, 1 + (i % 3) * 0.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
 }
 
 function drawAhaHint(ctx: CanvasRenderingContext2D, now: number): void {
@@ -1056,7 +1118,17 @@ function openAd(
 function renderOverlay(): void {
   clear(overlay);
   if (app.screen === 'boot') {
-    overlay.classList.add('hidden');
+    overlay.classList.remove('hidden');
+    overlay.style.background =
+      'radial-gradient(ellipse at 50% 40%, rgba(80,40,140,0.45), rgba(6,4,14,0.96))';
+    overlay.style.justifyContent = 'center';
+    overlay.style.backdropFilter = 'none';
+    const splash = el('div', { class: 'boot-splash' }, [
+      el('div', { class: 'boot-logo' }, ['CRYSTALLINE']),
+      el('div', { class: 'boot-sub' }, ['Loading the mine…']),
+      el('div', { class: 'boot-bar' }, [el('div', { class: 'boot-bar-fill' }, [])]),
+    ]);
+    overlay.append(splash);
     return;
   }
   if (app.screen === 'title') {
@@ -1177,12 +1249,15 @@ function panel(
   actions: HTMLElement[] = [],
   opts: { className?: string; scrollTop?: boolean } = {},
 ): HTMLElement {
-  const p = el('div', { class: opts.className ? `panel ${opts.className}` : 'panel' }, [
+  const p = el('div', {
+    class: opts.className ? `panel panel-enter ${opts.className}` : 'panel panel-enter',
+  }, [
     el('h1', {}, [title]),
     ...body,
     el('div', { class: 'row' }, actions),
   ]);
   overlay.append(p);
+  audio.panelWhoosh();
   if (opts.scrollTop) {
     // Ensure tall catalogues start at the title, not mid-list.
     requestAnimationFrame(() => {
@@ -1285,23 +1360,40 @@ function renderMap(): void {
   pathSvg.setAttribute('class', 'map-path');
   pathSvg.setAttribute('viewBox', '0 0 100 100');
   pathSvg.setAttribute('preserveAspectRatio', 'none');
-  // Winding path through 5-col grid (percent coords)
-  const pts: string[] = [];
+  const rowsTotal = Math.ceil(LEVELS.length / cols);
+  const ptsAll: { x: number; y: number }[] = [];
   for (let i = 0; i < LEVELS.length; i++) {
     const col = i % cols;
     const row = Math.floor(i / cols);
-    // serpentine: reverse odd rows for a snaking trail
     const c = row % 2 === 1 ? cols - 1 - col : col;
-    const x = ((c + 0.5) / cols) * 100;
-    const y = ((row + 0.5) / Math.ceil(LEVELS.length / cols)) * 100;
-    pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+    ptsAll.push({
+      x: ((c + 0.5) / cols) * 100,
+      y: ((row + 0.5) / rowsTotal) * 100,
+    });
   }
-  const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-  poly.setAttribute('points', pts.join(' '));
-  poly.setAttribute('class', 'map-path-line');
-  pathSvg.appendChild(poly);
+  // Dim full trail
+  const polyAll = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+  polyAll.setAttribute('points', ptsAll.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '));
+  polyAll.setAttribute('class', 'map-path-line map-path-dim');
+  pathSvg.appendChild(polyAll);
+  // Gold trail only through unlocked progress (into the next playable level)
+  const unlockedIdx = Math.min(
+    LEVELS.length - 1,
+    Math.max(0, snap.progress.highestUnlocked - 1),
+  );
+  const progressPts = ptsAll.slice(0, unlockedIdx + 1);
+  if (progressPts.length >= 2) {
+    const polyProg = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    polyProg.setAttribute(
+      'points',
+      progressPts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '),
+    );
+    polyProg.setAttribute('class', 'map-path-line map-path-progress');
+    pathSvg.appendChild(polyProg);
+  }
   board.append(pathSvg);
 
+  const nextPlayId = snap.progress.highestUnlocked;
   const grid = el('div', { class: 'map-grid' }, []);
   for (const lvl of LEVELS) {
     const locked = lvl.id > snap.progress.highestUnlocked;
@@ -1310,11 +1402,12 @@ function renderMap(): void {
         snap.progress.stars[String(lvl.id) as unknown as number] ??
         0,
     );
+    const isNext = lvl.id === nextPlayId && !locked;
     const starText = stars > 0 ? '★'.repeat(stars) : locked ? '🔒' : '·';
     const b = el(
       'button',
       {
-        class: `level-node${locked ? ' locked' : ''}${lvl.id === app.levelId ? ' current' : ''}${stars > 0 ? ' cleared' : ''}`,
+        class: `level-node${locked ? ' locked' : ''}${lvl.id === app.levelId ? ' current' : ''}${stars > 0 ? ' cleared' : ''}${isNext ? ' next-play' : ''}`,
         type: 'button',
         disabled: locked ? true : undefined,
         title: stars > 0 ? `${stars} star${stars === 1 ? '' : 's'}` : locked ? 'Locked' : 'Play',
@@ -1488,16 +1581,14 @@ function renderResults(): void {
     return;
   }
   const snap = economy.getSnapshot();
-  const starLine =
-    r.status === 'won'
-      ? `${'★'.repeat(Math.max(0, r.stars))}${'☆'.repeat(Math.max(0, 3 - r.stars))}  ·  ${r.stars}/3 stars`
-      : null;
   const essenceLine =
     r.status === 'won' && snap.lastEssenceGain > 0
       ? el('p', { class: 'essence-gain' }, [
           `+${snap.lastEssenceGain} essence → Crystal Cavern`,
         ])
       : null;
+  const starsEl = el('div', { class: 'results-burst-stars' }, []);
+  const scoreEl = el('div', { class: 'results-burst-score' }, ['0']);
   const burst = el(
     'div',
     { class: r.status === 'won' ? 'results-burst' : 'results-burst fail' },
@@ -1510,14 +1601,41 @@ function renderResults(): void {
       }),
       el('div', { class: 'results-burst-scrim' }, []),
       el('div', { class: 'results-burst-content' }, [
-        el('div', { class: 'results-burst-stars' }, [
-          r.status === 'won' ? (starLine ?? '★') : '◆',
-        ]),
-        el('div', { class: 'results-burst-score' }, [r.score.toLocaleString()]),
+        starsEl,
+        scoreEl,
         el('div', { class: 'results-burst-label' }, ['SCORE']),
       ]),
     ],
   );
+
+  // Win ceremony: stars pop + score count-up
+  if (r.status === 'won') {
+    const nStars = Math.max(0, Math.min(3, r.stars));
+    for (let i = 0; i < 3; i++) {
+      const s = el('span', { class: `star-pop${i < nStars ? ' on' : ''}` }, [
+        i < nStars ? '★' : '☆',
+      ]);
+      s.style.animationDelay = `${120 + i * 280}ms`;
+      starsEl.append(s);
+      if (i < nStars) {
+        window.setTimeout(() => audio.starDing(i), 140 + i * 280);
+      }
+    }
+    const target = r.score;
+    const start = performance.now();
+    const dur = 900;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / dur);
+      const eased = 1 - (1 - t) ** 3;
+      scoreEl.textContent = Math.floor(target * eased).toLocaleString();
+      if (t < 1) requestAnimationFrame(tick);
+      else scoreEl.textContent = target.toLocaleString();
+    };
+    requestAnimationFrame(tick);
+  } else {
+    starsEl.append(el('span', {}, ['◆']));
+    scoreEl.textContent = r.score.toLocaleString();
+  }
 
   panel(
     r.status === 'won' ? 'Level Clear!' : 'Almost…',
@@ -1812,6 +1930,7 @@ function renderStore(): void {
       el('p', {}, [
         `Credits ${snap.wallet.credits}  ·  Shards ${snap.wallet.shards}`,
       ]),
+      el('p', { class: 'hud-tip' }, ['Stock up before the next dive']),
       ...items,
     ],
     [

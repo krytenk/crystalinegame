@@ -53,6 +53,24 @@ export class AudioDirector {
     this.synth.stopPad();
   }
 
+  uiTap(): void {
+    if (!this.sfx) return;
+    this.ensureGraph();
+    this.synth.uiTap();
+  }
+
+  starDing(index = 0): void {
+    if (!this.sfx) return;
+    this.ensureGraph();
+    this.synth.starDing(index);
+  }
+
+  panelWhoosh(): void {
+    if (!this.sfx) return;
+    this.ensureGraph();
+    this.synth.panelWhoosh();
+  }
+
   handle(events: readonly GameEvent[]): void {
     if (!this.sfx) return;
     this.ensureGraph();

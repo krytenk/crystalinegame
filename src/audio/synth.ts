@@ -570,6 +570,73 @@ export class Synth {
     });
   }
 
+  /** UI button tap — short soft tick. */
+  uiTap(): void {
+    const ctx = this.ensure();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    this.tone(920, {
+      type: 'triangle',
+      start: t,
+      dur: 0.045,
+      attack: 0.002,
+      peak: 0.07,
+      release: 0.035,
+      pan: 0,
+      filterFreq: 4000,
+    });
+  }
+
+  /** Star award ding — bright short chime. */
+  starDing(index = 0): void {
+    const ctx = this.ensure();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const f = 880 * Math.pow(2, index / 12);
+    this.tone(f, {
+      type: 'sine',
+      start: t,
+      dur: 0.22,
+      attack: 0.004,
+      peak: 0.16,
+      release: 0.18,
+      pan: -0.2 + index * 0.2,
+    });
+    this.tone(f * 2.01, {
+      type: 'triangle',
+      start: t + 0.01,
+      dur: 0.14,
+      attack: 0.004,
+      peak: 0.06,
+      release: 0.12,
+      pan: 0.2 - index * 0.1,
+    });
+  }
+
+  /** Soft whoosh when opening a panel / screen. */
+  panelWhoosh(): void {
+    const ctx = this.ensure();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    this.noise({
+      start: t,
+      dur: 0.12,
+      peak: 0.06,
+      highpass: 800,
+      lowpass: 5000,
+      pan: 0,
+    });
+    this.tone(220, {
+      type: 'sine',
+      start: t,
+      dur: 0.14,
+      attack: 0.01,
+      peak: 0.05,
+      release: 0.12,
+      filterFreq: 900,
+    });
+  }
+
   titleSting(): void {
     const ctx = this.ensure();
     if (!ctx) return;

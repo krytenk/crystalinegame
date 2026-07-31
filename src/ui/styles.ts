@@ -404,12 +404,46 @@ export function injectStyles(): void {
     }
     .map-path-line {
       fill: none;
-      stroke: rgba(255, 200, 80, 0.45);
-      stroke-width: 1.8;
       stroke-linecap: round;
       stroke-linejoin: round;
+    }
+    .map-path-dim {
+      stroke: rgba(140, 120, 180, 0.28);
+      stroke-width: 1.6;
       stroke-dasharray: 3 2.5;
-      filter: drop-shadow(0 0 3px rgba(255, 180, 40, 0.35));
+    }
+    .map-path-progress {
+      stroke: rgba(255, 200, 80, 0.75);
+      stroke-width: 2.2;
+      stroke-dasharray: 4 2;
+      filter: drop-shadow(0 0 4px rgba(255, 180, 40, 0.55));
+      animation: pathShimmer 2.4s linear infinite;
+    }
+    @keyframes pathShimmer {
+      to { stroke-dashoffset: -24; }
+    }
+    .level-node.next-play {
+      animation: nextPulse 1.4s ease-in-out infinite;
+      border-color: #ffe06a !important;
+      z-index: 2;
+    }
+    @keyframes nextPulse {
+      0%, 100% {
+        transform: scale(1.04);
+        box-shadow:
+          0 5px 0 #8a6010,
+          0 0 0 3px rgba(255, 210, 74, 0.35),
+          0 0 18px rgba(255, 180, 40, 0.35),
+          inset 0 2px 0 rgba(255,255,255,0.35);
+      }
+      50% {
+        transform: scale(1.12);
+        box-shadow:
+          0 5px 0 #8a6010,
+          0 0 0 5px rgba(255, 210, 74, 0.55),
+          0 0 28px rgba(255, 200, 60, 0.65),
+          inset 0 2px 0 rgba(255,255,255,0.45);
+      }
     }
     .map-grid {
       position: relative;
@@ -907,6 +941,85 @@ export function injectStyles(): void {
     }
     .place-ceremony .btn {
       position: relative; z-index: 2;
+    }
+    /* Panel enter transition */
+    .panel-enter {
+      animation: panelIn 0.32s cubic-bezier(0.22, 1.15, 0.36, 1) both;
+    }
+    @keyframes panelIn {
+      from {
+        opacity: 0;
+        transform: translateY(18px) scale(0.96);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+    /* Boot splash */
+    .boot-splash {
+      text-align: center;
+      padding: 24px;
+      animation: panelIn 0.4s ease-out both;
+    }
+    .boot-logo {
+      font-family: var(--font-title);
+      font-size: clamp(2rem, 8vw, 2.6rem);
+      font-weight: 800;
+      color: #fff6e8;
+      letter-spacing: 0.06em;
+      text-shadow:
+        0 3px 0 #3a2060,
+        0 0 28px rgba(255, 200, 80, 0.45);
+      margin-bottom: 12px;
+    }
+    .boot-sub {
+      font-weight: 700;
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-bottom: 22px;
+    }
+    .boot-bar {
+      width: min(220px, 70vw);
+      height: 10px;
+      margin: 0 auto;
+      border-radius: 999px;
+      background: rgba(0,0,0,0.45);
+      border: 2px solid rgba(201, 162, 39, 0.4);
+      overflow: hidden;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    .boot-bar-fill {
+      height: 100%;
+      width: 35%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #5ec8ff, #ffd24a, #5ec8ff);
+      background-size: 200% 100%;
+      animation: bootLoad 1.1s ease-in-out infinite;
+    }
+    @keyframes bootLoad {
+      0% { width: 18%; background-position: 0% 0; }
+      50% { width: 78%; background-position: 100% 0; }
+      100% { width: 28%; background-position: 0% 0; }
+    }
+    /* Win star pop */
+    .star-pop {
+      display: inline-block;
+      font-size: 1.75rem;
+      margin: 0 4px;
+      color: rgba(255, 255, 255, 0.25);
+      transform: scale(0.4);
+      opacity: 0;
+      animation: starPop 0.45s cubic-bezier(0.22, 1.4, 0.36, 1) forwards;
+    }
+    .star-pop.on {
+      color: var(--gold);
+      text-shadow: 0 2px 0 rgba(0,0,0,0.4), 0 0 12px rgba(255, 200, 60, 0.65);
+    }
+    @keyframes starPop {
+      0% { transform: scale(0.3) rotate(-20deg); opacity: 0; }
+      60% { transform: scale(1.25) rotate(8deg); opacity: 1; }
+      100% { transform: scale(1) rotate(0); opacity: 1; }
     }
   `;
   document.head.appendChild(el);
