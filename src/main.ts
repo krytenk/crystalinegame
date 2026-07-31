@@ -1202,18 +1202,45 @@ function boosterChip(
 
 function renderMap(): void {
   const snap = economy.getSnapshot();
-  const nodes = LEVELS.map((lvl) => {
+  const cols = 5;
+  const board = el('div', { class: 'map-board' }, []);
+  const pathSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  pathSvg.setAttribute('class', 'map-path');
+  pathSvg.setAttribute('viewBox', '0 0 100 100');
+  pathSvg.setAttribute('preserveAspectRatio', 'none');
+  // Winding path through 5-col grid (percent coords)
+  const pts: string[] = [];
+  for (let i = 0; i < LEVELS.length; i++) {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    // serpentine: reverse odd rows for a snaking trail
+    const c = row % 2 === 1 ? cols - 1 - col : col;
+    const x = ((c + 0.5) / cols) * 100;
+    const y = ((row + 0.5) / Math.ceil(LEVELS.length / cols)) * 100;
+    pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+  }
+  const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+  poly.setAttribute('points', pts.join(' '));
+  poly.setAttribute('class', 'map-path-line');
+  pathSvg.appendChild(poly);
+  board.append(pathSvg);
+
+  const grid = el('div', { class: 'map-grid' }, []);
+  for (const lvl of LEVELS) {
     const locked = lvl.id > snap.progress.highestUnlocked;
-    // Stars may be stored under numeric or string keys depending on JSON parse.
-    const stars = Number(snap.progress.stars[lvl.id] ?? snap.progress.stars[String(lvl.id) as unknown as number] ?? 0);
-    const starText = stars > 0 ? '★'.repeat(stars) : locked ? '' : '·';
+    const stars = Number(
+      snap.progress.stars[lvl.id] ??
+        snap.progress.stars[String(lvl.id) as unknown as number] ??
+        0,
+    );
+    const starText = stars > 0 ? '★'.repeat(stars) : locked ? '🔒' : '·';
     const b = el(
       'button',
       {
-        class: `level-node${locked ? ' locked' : ''}${lvl.id === app.levelId ? ' current' : ''}`,
+        class: `level-node${locked ? ' locked' : ''}${lvl.id === app.levelId ? ' current' : ''}${stars > 0 ? ' cleared' : ''}`,
         type: 'button',
         disabled: locked ? true : undefined,
-        title: stars > 0 ? `${stars} star${stars === 1 ? '' : 's'}` : locked ? 'Locked' : 'No stars yet',
+        title: stars > 0 ? `${stars} star${stars === 1 ? '' : 's'}` : locked ? 'Locked' : 'Play',
       },
       [`${lvl.id}`, el('div', { class: 'level-stars' }, [starText])],
     ) as HTMLButtonElement;
@@ -1224,17 +1251,16 @@ function renderMap(): void {
         renderOverlay();
       });
     }
-    return b;
-  });
+    grid.append(b);
+  }
+  board.append(grid);
 
   const meta = snap.meta;
   panel(
     'Levels',
     [
-      el('p', {}, [
-        `Clear chambers · collect stars · furnish your cavern`,
-      ]),
-      el('div', { class: 'map-grid' }, nodes),
+      el('p', {}, ['Clear chambers · collect stars · furnish your cavern']),
+      board,
       el('div', { class: 'stat-grid' }, [
         stat('Lives', String(snap.lives.count)),
         stat('Shards', String(snap.wallet.shards)),
@@ -1262,14 +1288,40 @@ function renderMap(): void {
 function renderPrelevel(): void {
   const level = getLevel(app.levelId);
   const snap = economy.getSnapshot();
-  // Clamp toggles if inventory ran dry
   if (snap.boosters.seedPrism <= 0) app.prep.seedPrism = false;
   if (snap.boosters.extraMoves <= 0) app.prep.extraMoves = false;
+  const best = Number(
+    snap.progress.stars[level.id] ??
+      snap.progress.stars[String(level.id) as unknown as number] ??
+      0,
+  );
+
+  const banner = el('div', { class: 'level-banner' }, [
+    el('div', { class: 'level-banner-num' }, [`${level.id}`]),
+    el('div', { class: 'level-banner-body' }, [
+      el('div', { class: 'level-banner-name' }, [level.name]),
+      el('div', { class: 'level-banner-meta' }, [
+        `${level.moves} moves  ·  ${level.width}×${level.height}`,
+      ]),
+      el('div', { class: 'level-banner-stars' }, [
+        best > 0 ? '★'.repeat(best) + '☆'.repeat(3 - best) : '☆☆☆  best',
+      ]),
+    ]),
+  ]);
+
+  const goals = el('div', { class: 'goal-row' }, [
+    ...level.objectives.map((o) =>
+      el('div', { class: 'goal-chip' }, [
+        el('span', { class: 'goal-k' }, [OBJECTIVE_LABEL[o.kind]]),
+        el('span', { class: 'goal-v' }, [String(o.target)]),
+      ]),
+    ),
+  ]);
 
   const chips = el('div', { class: 'booster-row' }, [
     boosterChip(
-      `Opal seed ${app.prep.seedPrism ? '✓' : ''}`,
-      `×${snap.boosters.seedPrism} · start with a Prism`,
+      `Prism seed ${app.prep.seedPrism ? '✓' : ''}`,
+      `×${snap.boosters.seedPrism}`,
       app.prep.seedPrism,
       snap.boosters.seedPrism <= 0,
       () => {
@@ -1279,7 +1331,7 @@ function renderPrelevel(): void {
     ),
     boosterChip(
       `+5 moves ${app.prep.extraMoves ? '✓' : ''}`,
-      `×${snap.boosters.extraMoves} · extra turns`,
+      `×${snap.boosters.extraMoves}`,
       app.prep.extraMoves,
       snap.boosters.extraMoves <= 0,
       () => {
@@ -1292,52 +1344,26 @@ function renderPrelevel(): void {
   panel(
     `Level ${level.id}`,
     [
-      el('h2', {}, [level.name]),
-      el('p', {}, [`${level.width}×${level.height} · ${level.moves} moves`]),
-      el('p', {}, [
-        level.objectives
-          .map((o) => `${OBJECTIVE_LABEL[o.kind]}: ${o.target}`)
-          .join(' · '),
-      ]),
-      el('p', {}, [
-        'Match 4 → Seam Rift · L/T → Geode Burst · 5+ → Opal Prism. Swap powers together!',
-      ]),
-      el('p', {}, ['Boosters for this dive (tap to arm):']),
+      banner,
+      el('p', { class: 'hud-tip' }, ['Goals']),
+      goals,
+      el('p', { class: 'hud-tip' }, ['Boosters (tap to arm)']),
       chips,
       el('p', { class: 'hud-tip' }, [
-        `Bag: pickaxe ×${snap.boosters.pickaxe} · reshuffle ×${snap.boosters.reshuffle} · buy more in the Store (${ECONOMY_CONST.cost.booster}◆ each)`,
+        `Bag · pickaxe ×${snap.boosters.pickaxe} · reshuffle ×${snap.boosters.reshuffle}`,
       ]),
     ],
     [
-      btn('Play!', () => {
+      btn('PLAY', () => {
         startLevel(app.levelId, { ...app.prep });
         app.prep = { seedPrism: false, extraMoves: false };
       }, 'gold'),
-      btn(
-        `Buy reshuffle (${ECONOMY_CONST.cost.booster}◆)`,
-        () => {
-          const r = economy.buyBooster('reshuffle');
-          if (r.ok) pushToast('Reshuffle +1', '#b8f0ff');
-          else pushToast('Need more shards', '#ff9a9a');
-          renderOverlay();
-        },
-        'secondary',
-      ),
-      btn(
-        `Buy pickaxe (${ECONOMY_CONST.cost.booster}◆)`,
-        () => {
-          const r = economy.buyBooster('pickaxe');
-          if (r.ok) pushToast('Pickaxe +1', '#ffd679');
-          else pushToast('Need more shards', '#ff9a9a');
-          renderOverlay();
-        },
-        'secondary',
-      ),
-      btn('Back', () => {
+      btn('BACK', () => {
         app.screen = 'map';
         renderOverlay();
       }, 'secondary'),
     ],
+    { className: 'panel-prelevel' },
   );
 }
 
@@ -1386,18 +1412,33 @@ function renderResults(): void {
           `+${snap.lastEssenceGain} essence → Crystal Cavern`,
         ])
       : null;
+  const burst =
+    r.status === 'won'
+      ? el('div', { class: 'results-burst' }, [
+          el('div', { class: 'results-burst-stars' }, [
+            starLine ?? '★',
+          ]),
+          el('div', { class: 'results-burst-score' }, [
+            r.score.toLocaleString(),
+          ]),
+          el('div', { class: 'results-burst-label' }, ['SCORE']),
+        ])
+      : el('div', { class: 'results-burst fail' }, [
+          el('div', { class: 'results-burst-stars' }, ['◆']),
+          el('div', { class: 'results-burst-score' }, [r.score.toLocaleString()]),
+          el('div', { class: 'results-burst-label' }, ['SCORE']),
+        ]);
+
   panel(
     r.status === 'won' ? 'Level Clear!' : 'Almost…',
     [
-      el('p', {}, [
-        r.status === 'won'
-          ? `Score ${r.score.toLocaleString()}`
-          : `Score ${r.score.toLocaleString()}. A life was spent.`,
-      ]),
-      ...(starLine ? [el('h2', {}, [starLine])] : []),
+      burst,
       ...(essenceLine ? [essenceLine] : []),
       ...(r.status === 'won' && r.stars === 1
-        ? [el('p', {}, ['Objective complete — clear with more points or moves left for ★★ / ★★★.'])]
+        ? [el('p', { class: 'hud-tip' }, ['More points or leftover moves → ★★ / ★★★'])]
+        : []),
+      ...(r.status === 'lost'
+        ? [el('p', {}, ['A life was spent. Try again!'])]
         : []),
     ],
     [
@@ -1409,7 +1450,7 @@ function renderResults(): void {
           app.screen = r.status === 'lost' ? 'prelevel' : 'map';
         }
         renderOverlay();
-      }, r.status === 'won' ? 'primary' : 'gold'),
+      }, 'gold'),
       ...(r.status === 'won'
         ? [
             btn(
@@ -1418,7 +1459,7 @@ function renderResults(): void {
                 app.screen = 'cavern';
                 renderOverlay();
               },
-              'gold',
+              'secondary',
             ),
           ]
         : []),
@@ -1427,6 +1468,7 @@ function renderResults(): void {
         renderOverlay();
       }, 'secondary'),
     ],
+    { className: r.status === 'won' ? 'panel-results win' : 'panel-results lose' },
   );
 }
 

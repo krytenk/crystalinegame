@@ -101,39 +101,9 @@ export class BoardView {
     animator?: BoardAnimator | null,
   ): void {
     const { originX, originY, cell } = this.layout;
-    // Board well — carved stone frame
-    const well = ctx.createLinearGradient(
-      originX - 12,
-      originY - 12,
-      originX + cell * snap.width + 12,
-      originY + cell * snap.height + 12,
-    );
-    well.addColorStop(0, 'rgba(28, 36, 64, 0.96)');
-    well.addColorStop(1, 'rgba(10, 14, 28, 0.96)');
-    ctx.fillStyle = well;
-    roundRect(
-      ctx,
-      originX - 12,
-      originY - 12,
-      cell * snap.width + 24,
-      cell * snap.height + 24,
-      18,
-    );
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(140, 190, 255, 0.35)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.strokeStyle = 'rgba(80, 50, 120, 0.35)';
-    ctx.lineWidth = 1;
-    roundRect(
-      ctx,
-      originX - 8,
-      originY - 8,
-      cell * snap.width + 16,
-      cell * snap.height + 16,
-      14,
-    );
-    ctx.stroke();
+    const boardW = cell * snap.width;
+    const boardH = cell * snap.height;
+    drawBoardBezel(ctx, originX, originY, boardW, boardH);
 
     const pulse = 0.5 + 0.5 * Math.sin(now * 0.006);
     const useAnim = animator != null && animator.busy;
@@ -147,14 +117,28 @@ export class BoardView {
         const cy = originY + y * cell + cell / 2;
 
         if (!cellData.playable) {
-          ctx.fillStyle = 'rgba(0,0,0,0.5)';
-          ctx.fillRect(originX + x * cell + 2, originY + y * cell + 2, cell - 4, cell - 4);
+          ctx.fillStyle = 'rgba(8, 6, 16, 0.75)';
+          roundRect(ctx, originX + x * cell + 3, originY + y * cell + 3, cell - 6, cell - 6, 8);
+          ctx.fill();
           continue;
         }
 
-        ctx.fillStyle =
-          (x + y) % 2 === 0 ? 'rgba(36, 48, 78, 0.7)' : 'rgba(24, 32, 58, 0.7)';
-        ctx.fillRect(originX + x * cell + 1, originY + y * cell + 1, cell - 2, cell - 2);
+        // Soft checker felt — dark pad so gems pop (studio contrast)
+        const even = (x + y) % 2 === 0;
+        ctx.fillStyle = even ? 'rgba(42, 34, 72, 0.9)' : 'rgba(26, 20, 48, 0.92)';
+        roundRect(ctx, originX + x * cell + 2, originY + y * cell + 2, cell - 4, cell - 4, 10);
+        ctx.fill();
+        const tileHi = ctx.createLinearGradient(
+          originX + x * cell,
+          originY + y * cell,
+          originX + x * cell,
+          originY + y * cell + cell * 0.4,
+        );
+        tileHi.addColorStop(0, 'rgba(255,255,255,0.07)');
+        tileHi.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = tileHi;
+        roundRect(ctx, originX + x * cell + 2, originY + y * cell + 2, cell - 4, cell - 4, 10);
+        ctx.fill();
 
         if (cellData.shadow > 0) {
           atlas.draw(
@@ -179,9 +163,14 @@ export class BoardView {
         }
 
         if (this.press && this.press.x === x && this.press.y === y) {
-          ctx.strokeStyle = 'rgba(255, 230, 120, 0.95)';
-          ctx.lineWidth = 3;
-          ctx.strokeRect(originX + x * cell + 3, originY + y * cell + 3, cell - 6, cell - 6);
+          ctx.strokeStyle = 'rgba(255, 220, 90, 0.98)';
+          ctx.lineWidth = 3.5;
+          roundRect(ctx, originX + x * cell + 4, originY + y * cell + 4, cell - 8, cell - 8, 12);
+          ctx.stroke();
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+          ctx.lineWidth = 1.5;
+          roundRect(ctx, originX + x * cell + 7, originY + y * cell + 7, cell - 14, cell - 14, 10);
+          ctx.stroke();
         }
       }
     }
@@ -252,8 +241,16 @@ function drawPiece(
     ? 0.95 + pulse * 0.08
     : isPower
       ? 0.92 + pulse * 0.04
-      : 0.88;
+      : 0.9;
   const size = forcedSize ?? cell * scale;
+
+  // Soft contact shadow under gem (depth)
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.28)';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + size * 0.32, size * 0.32, size * 0.12, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
 
   // Living Core uses dedicated spin sheet when available
   if (isCore && drawLivingCore(ctx, cx, cy, size, pulse)) {
@@ -262,11 +259,33 @@ function drawPiece(
     atlas.draw(ctx, key, cx, cy, size, dprBucket);
   }
 
+  // Specular gloss — studio polish without changing base atlas art
+  if (piece.kind === 'crystal' || isPower || isCore) {
+    const gloss = ctx.createRadialGradient(
+      cx - size * 0.18,
+      cy - size * 0.22,
+      size * 0.02,
+      cx - size * 0.05,
+      cy - size * 0.08,
+      size * 0.42,
+    );
+    gloss.addColorStop(0, 'rgba(255,255,255,0.55)');
+    gloss.addColorStop(0.35, 'rgba(255,255,255,0.12)');
+    gloss.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = gloss;
+    ctx.beginPath();
+    ctx.arc(cx, cy, size * 0.42, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   if (piece.kind === 'bomb' && piece.fuse !== undefined) {
     ctx.fillStyle = '#fff';
-    ctx.font = `bold ${Math.floor(cell * 0.28)}px "Segoe UI",sans-serif`;
+    ctx.font = `800 ${Math.floor(cell * 0.28)}px "Nunito",sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+    ctx.strokeText(String(piece.fuse), cx, cy + cell * 0.08);
     ctx.fillText(String(piece.fuse), cx, cy + cell * 0.08);
   }
   if (glyphs && piece.color) {
@@ -335,6 +354,71 @@ function drawLivingCore(
   return true;
 }
 
+/**
+ * Studio match-3 board chrome: drop shadow → gold outer bezel → dark felt well.
+ * Original crystal-mine palette (not a clone of any title's frame).
+ */
+function drawBoardBezel(
+  ctx: CanvasRenderingContext2D,
+  originX: number,
+  originY: number,
+  boardW: number,
+  boardH: number,
+): void {
+  const pad = 18;
+  const x = originX - pad;
+  const y = originY - pad;
+  const w = boardW + pad * 2;
+  const h = boardH + pad * 2;
+  const r = 22;
+
+  // Soft outer shadow
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.55)';
+  ctx.shadowBlur = 28;
+  ctx.shadowOffsetY = 10;
+  ctx.fillStyle = '#1a1230';
+  roundRect(ctx, x, y, w, h, r);
+  ctx.fill();
+  ctx.restore();
+
+  // Gold outer rim
+  const gold = ctx.createLinearGradient(x, y, x + w, y + h);
+  gold.addColorStop(0, '#ffe56a');
+  gold.addColorStop(0.35, '#c9a227');
+  gold.addColorStop(0.65, '#8a6010');
+  gold.addColorStop(1, '#e8c040');
+  ctx.fillStyle = gold;
+  roundRect(ctx, x, y, w, h, r);
+  ctx.fill();
+
+  // Inner dark edge
+  ctx.fillStyle = '#120c24';
+  roundRect(ctx, x + 5, y + 5, w - 10, h - 10, 18);
+  ctx.fill();
+
+  // Highlight stroke on gold
+  ctx.strokeStyle = 'rgba(255, 245, 200, 0.55)';
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, x + 2, y + 2, w - 4, h - 4, 20);
+  ctx.stroke();
+
+  // Felt / pad fill
+  const padGrad = ctx.createLinearGradient(x, y, x, y + h);
+  padGrad.addColorStop(0, '#221848');
+  padGrad.addColorStop(0.5, '#16102e');
+  padGrad.addColorStop(1, '#100c22');
+  ctx.fillStyle = padGrad;
+  roundRect(ctx, x + 9, y + 9, w - 18, h - 18, 14);
+  ctx.fill();
+
+  // Inner gold hairline
+  ctx.strokeStyle = 'rgba(201, 162, 39, 0.35)';
+  ctx.lineWidth = 1;
+  roundRect(ctx, x + 10, y + 10, w - 20, h - 20, 13);
+  ctx.stroke();
+}
+
 function roundRect(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -343,11 +427,12 @@ function roundRect(
   h: number,
   r: number,
 ): void {
+  const rr = Math.min(r, w / 2, h / 2);
   ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
   ctx.closePath();
 }

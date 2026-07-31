@@ -374,14 +374,51 @@ export function injectStyles(): void {
       margin-top: 3px;
       text-shadow: 0 2px 0 rgba(0,0,0,0.4);
     }
+    .map-board {
+      position: relative;
+      margin: 12px 0 8px;
+      max-height: min(54vh, 460px);
+      overflow: auto;
+      border-radius: 20px;
+      padding: 12px 8px 16px;
+      background:
+        radial-gradient(ellipse at 50% 0%, rgba(90, 50, 160, 0.25), transparent 55%),
+        linear-gradient(180deg, rgba(20, 14, 40, 0.9), rgba(10, 8, 22, 0.95));
+      border: 2px solid rgba(201, 162, 39, 0.28);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+    .map-path {
+      position: absolute;
+      inset: 12px 8px 16px;
+      width: calc(100% - 16px);
+      height: calc(100% - 28px);
+      pointer-events: none;
+      z-index: 0;
+      overflow: visible;
+    }
+    .map-path-line {
+      fill: none;
+      stroke: rgba(255, 200, 80, 0.45);
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: 3 2.5;
+      filter: drop-shadow(0 0 3px rgba(255, 180, 40, 0.35));
+    }
     .map-grid {
+      position: relative;
+      z-index: 1;
       display: grid;
       grid-template-columns: repeat(5, 1fr);
       gap: 12px;
-      max-height: min(52vh, 440px);
-      overflow: auto;
-      margin: 16px 0;
-      padding: 8px 4px 12px;
+      margin: 0;
+      padding: 4px;
+    }
+    .level-node.cleared {
+      border-color: #c9a227;
+      background:
+        radial-gradient(circle at 32% 28%, rgba(255, 230, 140, 0.65), transparent 42%),
+        linear-gradient(160deg, #6a4a20, #3a2810 55%, #241808);
     }
     .level-node {
       aspect-ratio: 1;
@@ -518,6 +555,116 @@ export function injectStyles(): void {
       margin-top: 6px;
     }
     .panel .row { justify-content: center; }
+    /* Pre-level hero */
+    .level-banner {
+      display: flex; gap: 14px; align-items: center;
+      margin: 4px 0 14px;
+      padding: 12px;
+      border-radius: 18px;
+      background:
+        linear-gradient(135deg, rgba(90, 50, 160, 0.45), rgba(20, 12, 40, 0.9));
+      border: 2px solid rgba(255, 210, 74, 0.35);
+      box-shadow: 0 4px 0 rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.12);
+    }
+    .level-banner-num {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 1.6rem;
+      color: #2a1800;
+      background: linear-gradient(180deg, #ffe56a, #f0b020 55%, #c88810);
+      box-shadow: 0 4px 0 #8a5008, inset 0 2px 0 rgba(255,255,255,0.5);
+      flex-shrink: 0;
+    }
+    .level-banner-name {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 1.15rem;
+      color: #fff6e8;
+      text-shadow: 0 2px 0 rgba(0,0,0,0.4);
+    }
+    .level-banner-meta {
+      font-size: 0.82rem;
+      color: var(--muted);
+      font-weight: 700;
+      margin-top: 2px;
+    }
+    .level-banner-stars {
+      margin-top: 4px;
+      color: var(--gold);
+      font-size: 1rem;
+      letter-spacing: 0.08em;
+      text-shadow: 0 1px 0 rgba(0,0,0,0.5);
+    }
+    .goal-row {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      margin: 0 0 12px;
+    }
+    .goal-chip {
+      display: flex; flex-direction: column;
+      min-width: 88px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(40, 30, 70, 0.95), rgba(16, 12, 32, 0.98));
+      border: 2px solid rgba(94, 200, 255, 0.35);
+      box-shadow: 0 3px 0 rgba(0,0,0,0.35);
+    }
+    .goal-k {
+      font-size: 0.62rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    .goal-v {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 1.25rem;
+      color: #5ec8ff;
+      margin-top: 2px;
+    }
+    /* Results burst */
+    .results-burst {
+      text-align: center;
+      margin: 6px 0 16px;
+      padding: 18px 12px 14px;
+      border-radius: 22px;
+      background:
+        radial-gradient(circle at 50% 30%, rgba(255, 210, 80, 0.35), transparent 55%),
+        linear-gradient(180deg, rgba(60, 40, 100, 0.9), rgba(16, 10, 32, 0.95));
+      border: 3px solid rgba(255, 210, 74, 0.55);
+      box-shadow: 0 6px 0 rgba(80, 50, 10, 0.5), inset 0 2px 0 rgba(255,255,255,0.15);
+    }
+    .results-burst.fail {
+      border-color: rgba(180, 120, 255, 0.4);
+      background:
+        radial-gradient(circle at 50% 30%, rgba(120, 80, 200, 0.3), transparent 55%),
+        linear-gradient(180deg, rgba(40, 28, 70, 0.9), rgba(16, 10, 32, 0.95));
+    }
+    .results-burst-stars {
+      font-size: 1.6rem;
+      color: var(--gold);
+      letter-spacing: 0.12em;
+      text-shadow: 0 2px 0 rgba(0,0,0,0.45);
+      margin-bottom: 6px;
+    }
+    .results-burst-score {
+      font-family: var(--font-title);
+      font-size: clamp(2rem, 8vw, 2.6rem);
+      font-weight: 800;
+      color: #fff6e8;
+      text-shadow: 0 3px 0 #3a2060, 0 0 20px rgba(255, 200, 80, 0.35);
+      line-height: 1.05;
+    }
+    .results-burst-label {
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      color: var(--muted);
+      margin-top: 4px;
+    }
     /* ---- Crystal Cavern meta ---- */
     .essence-gain {
       color: #b8f0ff !important;
