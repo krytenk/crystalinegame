@@ -3,8 +3,14 @@ import { fileURLToPath, URL } from 'node:url';
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
+// GitHub project Pages needs an absolute base; VPS / local use relative `./`.
+// Set VITE_BASE=/crystalinegame/ in the Pages workflow.
+const base = process.env.VITE_BASE && process.env.VITE_BASE.length > 0
+  ? process.env.VITE_BASE
+  : './';
+
 export default defineConfig({
-  base: './',
+  base,
   resolve: {
     alias: {
       '@engine': r('./src/engine'),

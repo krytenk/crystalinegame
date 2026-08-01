@@ -54,12 +54,12 @@ export class Atlas {
           src.startsWith('http://') ||
           src.startsWith('https://') ||
           src.startsWith('data:') ||
-          src.startsWith('blob:') ||
-          src.startsWith('/')
+          src.startsWith('blob:')
         ) {
           return src;
         }
-        const clean = src.replace(/^\.\//, '');
+        // Strip leading slash so we never escape the app base on GH project pages.
+        const clean = src.replace(/^\/+/, '').replace(/^\.\//, '');
         // Already a public/ path (gen/…, themes/…, ui/…, bg/…)
         if (clean.includes('/')) return clean;
         // Bare file next to the manifest
@@ -73,12 +73,17 @@ export class Atlas {
       }));
       this.manifest = { ...data, pages, vfx };
       this.placeholder.setPalette(data.palette);
-      await Promise.all(
+      const loaded = await Promise.all(
         pages.map(async (page) => {
           const img = await loadImage(page.src);
-          this.pages.set(page.scale, { img, page });
+          return { scale: page.scale, img, page };
         }),
       );
+      this.pages.clear();
+      for (const entry of loaded) {
+        this.pages.set(entry.scale, { img: entry.img, page: entry.page });
+      }
+      if (this.pages.size === 0) throw new Error('no atlas pages loaded');
     } catch {
       // Subfolder path bugs or missing art → procedural placeholders.
       this.manifest = null;
