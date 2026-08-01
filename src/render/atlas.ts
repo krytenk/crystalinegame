@@ -44,14 +44,26 @@ export class Atlas {
       if (!res.ok) throw new Error(`manifest ${res.status}`);
       const data = (await res.json()) as AssetManifest;
       if (data.version !== MANIFEST_VERSION) throw new Error('manifest version mismatch');
-      // If manifest lives under themes/harbor/gen/, rewrite relative page/vfx paths
-      // so they resolve next to the manifest rather than site root public/gen/.
+      // Harbor manifests list bare filenames (crystals@1x.webp) beside the JSON.
+      // Crystalline lists site-relative paths (gen/crystals@1x.webp). Never prefix
+      // paths that already include a folder — that produced gen/gen/… and broke gems.
       const baseDir = url.includes('/') ? url.replace(/\/[^/]+$/, '/') : '';
       const resolveSrc = (src: string): string => {
-        if (!src || src.startsWith('themes/') || src.startsWith('http') || src.startsWith('/')) {
+        if (!src) return src;
+        if (
+          src.startsWith('http://') ||
+          src.startsWith('https://') ||
+          src.startsWith('data:') ||
+          src.startsWith('blob:') ||
+          src.startsWith('/')
+        ) {
           return src;
         }
-        return baseDir ? `${baseDir}${src.replace(/^\.\//, '')}` : src;
+        const clean = src.replace(/^\.\//, '');
+        // Already a public/ path (gen/…, themes/…, ui/…, bg/…)
+        if (clean.includes('/')) return clean;
+        // Bare file next to the manifest
+        return baseDir ? `${baseDir}${clean}` : clean;
       };
       const pages = data.pages.map((page) => ({ ...page, src: resolveSrc(page.src) }));
       const vfx = (data.vfx ?? []).map((clip) => ({
