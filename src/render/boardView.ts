@@ -375,13 +375,18 @@ function pieceFrame(p: Piece): string {
   return frameKey.crystal(p.color);
 }
 
-/** Spinning Living Core from public/gen/living_core.webp (6×2 sheet, 96px). */
+/** Spinning Living Core / Beacon Core sheet (6×2, 96px). Path is theme-aware. */
 let coreSheet: HTMLImageElement | null = null;
 let coreTried = false;
+let coreSrcTried = '';
 function ensureCoreSheet(): HTMLImageElement | null {
-  if (coreSheet) return coreSheet;
-  if (coreTried) return null;
+  // Lazy import avoided: path injected via setCoreSheetPath from main boot
+  const src = coreSheetPath;
+  if (coreSheet && coreSrcTried === src) return coreSheet;
+  if (coreTried && coreSrcTried === src) return coreSheet;
   coreTried = true;
+  coreSrcTried = src;
+  coreSheet = null;
   const img = new Image();
   img.onload = () => {
     coreSheet = img;
@@ -389,8 +394,19 @@ function ensureCoreSheet(): HTMLImageElement | null {
   img.onerror = () => {
     coreSheet = null;
   };
-  img.src = './gen/living_core.webp';
+  img.src = src;
   return null;
+}
+
+let coreSheetPath = './gen/living_core.webp';
+/** Call at boot after theme resolve so Harbor can load its beacon sheet. */
+export function setCoreSheetPath(path: string): void {
+  coreSheetPath = path.startsWith('./') || path.startsWith('/') || path.startsWith('http')
+    ? path
+    : `./${path}`;
+  coreTried = false;
+  coreSheet = null;
+  coreSrcTried = '';
 }
 
 function drawLivingCore(
@@ -443,32 +459,37 @@ function drawConveyorBelt(
   const h = cell;
   ctx.save();
   ctx.globalAlpha = 0.55 + 0.4 * life;
-  // Thin top/bottom rails (don't wash out gems)
-  ctx.fillStyle = 'rgba(80, 160, 255, 0.35)';
-  ctx.fillRect(x0 + 4, y0 + 2, w - 8, 4);
-  ctx.fillRect(x0 + 4, y0 + h - 6, w - 8, 4);
-  ctx.strokeStyle = 'rgba(255, 210, 100, 0.85)';
-  ctx.lineWidth = 2;
+  // Thin top/bottom rails (don't wash out gems) — amber/teal reads as a sorting belt
+  ctx.fillStyle = 'rgba(42, 143, 154, 0.4)';
+  ctx.fillRect(x0 + 4, y0 + 2, w - 8, 5);
+  ctx.fillRect(x0 + 4, y0 + h - 7, w - 8, 5);
+  ctx.strokeStyle = 'rgba(240, 160, 75, 0.9)';
+  ctx.lineWidth = 2.5;
   ctx.beginPath();
   ctx.moveTo(x0 + 6, y0 + 4);
   ctx.lineTo(x0 + w - 6, y0 + 4);
   ctx.moveTo(x0 + 6, y0 + h - 4);
   ctx.lineTo(x0 + w - 6, y0 + h - 4);
   ctx.stroke();
-  // Scrolling chevrons along the bottom rail
+  // Belt plate treads
   const dir = direction === 'left' ? -1 : 1;
-  const scroll = ((now * 0.1 * dir) % (cell * 0.5) + cell) % cell;
-  ctx.fillStyle = 'rgba(200, 235, 255, 0.75)';
-  ctx.font = `800 ${Math.floor(cell * 0.22)}px "Nunito",sans-serif`;
+  const scroll = ((now * 0.12 * dir) % (cell * 0.45) + cell) % cell;
+  ctx.fillStyle = 'rgba(244, 239, 230, 0.55)';
+  for (let i = 0; i < cols + 1; i++) {
+    const tx = x0 + i * cell + scroll * dir * 0.4;
+    ctx.fillRect(tx, y0 + h - 10, Math.max(3, cell * 0.12), 4);
+  }
+  ctx.fillStyle = 'rgba(240, 200, 120, 0.85)';
+  ctx.font = `800 ${Math.floor(cell * 0.2)}px "Nunito",sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const mark = direction === 'left' ? '◀' : '▶';
   for (let i = 0; i < cols; i++) {
     const cx = x0 + i * cell + cell / 2 + scroll * dir * 0.35;
-    ctx.fillText(mark, cx, y0 + h - 8);
+    ctx.fillText(mark, cx, y0 + 10);
   }
   // Row frame glow
-  ctx.strokeStyle = `rgba(126, 208, 255, ${0.45 + 0.4 * life})`;
+  ctx.strokeStyle = `rgba(94, 200, 212, ${0.45 + 0.4 * life})`;
   ctx.lineWidth = 3;
   roundRect(ctx, x0 + 1, y0 + 1, w - 2, h - 2, 11);
   ctx.stroke();

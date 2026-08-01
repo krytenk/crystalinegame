@@ -65,6 +65,8 @@ export interface EconomyOptions {
   readonly storage?: Storage;
   readonly timer?: Timer;
   readonly saveDebounceMs?: number;
+  /** localStorage key — theme packs use distinct keys so progress never collides. */
+  readonly saveKey?: string;
 }
 
 export interface EconomySnapshot {
@@ -135,6 +137,7 @@ export class Economy {
       timer: opts.timer ?? systemTimer,
       debounceMs: opts.saveDebounceMs ?? 0,
       now: this.now,
+      key: opts.saveKey,
     });
     this.hydrate(this.saveStore.load());
   }
@@ -664,6 +667,9 @@ export {
   META_UPGRADES,
   essenceForWin,
   MetaModel,
+  installMetaTheme,
+  getMetaStages,
+  getMetaUpgrades,
 } from './meta';
 export type { MetaSnapshot, MetaUpgrade, MetaBuyResult, CavernStageId } from './meta';
 export {
@@ -672,6 +678,9 @@ export {
   ALBUM_SHEET_SIZE,
   needForCycle,
   albumCard,
+  installAlbumTheme,
+  getAlbumSheet,
+  getAlbumCards,
 } from './album';
 export type { AlbumSnapshot, AlbumSlotView, AlbumRarity } from './album';
 export { EVENT_MILESTONES } from './hybridEvent';

@@ -1,16 +1,7 @@
 /**
- * CRYSTALLINE — Geode Warden companion (original IP).
- *
- * Thin narrator for retention ceremony — not a plot system.
- * Portrait: public/characters/geode-warden.webp
+ * Companion narrator — thin retention ceremony, not a plot system.
+ * Theme packs install name/art/lines at boot; crystalline defaults below.
  */
-
-export const COMPANION = {
-  id: 'geode-warden',
-  name: 'Geode Warden',
-  role: 'Cavern guide',
-  art: 'characters/geode-warden.webp',
-} as const;
 
 export type CompanionBeat =
   | 'title'
@@ -26,7 +17,14 @@ export type CompanionBeat =
   | 'coreSpire'
   | 'streak';
 
-const LINES: Record<CompanionBeat, readonly string[]> = {
+export interface CompanionDef {
+  readonly id: string;
+  readonly name: string;
+  readonly role: string;
+  readonly art: string;
+}
+
+const DEFAULT_LINES: Record<CompanionBeat, readonly string[]> = {
   title: [
     'The mountain remembers your steps. Dive when ready.',
     'Match, forge, furnish — I keep the lamps lit.',
@@ -81,14 +79,47 @@ const LINES: Record<CompanionBeat, readonly string[]> = {
   ],
 };
 
+let active: CompanionDef = {
+  id: 'geode-warden',
+  name: 'Geode Warden',
+  role: 'Cavern guide',
+  art: 'characters/geode-warden.webp',
+};
+
+let lines: Record<CompanionBeat, readonly string[]> = { ...DEFAULT_LINES };
+
+export function installCompanion(
+  def: CompanionDef,
+  nextLines: Readonly<Record<CompanionBeat, readonly string[]>>,
+): void {
+  active = def;
+  lines = { ...DEFAULT_LINES, ...nextLines };
+}
+
+/** Live companion identity (theme-aware). */
+export const COMPANION: CompanionDef = {
+  get id() {
+    return active.id;
+  },
+  get name() {
+    return active.name;
+  },
+  get role() {
+    return active.role;
+  },
+  get art() {
+    return active.art;
+  },
+};
+
 /** Deterministic-ish pick so the same beat doesn’t always feel static. */
 export function companionLine(beat: CompanionBeat, salt = 0): string {
-  const pool = LINES[beat];
+  const pool = lines[beat] ?? DEFAULT_LINES[beat];
   const i = Math.abs(salt + beat.length * 17) % pool.length;
   return pool[i] ?? pool[0]!;
 }
 
-/** Geode crack rewards — one pick among three sealed options (variable reward). */
+/** Variable-reward post-win pick among three sealed options. */
 export const GEODE_REWARDS = [10, 18, 40] as const;
 
 /** Shuffle rewards into three slots (Fisher–Yates with simple seed). */

@@ -283,6 +283,26 @@ export function essenceForWin(opts: {
   return base + starBonus + discovery;
 }
 
+/** Active catalogues (theme packs may replace at boot). Defaults = crystalline. */
+let activeStages: readonly MetaStage[] = META_STAGES;
+let activeUpgrades: readonly MetaUpgrade[] = META_UPGRADES;
+
+export function installMetaTheme(
+  stages: readonly MetaStage[],
+  upgrades: readonly MetaUpgrade[],
+): void {
+  activeStages = stages;
+  activeUpgrades = upgrades;
+}
+
+export function getMetaStages(): readonly MetaStage[] {
+  return activeStages;
+}
+
+export function getMetaUpgrades(): readonly MetaUpgrade[] {
+  return activeUpgrades;
+}
+
 export class MetaModel {
   private essence: number;
   private owned: Set<string>;
@@ -290,7 +310,7 @@ export class MetaModel {
 
   constructor(snap?: Partial<MetaPersist>) {
     this.essence = Math.max(0, Math.floor(snap?.essence ?? 0));
-    this.owned = new Set((snap?.owned ?? []).filter((id) => META_UPGRADES.some((u) => u.id === id)));
+    this.owned = new Set((snap?.owned ?? []).filter((id) => activeUpgrades.some((u) => u.id === id)));
     this.totalSpent = Math.max(0, Math.floor(snap?.totalSpent ?? 0));
   }
 
@@ -310,7 +330,7 @@ export class MetaModel {
   }
 
   stageComplete(stage: CavernStageId): boolean {
-    const need = META_UPGRADES.filter((u) => u.stage === stage);
+    const need = activeUpgrades.filter((u) => u.stage === stage);
     return need.every((u) => this.owned.has(u.id));
   }
 
@@ -321,7 +341,7 @@ export class MetaModel {
   }
 
   buy(id: string): MetaBuyResult {
-    const upgrade = META_UPGRADES.find((u) => u.id === id);
+    const upgrade = activeUpgrades.find((u) => u.id === id);
     if (!upgrade) return { ok: false, reason: 'unknown' };
     if (this.owned.has(id)) return { ok: false, reason: 'owned' };
     if (!this.stageUnlocked(upgrade.stage)) return { ok: false, reason: 'stageLocked' };
@@ -334,17 +354,17 @@ export class MetaModel {
 
   snapshot(): MetaSnapshot {
     let stagesComplete = 0;
-    for (const s of META_STAGES) {
+    for (const s of activeStages) {
       if (this.stageComplete(s.id)) stagesComplete = s.id;
       else break;
     }
     const activeStageId = Math.min(4, Math.max(1, stagesComplete + 1)) as CavernStageId;
-    const openUpgrades = META_UPGRADES.filter(
+    const openUpgrades = activeUpgrades.filter(
       (u) => !this.owned.has(u.id) && this.stageUnlocked(u.stage),
     ).sort((a, b) => a.cost - b.cost || a.order - b.order);
     const nextAffordable = openUpgrades.find((u) => this.essence >= u.cost) ?? null;
     const nextTarget = openUpgrades[0] ?? null;
-    const activeStageOwned = META_UPGRADES.filter(
+    const activeStageOwned = activeUpgrades.filter(
       (u) => u.stage === activeStageId && this.owned.has(u.id),
     );
 
@@ -356,14 +376,14 @@ export class MetaModel {
       nextAffordable,
       nextTarget,
       ownedCount: this.owned.size,
-      totalCount: META_UPGRADES.length,
+      totalCount: activeUpgrades.length,
       activeStageOwned,
       activeStageId,
     };
   }
 
   upgradesForStage(stage: CavernStageId): readonly MetaUpgrade[] {
-    return META_UPGRADES.filter((u) => u.stage === stage).sort((a, b) => a.order - b.order);
+    return activeUpgrades.filter((u) => u.stage === stage).sort((a, b) => a.order - b.order);
   }
 
   owns(id: string): boolean {

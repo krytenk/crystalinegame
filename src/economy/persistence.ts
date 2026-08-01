@@ -97,6 +97,7 @@ export function createBrowserStorage(): Storage {
 // The persisted shape
 // ---------------------------------------------------------------------------
 
+/** Default save key (crystalline). Theme packs pass a different key into SaveStore. */
 export const SAVE_KEY = 'crystalline.save';
 
 /**

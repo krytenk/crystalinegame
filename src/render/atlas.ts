@@ -44,10 +44,25 @@ export class Atlas {
       if (!res.ok) throw new Error(`manifest ${res.status}`);
       const data = (await res.json()) as AssetManifest;
       if (data.version !== MANIFEST_VERSION) throw new Error('manifest version mismatch');
-      this.manifest = data;
+      // If manifest lives under themes/harbor/gen/, rewrite relative page/vfx paths
+      // so they resolve next to the manifest rather than site root public/gen/.
+      const baseDir = url.includes('/') ? url.replace(/\/[^/]+$/, '/') : '';
+      const resolveSrc = (src: string): string => {
+        if (!src || src.startsWith('themes/') || src.startsWith('http') || src.startsWith('/')) {
+          return src;
+        }
+        return baseDir ? `${baseDir}${src.replace(/^\.\//, '')}` : src;
+      };
+      const pages = data.pages.map((page) => ({ ...page, src: resolveSrc(page.src) }));
+      const vfx = (data.vfx ?? []).map((clip) => ({
+        ...clip,
+        webm: clip.webm ? resolveSrc(clip.webm) : clip.webm,
+        sheet: clip.sheet ? { ...clip.sheet, src: resolveSrc(clip.sheet.src) } : clip.sheet,
+      }));
+      this.manifest = { ...data, pages, vfx };
       this.placeholder.setPalette(data.palette);
       await Promise.all(
-        data.pages.map(async (page) => {
+        pages.map(async (page) => {
           const img = await loadImage(page.src);
           this.pages.set(page.scale, { img, page });
         }),

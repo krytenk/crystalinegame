@@ -188,11 +188,18 @@ export class StoreModel {
   /**
    * What the store should render right now: unlock conditions satisfied, and
    * one-time SKUs the player already owns removed.
+   * Optional `labelOverlay` renames SKUs for themed product skins.
    */
-  availableSkus(): readonly Sku[] {
+  availableSkus(
+    labelOverlay?: Partial<Record<SkuId, { readonly name: string; readonly blurb: string }>>,
+  ): readonly Sku[] {
     return CATALOGUE.filter(
       (sku) => this.isUnlocked(sku) && !(sku.oneTime === true && this.owned.has(sku.id)),
-    );
+    ).map((sku) => {
+      const o = labelOverlay?.[sku.id];
+      if (!o) return sku;
+      return { ...sku, name: o.name, blurb: o.blurb };
+    });
   }
 
   /**

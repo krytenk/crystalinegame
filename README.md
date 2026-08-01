@@ -1,10 +1,15 @@
-# Crystalline
+# Crystalline + Lantern Harbor
 
-A crystal-themed **match-3** demo (research / portfolio build).
+A **match-3 research / portfolio** build with **two product skins** on one engine:
 
-Match gems, forge **Power Crystals**, chain combos, and explore a simulated free-to-play economy. Monetization is **fake** — no real payments, no ad network SDK, no tracking beacons. Rewarded “ads” play public Discworld in 60 Seconds YouTube Shorts as creative placeholders.
+| Product | Theme | Entry |
+|---------|--------|--------|
+| **Crystalline** | Crystal mine | `/` · `index.html` |
+| **Lantern Harbor** | Cozy coastal docks | `/harbor.html` · `?game=harbor` |
 
-> Repo name spelling: **crystalinegame** · product name: **Crystalline**
+Match pieces, forge specials, chain combos, restore a meta diorama, and explore a simulated free-to-play economy. Monetization is **fake** — no real payments, no ad network SDK, no tracking beacons. Rewarded “ads” play public Discworld in 60 Seconds YouTube Shorts as creative placeholders.
+
+> Repo name spelling: **crystalinegame** · products: **Crystalline** + **Lantern Harbor**
 
 ---
 
@@ -41,13 +46,17 @@ npm run dev
 
 Then open the URL Vite prints (usually `http://localhost:5173`).
 
+- **Crystalline:** `http://localhost:5173/`
+- **Lantern Harbor:** `http://localhost:5173/harbor.html`
+
 ### Other commands
 
 ```bash
-npm run build      # production build → dist/
+npm run build      # production build → dist/ (both HTML entries)
 npm run preview    # serve dist/ locally
 npm test           # unit tests
 npm run typecheck  # TypeScript
+npm run assets:harbor  # re-bake Harbor atlas from Imagine sources
 npm run android:apk  # Capacitor → debug APK in release/
 ```
 
@@ -61,7 +70,7 @@ npm run android:apk
 adb install -r release/crystalline-debug.apk
 ```
 
-Crystal art and trimmed SFX already live under `public/gen/` and `public/sfx/`. You do **not** need the Python bake tools just to play.
+Crystal art lives under `public/gen/`; Harbor art under `public/themes/harbor/`. SFX under `public/sfx/`. You do **not** need the Python bake tools just to play.
 
 ---
 
@@ -74,9 +83,10 @@ Crystal art and trimmed SFX already live under `public/gen/` and `public/sfx/`. 
 - Simulated lives, store, boosters, DDA, telemetry dashboard
 - **40** data-driven levels (four map chapters through Core Spire)
 - Research-driven **cognitive UX** (juice timing, cascade pitch, near-miss continue, hidden DDA) — see `docs/COGNITIVE_UX.md`
-- **Crystal Cavern** meta loop — wins mint *essence*; spend it furnishing staged mine chambers (Playrix-style dual loop)
-- Live-ops: endless album, hybrid events, daily dive goal, cozy idle drip
-- Pitch one-pager: [`docs/PITCH.md`](docs/PITCH.md)
+- **Meta dual loop** — Crystalline: Crystal Cavern + essence · Harbor: Harbor Docks + Tideglass  
+- Live-ops: endless album, hybrid events, daily goal, cozy idle drip  
+- Theme packs: [`docs/THEMES.md`](docs/THEMES.md)  
+- Pitch: [`docs/PITCH.md`](docs/PITCH.md) · Harbor: [`docs/PITCH_HARBOR.md`](docs/PITCH_HARBOR.md)
 
 ### What it is *not*
 

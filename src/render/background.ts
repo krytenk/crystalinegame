@@ -1,32 +1,41 @@
 /**
- * Immersive cavern backdrop for the canvas playfield.
- * Loads public/bg art once; falls back to procedural mine if missing.
+ * Immersive backdrop for the canvas playfield.
+ * Loads themed public/bg art once; falls back to procedural fill if missing.
  */
+
+import { assetUrl } from './assetUrl';
 
 let bgImg: HTMLImageElement | null = null;
 let bgReady = false;
-let bgFailed = false;
+let loadedSrc = '';
 
-export function loadBackground(src = './bg/mine-cavern-720.webp'): void {
-  if (bgImg || bgFailed) return;
+export function loadBackground(src = 'bg/mine-cavern-720.webp'): void {
+  const resolved = assetUrl(src.replace(/^\.\//, ''));
+  if (bgImg && loadedSrc === resolved) return;
+  bgImg = null;
+  bgReady = false;
+  loadedSrc = resolved;
   const img = new Image();
   img.onload = () => {
     bgImg = img;
     bgReady = true;
   };
   img.onerror = () => {
-    // Try jpg fallback
-    const img2 = new Image();
-    img2.onload = () => {
-      bgImg = img2;
-      bgReady = true;
-    };
-    img2.onerror = () => {
-      bgFailed = true;
-    };
-    img2.src = './bg/mine-cavern.jpg';
+    // Try crystalline jpg fallback only for default mine path
+    if (!src.includes('harbor')) {
+      const img2 = new Image();
+      img2.onload = () => {
+        bgImg = img2;
+        bgReady = true;
+      };
+      img2.onerror = () => {
+        /* procedural fill */
+      };
+      img2.src = assetUrl('bg/mine-cavern.jpg');
+      return;
+    }
   };
-  img.src = src;
+  img.src = resolved;
 }
 
 export function drawGameBackground(

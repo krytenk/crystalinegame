@@ -1,5 +1,6 @@
 /**
- * CRYSTALLINE — bootstrap + top-level state machine.
+ * Bootstrap + top-level state machine.
+ * Product skin: Crystalline (default) or Lantern Harbor via theme pack.
  *
  * Demo / portfolio build: monetization is simulated.
  * Rewarded + interstitial placements play Discworld in 60 Seconds YouTube Shorts.
@@ -11,11 +12,14 @@ import type { Coord, ObjectiveKind } from '@engine/types';
 import type { GameEvent } from '@engine/events';
 import { POWER_NAME, type PowerKind } from '@engine/specials';
 import {
-  ALBUM_CARDS,
   ECONOMY_CONST,
   Economy,
-  META_STAGES,
-  META_UPGRADES,
+  installAlbumTheme,
+  installMetaTheme,
+  getMetaStages,
+  getMetaUpgrades,
+  getAlbumCards,
+  getAlbumSheet,
   createBrowserStorage,
   levelHasConveyor,
   type MetaUpgrade,
@@ -23,6 +27,7 @@ import {
 import {
   channelUrl,
   nextDiscworldShort,
+  setAdRotateKey,
   youtubeEmbedUrl,
 } from '@economy/discworldShorts';
 import { AudioDirector } from '@audio/audio';
@@ -31,7 +36,7 @@ import { Atlas } from '@render/atlas';
 import { drawGameBackground, loadBackground } from '@render/background';
 import { CanvasView } from '@render/canvas';
 import { BoardAnimator } from '@render/boardAnimator';
-import { BoardView } from '@render/boardView';
+import { BoardView, setCoreSheetPath } from '@render/boardView';
 import { assetUrl } from '@render/assetUrl';
 import { JuiceSystem } from '@render/juice';
 import { tierFromMatch, VfxPlayer } from '@render/vfx';
@@ -47,10 +52,30 @@ import {
   COMPANION,
   companionLine,
   dealGeodeSlots,
+  installCompanion,
   type CompanionBeat,
 } from './narrative/companion';
-import { injectStyles } from './ui/styles';
+import { applyThemeCssVars, injectStyles } from './ui/styles';
 import { btn, clear, el, setUiTapHook } from './ui/dom';
+import { resolveThemeId, setTheme, theme } from './themes';
+
+// --- Theme boot (must run before Economy / save load) ---
+const activeTheme = setTheme(resolveThemeId());
+installMetaTheme(activeTheme.metaStages, activeTheme.metaUpgrades);
+installAlbumTheme(activeTheme.albumSheet, activeTheme.albumCards);
+installCompanion(
+  {
+    id: activeTheme.companion.id,
+    name: activeTheme.companion.name,
+    role: activeTheme.companion.role,
+    art: activeTheme.companion.art,
+  },
+  activeTheme.companion.lines,
+);
+setAdRotateKey(activeTheme.adShortKey);
+if (typeof document !== 'undefined') {
+  document.title = activeTheme.productName;
+}
 
 type Screen =
   | 'boot'
@@ -106,7 +131,7 @@ interface AppState {
   lastPlacedId: string | null;
 }
 
-const AHA_KEY = 'crystalline.ahaDone';
+const AHA_KEY = activeTheme.ahaKey;
 
 const app: AppState = {
   screen: 'boot',
@@ -134,13 +159,19 @@ const app: AppState = {
   lastPlacedId: null,
 };
 
+const L = (key: string, fallback = ''): string => theme().labels[key] ?? fallback;
+
 const powerLabel = (kind: string): string => {
-  if (kind === 'core') return 'Living Core';
+  if (kind === 'core') return L('livingCore', 'Living Core');
   if (kind in POWER_NAME) return POWER_NAME[kind as PowerKind];
-  return 'Power Crystal';
+  return L('powerCrystal', 'Power Crystal');
 };
 
-const economy = new Economy({ storage: createBrowserStorage(), saveDebounceMs: 100 });
+const economy = new Economy({
+  storage: createBrowserStorage(),
+  saveDebounceMs: 100,
+  saveKey: activeTheme.saveKey,
+});
 const audio = new AudioDirector();
 const atlas = new Atlas();
 const vfx = new VfxPlayer();
@@ -186,10 +217,14 @@ function pushToast(text: string, color = '#ffe9a8', life = 1600): void {
 
 function mount(): void {
   injectStyles();
-  loadBackground();
+  applyThemeCssVars(theme().cssVars);
+  setCoreSheetPath(assetUrl(theme().livingCorePath));
+  loadBackground(theme().bgPath);
   const appEl = document.getElementById('app');
   if (!appEl) throw new Error('#app missing');
   clear(appEl);
+  // Re-apply shell tint after #app is ensured
+  applyThemeCssVars(theme().cssVars);
 
   root = el('div', { id: 'game-root' });
   canvas = el('canvas') as HTMLCanvasElement;
@@ -212,7 +247,7 @@ function mount(): void {
   app.screen = 'boot';
   renderOverlay();
 
-  void atlas.load().then(async () => {
+  void atlas.load(theme().genManifestPath).then(async () => {
     try {
       await vfx.load(atlas.vfx);
     } catch {
@@ -852,10 +887,10 @@ function bindInput(): void {
           if (claim && claim.t === 'coreClaimed') {
             const msg =
               claim.reward === 'moves'
-                ? 'Living Core: +2 moves!'
+                ? L('livingCore', 'Living Core') + ': +2 moves!'
                 : claim.reward === 'burst'
-                  ? 'Living Core: Geode burst!'
-                  : 'Living Core: score surge!';
+                  ? L('livingCore', 'Living Core') + ': burst!'
+                  : L('livingCore', 'Living Core') + ': score surge!';
             pushToast(msg, '#ffe9a8', 2000);
             juice.powerBanner('LIVING CORE!');
           }
@@ -1034,7 +1069,7 @@ function playMatchVfx(events: readonly GameEvent[]): void {
       juice.powerBanner('LIVING CORE!');
       juice.screenFlash('rgba(255, 210, 80, 0.4)', 240, 0.3);
       haptic('special');
-      pushToast('Living Core! Tap the spinning crystal', '#ffe9a8', 2600);
+      pushToast(L('livingCore', 'Living Core') + '! Tap the spinning beacon', '#ffe9a8', 2600);
     } else if (ev.t === 'specialTriggered') {
       powerFires++;
       const tier =
@@ -1623,9 +1658,9 @@ function renderTitle(): void {
   const chOpen = chapterForLevel(Math.min(LEVEL_COUNT, snap.progress.highestUnlocked));
   const progressLine =
     snap.progress.highestUnlocked <= 1 && !app.ahaDone
-      ? 'Your first dive awaits'
+      ? (theme().id === 'harbor' ? 'Your first sort awaits' : 'Your first dive awaits')
       : `Lv ${snap.progress.highestUnlocked} · ${chOpen.roman} ${chOpen.title}` +
-        ` · cavern ${snap.meta.ownedCount}/${snap.meta.totalCount}` +
+        ` · ${theme().metaHubName.toLowerCase()} ${snap.meta.ownedCount}/${snap.meta.totalCount}` +
         (snap.daily.winStreak > 1 ? ` · 🔥${snap.daily.winStreak}` : '');
 
   const wrap = el('div', { class: 'panel panel-title' }, []);
@@ -1636,9 +1671,9 @@ function renderTitle(): void {
       el('span', { class: 'title-gem g3' }, ['◇']),
       el('span', { class: 'title-gem g4' }, ['❖']),
     ]),
-    el('div', { class: 'title-kicker' }, ['CRYSTAL MINE MATCH-3']),
-    el('h1', {}, ['CRYSTALLINE']),
-    el('p', { class: 'title-tagline' }, ['Match gems. Forge powers. Build your cavern.']),
+    el('div', { class: 'title-kicker' }, [theme().id === 'harbor' ? 'COZY HARBOR MATCH-3' : 'CRYSTAL MINE MATCH-3']),
+    el('h1', {}, [theme().productName.toUpperCase()]),
+    el('p', { class: 'title-tagline' }, [theme().tagline]),
     companionBubble(
       !app.ahaDone ? 'titleFirst' : 'title',
       snap.progress.highestUnlocked + snap.meta.ownedCount,
@@ -1759,7 +1794,7 @@ function nextGoalHint(snap: ReturnType<Economy['getSnapshot']>): string {
     return `Next · ${need}✧ for ${meta.nextTarget.name}`;
   }
   if (meta.stagesComplete >= 4) {
-    return 'Cavern complete · chase ★★★ on every chamber';
+    return theme().metaHubName + ' complete · chase ★★★ on every chamber';
   }
   return `Next · clear level ${snap.progress.highestUnlocked}`;
 }
@@ -1773,7 +1808,7 @@ function essenceProgressBar(snap: ReturnType<Economy['getSnapshot']>): HTMLEleme
     el('div', { class: 'essence-track-label' }, [
       target
         ? `✧ ${have} / ${need} · ${target.name}`
-        : `✧ ${have} essence`,
+        : `${theme().softCurrencyGlyph} ${have} ${theme().softCurrencyName.toLowerCase()}`,
     ]),
     el('div', { class: 'essence-track' }, [
       el('div', { class: 'essence-track-fill', style: `width:${pct}%` }, []),
@@ -1850,7 +1885,7 @@ function showGeodeCrackModal(onDone?: () => void): void {
         (sibling as HTMLElement).setAttribute('disabled', 'true');
       }
       pushToast(
-        isJackpot ? `Jackpot vein · +${reward}✧!` : `Geode crack · +${reward}✧`,
+        isJackpot ? `Jackpot · +${reward}${theme().softCurrencyGlyph}!` : `${L('bonusCrack', 'Geode crack')} · +${reward}${theme().softCurrencyGlyph}`,
         isJackpot ? '#ffd24a' : '#b8f0ff',
         2200,
       );
@@ -1872,7 +1907,7 @@ function showGeodeCrackModal(onDone?: () => void): void {
     el('div', { class: 'geode-crack-card panel-enter' }, [
       companionBubble('geode', app.levelId),
       el('div', { class: 'geode-crack-kicker' }, ['CRACK A GEODE']),
-      el('h2', {}, ['Bonus essence']),
+      el('h2', {}, ['Bonus ' + theme().softCurrencyName.toLowerCase()]),
       el('p', { class: 'hud-tip', id: 'geode-result-line' }, [
         'Pick one sealed vein — rewards are shuffled.',
       ]),
@@ -1903,7 +1938,7 @@ function showDailyGiftModal(gift: { credits: number; essence: number }): void {
         el('div', { class: 'daily-gift-chip' }, [`+${gift.credits} ¢`]),
         el('div', { class: 'daily-gift-chip gold' }, [`+${gift.essence} ✧`]),
       ]),
-      el('p', { class: 'hud-tip' }, ['Credits for the shop · essence for your cavern']),
+      el('p', { class: 'hud-tip' }, ['Credits for the shop · ' + theme().softCurrencyName.toLowerCase() + ' for your ' + theme().metaHubName.toLowerCase()]),
       btn(
         'CLAIM',
         () => {
@@ -1911,7 +1946,7 @@ function showDailyGiftModal(gift: { credits: number; essence: number }): void {
           audio.starDing(2);
           haptic('forge');
           modal.remove();
-          pushToast(`+${gift.credits}¢ · +${gift.essence}✧ claimed`, '#ffd24a', 2200);
+          pushToast(`+${gift.credits}¢ · +${gift.essence}${theme().softCurrencyGlyph} claimed`, '#ffd24a', 2200);
         },
         'gold',
       ),
@@ -1945,24 +1980,9 @@ function boosterChip(
   return b;
 }
 
-/** Chapter metadata for map depth labels (levels 1–10 / 11–20 / 21+). */
-const MAP_CHAPTERS: readonly {
-  readonly roman: string;
-  readonly title: string;
-  readonly depth: string;
-  readonly maxId: number;
-  readonly minId: number;
-}[] = [
-  { roman: 'I', title: 'Mouth of the Mine', depth: 'shallow', minId: 1, maxId: 10 },
-  { roman: 'II', title: 'Prism Gallery', depth: 'mid', minId: 11, maxId: 20 },
-  { roman: 'III', title: 'Deep Geode', depth: 'deep', minId: 21, maxId: 30 },
-  { roman: 'IV', title: 'Core Spire', depth: 'core', minId: 31, maxId: 999 },
-];
-
-function chapterForLevel(levelId: number): (typeof MAP_CHAPTERS)[number] {
-  return (
-    MAP_CHAPTERS.find((c) => levelId >= c.minId && levelId <= c.maxId) ?? MAP_CHAPTERS[0]!
-  );
+function chapterForLevel(levelId: number) {
+  const chapters = theme().mapChapters;
+  return chapters.find((c) => levelId >= c.minId && levelId <= c.maxId) ?? chapters[0]!;
 }
 
 /** Smooth snake path points for a single chapter grid (5-col zigzag). */
@@ -2045,7 +2065,7 @@ function renderMap(): void {
   const board = el('div', { class: 'map-board' }, [
     el('img', {
       class: 'map-board-bg',
-      src: assetUrl('ui/map_bg.webp'),
+      src: assetUrl(theme().assetRoot ? theme().assetRoot + 'ui/map_bg.webp' : 'ui/map_bg.webp'),
       alt: '',
       decoding: 'async',
     }),
@@ -2054,7 +2074,7 @@ function renderMap(): void {
   const nextPlayId = snap.progress.highestUnlocked;
   let totalStars = 0;
 
-  for (const ch of MAP_CHAPTERS) {
+  for (const ch of theme().mapChapters) {
     const levels = LEVELS.filter((l) => l.id >= ch.minId && l.id <= ch.maxId);
     if (levels.length === 0) continue;
 
@@ -2125,7 +2145,7 @@ function renderMap(): void {
           disabled: locked ? true : undefined,
           title:
             (stars > 0 ? `${stars} star${stars === 1 ? '' : 's'}` : locked ? 'Locked' : 'Play') +
-            (levelHasConveyor(lvl.id) ? ' · conveyor' : ''),
+            (levelHasConveyor(lvl.id) ? ' · ' + L('conveyorActive', 'Conveyor active').toLowerCase() : ''),
         },
         kids,
       ) as HTMLButtonElement;
@@ -2169,7 +2189,7 @@ function renderMap(): void {
                 (daily.claimed
                   ? ' · claimed'
                   : daily.claimReady
-                    ? ` · +${daily.rewardEssence}✧ ready`
+                    ? ` · +${daily.rewardEssence}${theme().softCurrencyGlyph} ready`
                     : ''),
             ]),
             el('div', { class: 'essence-track' }, [
@@ -2183,7 +2203,7 @@ function renderMap(): void {
         if (daily.claimReady) {
           card.append(
             btn(
-              `CLAIM DAILY · +${daily.rewardEssence}✧`,
+              `CLAIM DAILY · +${daily.rewardEssence}${theme().softCurrencyGlyph}`,
               () => {
                 const n = economy.claimDailyGoal();
                 if (n > 0) {
@@ -2236,7 +2256,7 @@ function renderMap(): void {
             const n = economy.claimIdleEssence();
             if (n > 0) {
               audio.starDing(1);
-              pushToast(`Cavern idle · +${n}✧`, '#b8f0ff', 2200);
+              pushToast(`${L('idleClaim', 'Cavern idle')} · +${n}${theme().softCurrencyGlyph}`, '#b8f0ff', 2200);
             }
           } else {
             app.screen = 'cavern';
@@ -2250,7 +2270,7 @@ function renderMap(): void {
       el('div', { class: 'stat-grid' }, [
         stat('Lives', String(snap.lives.count)),
         stat('Stars', `${totalStars}`),
-        stat('Essence', String(meta.essence)),
+        stat(theme().softCurrencyName, String(meta.essence)),
         stat('Streak', String(daily.winStreak)),
       ]),
     ],
@@ -2287,14 +2307,15 @@ function renderPrelevel(): void {
   const best = starCountForLevel(snap.progress.stars, level.id);
   const ch = chapterForLevel(level.id);
 
+  const uiRoot = theme().assetRoot || '';
   const bannerArt =
     level.id <= 10
-      ? 'ui/prelevel_banner.webp'
+      ? `${uiRoot}ui/prelevel_banner.webp`
       : level.id <= 20
-        ? 'ui/prelevel_mid.webp'
+        ? `${uiRoot}ui/prelevel_mid.webp`
         : level.id <= 30
-          ? 'ui/prelevel_deep.webp'
-          : 'ui/prelevel_deep.webp';
+          ? `${uiRoot}ui/prelevel_deep.webp`
+          : `${uiRoot}ui/prelevel_deep.webp`;
   const banner = el('div', { class: `level-banner depth-${ch.depth}` }, [
     el('img', {
       class: 'level-banner-art',
@@ -2331,9 +2352,9 @@ function renderPrelevel(): void {
   const starNudge =
     best < 3
       ? best === 0
-        ? 'First clear mints essence · ★★★ pays discovery bonus'
-        : `Best ★${best} · push higher for more essence`
-      : '★★★ sealed · still farm essence on clears';
+        ? 'First clear mints ' + theme().softCurrencyName.toLowerCase() + ' · ★★★ pays discovery bonus'
+        : `Best ★${best} · push higher for more ${theme().softCurrencyName.toLowerCase()}`
+      : '★★★ sealed · still farm ' + theme().softCurrencyName.toLowerCase() + ' on clears';
 
   const wardenBeat: CompanionBeat =
     level.id >= 31 ? 'coreSpire' : level.id >= 21 ? 'cavern' : 'title';
@@ -2374,7 +2395,7 @@ function renderPrelevel(): void {
       ...(levelHasConveyor(level.id)
         ? [
             el('p', { class: 'hud-tip conveyor-note' }, [
-              'Conveyor active · a playable row shifts after each move (Sort-inspired)',
+              L('conveyorActive', 'Conveyor active') + ' · a playable row shifts after each move (Sort-inspired)',
             ]),
           ]
         : []),
@@ -2442,7 +2463,7 @@ function renderResults(): void {
   const essenceLine =
     r.status === 'won' && snap.lastEssenceGain > 0
       ? el('p', { class: 'essence-gain' }, [
-          `+${snap.lastEssenceGain} essence → Crystal Cavern`,
+          `+${snap.lastEssenceGain} ${theme().softCurrencyName.toLowerCase()} → ${theme().metaHubName}`,
         ])
       : null;
   const starsEl = el('div', { class: 'results-burst-stars' }, []);
@@ -2453,7 +2474,7 @@ function renderResults(): void {
     [
       el('img', {
         class: 'results-burst-art',
-        src: assetUrl(r.status === 'won' ? 'ui/win_banner.webp' : 'ui/fail_banner.webp'),
+        src: assetUrl((theme().assetRoot || '') + (r.status === 'won' ? 'ui/win_banner.webp' : 'ui/fail_banner.webp')),
         alt: '',
         decoding: 'async',
       }),
@@ -2558,10 +2579,10 @@ function renderResults(): void {
     r.status === 'won'
       ? el('p', { class: 'hud-tip' }, [
           snap.daily.claimReady
-            ? `Daily dive ready · claim +${snap.daily.rewardEssence}✧ on Levels`
+            ? `${L('dailyGoal', 'Daily dive')} ready · claim +${snap.daily.rewardEssence}${theme().softCurrencyGlyph} on Levels`
             : snap.daily.claimed
-              ? 'Daily dive claimed · keep streaking'
-              : `Daily dive ${Math.min(snap.daily.clears, snap.daily.target)}/${snap.daily.target}`,
+              ? L('dailyGoal', 'Daily dive') + ' claimed · keep streaking'
+              : `${L('dailyGoal', 'Daily dive')} ${Math.min(snap.daily.clears, snap.daily.target)}/${snap.daily.target}`,
         ])
       : null;
 
@@ -2580,7 +2601,7 @@ function renderResults(): void {
         ? [el('p', { class: 'hud-tip' }, ['More points or leftover moves → ★★ / ★★★'])]
         : []),
       ...(r.status === 'won' && r.stars === 3
-        ? [el('p', { class: 'hud-tip' }, ['Perfect clear · discovery essence banked'])]
+        ? [el('p', { class: 'hud-tip' }, ['Perfect clear · discovery ' + theme().softCurrencyName.toLowerCase() + ' banked'])]
         : []),
       ...(r.status === 'lost'
         ? [el('p', {}, ['A life was spent. Try again!'])]
@@ -2667,7 +2688,7 @@ function renderCavern(): void {
     (meta.ownedCount / Math.max(1, meta.totalCount)) * 0.28;
 
   const activeStage =
-    META_STAGES.find((s) => s.id === meta.activeStageId) ?? META_STAGES[0]!;
+    getMetaStages().find((s) => s.id === meta.activeStageId) ?? getMetaStages()[0]!;
 
   // Live-furnished stage: props sit on the mine backdrop
   const stageProps = el('div', { class: 'cavern-props' }, []);
@@ -2682,7 +2703,7 @@ function renderCavern(): void {
     stageProps.append(prop);
   }
   // Ghost slots for unowned pieces in this stage (soft goal)
-  for (const up of META_UPGRADES.filter((u) => u.stage === meta.activeStageId && !ownedSet.has(u.id))) {
+  for (const up of getMetaUpgrades().filter((u) => u.stage === meta.activeStageId && !ownedSet.has(u.id))) {
     const ghost = el('div', {
       class: 'cavern-prop ghost',
       title: up.name,
@@ -2699,7 +2720,7 @@ function renderCavern(): void {
     el('div', { class: 'cavern-depth' }, [
       el('span', { class: 'cavern-label' }, [
         meta.stagesComplete >= 4
-          ? 'Deep Geode complete'
+          ? (getMetaStages().find(s => s.id === 4)?.name ?? 'Finale') + ' complete'
           : `Furnishing · ${activeStage.name}`,
       ]),
       el('span', { class: 'cavern-essence' }, [`✧ ${meta.essence}`]),
@@ -2707,7 +2728,7 @@ function renderCavern(): void {
   ]);
   vista.style.setProperty('--cavern-glow', String(Math.min(0.9, glow)));
 
-  const stages = META_STAGES.map((stage) => {
+  const stages = getMetaStages().map((stage) => {
     const open = stage.id === 1 || meta.stagesComplete >= stage.id - 1;
     const complete = meta.stagesComplete >= stage.id;
     const section = el(
@@ -2734,7 +2755,7 @@ function renderCavern(): void {
       return section;
     }
     const list = el('div', { class: 'cavern-shop' }, []);
-    for (const up of META_UPGRADES.filter((u) => u.stage === stage.id).sort(
+    for (const up of getMetaUpgrades().filter((u) => u.stage === stage.id).sort(
       (a, b) => a.order - b.order,
     )) {
       list.append(metaUpgradeRow(up, ownedSet.has(up.id), meta.essence, meta.stagesComplete));
@@ -2767,21 +2788,21 @@ function renderCavern(): void {
   ]);
 
   panel(
-    'Your Cavern',
+    theme().metaHubCta,
     [
       companionBubble(
         meta.nextAffordable ? 'cavernReady' : 'cavern',
         meta.ownedCount + meta.essence,
       ),
       el('p', {}, [
-        'Earn essence from clears. Furnish the living mine — pieces appear in the chamber.',
+        'Earn ' + theme().softCurrencyName.toLowerCase() + ' from clears. Furnish the ' + theme().metaHubName.toLowerCase() + ' — pieces appear in the vista.',
       ]),
       idleCard,
       el('div', { class: 'goal-banner' }, [nextGoalHint(snap)]),
       essenceProgressBar(snap),
       vista,
       el('div', { class: 'stat-grid' }, [
-        stat('Essence', String(meta.essence)),
+        stat(theme().softCurrencyName, String(meta.essence)),
         stat('Placed', `${meta.ownedCount}/${meta.totalCount}`),
         stat('Stages', `${meta.stagesComplete}/4`),
         stat('Spent', String(meta.totalSpent)),
@@ -2848,7 +2869,7 @@ function playPlacementCeremony(up: MetaUpgrade, onDone: () => void): void {
   overlay.scrollTop = 0;
   const layer = el('div', { class: 'place-ceremony' }, []);
   const stageArt =
-    META_STAGES.find((s) => s.id === up.stage)?.art ?? 'cavern/stages/stage1.webp';
+    getMetaStages().find((s) => s.id === up.stage)?.art ?? getMetaStages()[0]!.art;
 
   const vid = document.createElement('video');
   vid.className = 'place-ceremony-video';
@@ -2912,8 +2933,8 @@ function showStageCompleteFanfare(stageId: number, onDone: () => void): void {
     onDone();
     return;
   }
-  const stage = META_STAGES.find((s) => s.id === stageId);
-  const next = META_STAGES.find((s) => s.id === stageId + 1);
+  const stage = getMetaStages().find((s) => s.id === stageId);
+  const next = getMetaStages().find((s) => s.id === stageId + 1);
   const sparks = el('div', { class: 'stage-complete-sparks' }, []);
   for (let i = 0; i < 18; i++) {
     sparks.append(
@@ -2937,7 +2958,7 @@ function showStageCompleteFanfare(stageId: number, onDone: () => void): void {
       el('p', { class: 'stage-complete-sub' }, [
         next
           ? `New chamber open · ${next.name}`
-          : 'Deep Geode finished · the mine is yours',
+          : (getMetaStages().find(s => s.id === 4)?.name ?? 'Finale') + ' finished · the harbor is yours',
       ]),
       btn(
         next ? 'OPEN NEXT CHAMBER' : 'BEHOLD THE MINE',
@@ -2996,7 +3017,7 @@ function metaUpgradeRow(
         const before = economy.getSnapshot().meta.stagesComplete;
         const res = economy.buyMetaUpgrade(up.id);
         if (!res.ok) {
-          if (res.reason === 'insufficient') pushToast('Need more essence — clear levels!', '#ff9a9a');
+          if (res.reason === 'insufficient') pushToast('Need more ' + theme().softCurrencyName.toLowerCase() + ' — clear levels!', '#ff9a9a');
           else if (res.reason === 'stageLocked') pushToast('Chamber still sealed', '#ff9a9a');
           else pushToast('Already placed', '#b0c0e0');
           return;
@@ -3080,7 +3101,7 @@ function albumShardStage(slot: {
   const sprite = el('div', {
     class: 'album-shard-sprite',
     style: [
-      `background-image:url(${assetUrl('gen/crystals@1x.webp')})`,
+      `background-image:url(${assetUrl(getAlbumSheet())})`,
       'background-size:1024px 640px',
       `background-position:-${slot.atlas.x}px -${slot.atlas.y}px`,
     ].join(';'),
@@ -3089,7 +3110,7 @@ function albumShardStage(slot: {
   if (slot.id === 'warden') {
     const core = el('img', {
       class: 'album-shard-core',
-      src: assetUrl('gen/living_core.webp'),
+      src: assetUrl(theme().livingCorePath),
       alt: '',
       decoding: 'async',
     }) as HTMLImageElement;
@@ -3127,7 +3148,7 @@ function renderAlbum(): void {
   const a = snap.album;
   const grid = el('div', { class: 'album-grid' }, []);
   for (const slot of a.slots) {
-    const delay = (ALBUM_CARDS.findIndex((c) => c.id === slot.id) % 9) * 0.12;
+    const delay = (getAlbumCards().findIndex((c) => c.id === slot.id) % 9) * 0.12;
     const card = el(
       'div',
       {
@@ -3147,11 +3168,11 @@ function renderAlbum(): void {
     grid.append(card);
   }
   panel(
-    'Endless Album',
+    L('albumTitle', 'Endless Album'),
     [
       companionBubble('cavern', a.cycle + a.completeCount),
       el('p', {}, [
-        `Cycle ${a.cycle + 1} · living crystal shards from your clears — complete the page, rise forever.`,
+        `Cycle ${a.cycle + 1} · keepsakes from your clears — complete the page, rise forever.`,
       ]),
       el('div', { class: 'essence-track-wrap' }, [
         el('div', { class: 'essence-track-label' }, [
@@ -3163,7 +3184,9 @@ function renderAlbum(): void {
       ]),
       grid,
       el('p', { class: 'hud-tip' }, [
-        'Shards are the same gems as the board. Stars and deep chambers pull rarer facets.',
+        theme().id === 'harbor'
+          ? 'Keepsakes share art with the board. Stars and deep docks pull rarer finds.'
+          : 'Shards are the same gems as the board. Stars and deep chambers pull rarer facets.',
       ]),
     ],
     [
@@ -3201,7 +3224,7 @@ function renderHybridEvent(): void {
     ]),
   );
   panel(
-    'Mine Rush',
+    L('eventName', 'Mine Rush'),
     [
       el('p', {}, [ev.tagline]),
       el('div', { class: 'event-hero' }, [
@@ -3245,12 +3268,15 @@ function renderStore(): void {
       el('span', { class: 'shop-wallet-v' }, [snap.wallet.credits.toLocaleString()]),
     ]),
     el('div', { class: 'shop-wallet-chip shards' }, [
-      el('span', { class: 'shop-wallet-k' }, ['Shards']),
+      el('span', { class: 'shop-wallet-k' }, [theme().premiumCurrencyName]),
       el('span', { class: 'shop-wallet-v' }, [`◆ ${snap.wallet.shards}`]),
     ]),
   ]);
 
   const items = snap.availableSkus.map((sku) => {
+    const overlay = theme().storeCopy[sku.id];
+    const displayName = overlay?.name ?? sku.name;
+    const displayBlurb = overlay?.blurb ?? sku.blurb;
     const can = snap.wallet.credits >= sku.credits;
     const tagLabel = sku.tag ? SKU_TAG_LABEL[sku.tag] ?? sku.tag : null;
     const grantBits: string[] = [];
@@ -3269,10 +3295,10 @@ function renderStore(): void {
         el('div', { class: 'sku-glyph' }, [SKU_GLYPH[sku.id] ?? '◇']),
         el('div', { class: 'sku-body' }, [
           el('div', { class: 'name' }, [
-            sku.name,
+            displayName,
             tagLabel ? el('span', { class: `tag tag-${sku.tag}` }, [tagLabel]) : '',
           ].filter(Boolean) as (string | Node)[]),
-          el('div', { class: 'blurb' }, [sku.blurb]),
+          el('div', { class: 'blurb' }, [displayBlurb]),
           grantBits.length
             ? el('div', { class: 'sku-grants' }, [grantBits.join(' · ')])
             : el('div', {}, []),
@@ -3295,7 +3321,7 @@ function renderStore(): void {
         }
         audio.starDing(1);
         haptic('forge');
-        pushToast(`Purchased · ${sku.name}`, '#ffd24a', 2000);
+        pushToast(`Purchased · ${displayName}`, '#ffd24a', 2000);
         renderOverlay();
       },
       can ? (sku.tag === 'bestValue' || sku.tag === 'limited' ? 'gold' : 'primary') : 'secondary',
@@ -3602,7 +3628,7 @@ function renderSettings(): void {
       el('div', { class: 'settings-section' }, [
         el('div', { class: 'settings-section-title' }, ['Research']),
         el('div', { class: 'settings-about' }, [
-          el('div', {}, ['Crystalline v0.1.0 · portfolio demo']),
+          el('div', {}, [theme().versionLabel]),
           el('div', { class: 'hud-tip' }, [
             'Simulated economy · Discworld Shorts ads · local save only',
           ]),

@@ -146,27 +146,44 @@ export const ALBUM_CARDS: readonly AlbumCardDef[] = [
   },
 ] as const;
 
-const BY_ID = new Map(ALBUM_CARDS.map((c) => [c.id, c]));
+/** Active sheet + cards (theme packs may replace at boot). */
+let activeSheet = ALBUM_SHEET;
+let activeCards: readonly AlbumCardDef[] = ALBUM_CARDS;
+let byId = new Map(ALBUM_CARDS.map((c) => [c.id, c]));
+
+export function installAlbumTheme(sheet: string, cards: readonly AlbumCardDef[]): void {
+  activeSheet = sheet;
+  activeCards = cards;
+  byId = new Map(cards.map((c) => [c.id, c]));
+}
+
+export function getAlbumSheet(): string {
+  return activeSheet;
+}
+
+export function getAlbumCards(): readonly AlbumCardDef[] {
+  return activeCards;
+}
 
 export function albumCard(id: string): AlbumCardDef | undefined {
-  return BY_ID.get(id);
+  return byId.get(id);
 }
 
 /** Weighted pick; stars and deep levels bias toward uncommon/rare. */
 export function pickAlbumCard(rand: () => number, stars: number, levelId: number): AlbumCardDef {
   const rareBoost = 1 + Math.min(3, stars) * 0.35 + (levelId >= 20 ? 0.4 : levelId >= 11 ? 0.15 : 0);
-  const weights = ALBUM_CARDS.map((c) => {
+  const weights = activeCards.map((c) => {
     if (c.rarity === 'common') return c.weight;
     if (c.rarity === 'uncommon') return c.weight * (1 + rareBoost * 0.5);
     return c.weight * rareBoost;
   });
   const total = weights.reduce((a, b) => a + b, 0);
   let r = rand() * total;
-  for (let i = 0; i < ALBUM_CARDS.length; i++) {
+  for (let i = 0; i < activeCards.length; i++) {
     r -= weights[i]!;
-    if (r <= 0) return ALBUM_CARDS[i]!;
+    if (r <= 0) return activeCards[i]!;
   }
-  return ALBUM_CARDS[ALBUM_CARDS.length - 1]!;
+  return activeCards[activeCards.length - 1]!;
 }
 
 export interface AlbumSlotView {
@@ -257,7 +274,7 @@ export class AlbumModel {
 
   snapshot(): AlbumSnapshot {
     const need = this.need();
-    const slots: AlbumSlotView[] = ALBUM_CARDS.map((c) => {
+    const slots: AlbumSlotView[] = activeCards.map((c) => {
       const count = this.counts.get(c.id) ?? 0;
       return {
         id: c.id,
@@ -311,7 +328,7 @@ export class AlbumModel {
       this.lastPageReward = pageReward;
       // Roll next endless page — keep overflow counts so duplicates feel valuable
       this.cycle += 1;
-      for (const c of ALBUM_CARDS) {
+      for (const c of activeCards) {
         const have = this.counts.get(c.id) ?? 0;
         // Spend `previous need` worth, keep surplus into the new cycle
         const prevNeed = needForCycle(this.cycle - 1);

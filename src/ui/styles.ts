@@ -1,3 +1,21 @@
+/** Apply theme CSS custom properties (Harbor palette, etc.). */
+export function applyThemeCssVars(vars: Readonly<Record<string, string>>): void {
+  const root = document.documentElement;
+  for (const [k, v] of Object.entries(vars)) {
+    root.style.setProperty(k, v);
+  }
+  // Shell backdrop: if theme sets --bg, soften #app gradient toward it
+  if (vars['--bg']) {
+    const app = document.getElementById('app');
+    if (app) {
+      app.style.background = `
+        radial-gradient(ellipse at 50% 0%, rgba(42, 143, 154, 0.28), transparent 55%),
+        linear-gradient(180deg, rgba(8,20,30,0.35), rgba(6,14,22,0.85)),
+        ${vars['--bg']}`;
+    }
+  }
+}
+
 /** Inject base styles for the DOM shell around the canvas. */
 export function injectStyles(): void {
   if (document.getElementById('crystalline-styles')) return;

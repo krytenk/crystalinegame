@@ -77,7 +77,12 @@ export const DISCWORLD_SHORTS: readonly DiscworldShort[] = [
   { id: 'ZjS2ZeAELRM' },
 ];
 
-const ROTATE_KEY = 'crystalline.adShortIndex';
+let rotateKey = 'crystalline.adShortIndex';
+
+/** Theme packs call this so ad rotation indexes never collide across products. */
+export function setAdRotateKey(key: string): void {
+  rotateKey = key || 'crystalline.adShortIndex';
+}
 
 /** Build a YouTube embed URL suitable for in-game ad playback. */
 export function youtubeEmbedUrl(videoId: string): string {
@@ -107,14 +112,14 @@ export function nextDiscworldShort(storage: Storage = localStorage): DiscworldSh
   }
   let idx = 0;
   try {
-    const raw = storage.getItem(ROTATE_KEY);
+    const raw = storage.getItem(rotateKey);
     idx = raw ? Math.max(0, parseInt(raw, 10) || 0) % n : 0;
   } catch {
     idx = 0;
   }
   const short = DISCWORLD_SHORTS[idx]!;
   try {
-    storage.setItem(ROTATE_KEY, String((idx + 1) % n));
+    storage.setItem(rotateKey, String((idx + 1) % n));
   } catch {
     /* private mode — rotation still works within the session via index 0 */
   }
