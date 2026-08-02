@@ -5,11 +5,12 @@
  * charge anyone.
  *
  * This is the mechanic the research doc calls "the pacing of frustration": five
- * lives, one lost per failure, one restored every thirty minutes. It caps a
- * session at five failures, converts the tail of a losing streak into a
- * scheduled return visit, and — critically — places the player in front of a
- * countdown at exactly the moment they most want to keep playing. Every offer
- * in `store.ts` is aimed at that countdown.
+ * lives, one lost per **failure** (not per attempt — wins never burn a life),
+ * one restored every thirty minutes. It caps a session at five failures,
+ * converts the tail of a losing streak into a scheduled return visit, and —
+ * critically — places the player in front of a countdown at exactly the moment
+ * they most want to keep playing. Every offer in `store.ts` is aimed at that
+ * countdown.
  *
  * Regeneration is computed from **wall-clock timestamps**, never from ticks, so
  * it accrues while the game is closed. That is the entire point: the timer runs
@@ -73,7 +74,7 @@ export class LivesModel {
     return this.max;
   }
 
-  /** Spend one life to start a level. Returns false when the gate is closed. */
+  /** Spend one life on a failed attempt. Returns false when none remain. */
   consume(): boolean {
     this.accrue();
     if (this.count <= 0) return false;

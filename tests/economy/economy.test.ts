@@ -129,14 +129,18 @@ describe('persistence', () => {
 });
 
 describe('Economy façade', () => {
-  it('starts session, burns lives, unlocks starter, persists', () => {
+  it('starts session, burns lives only on fail, unlocks starter, persists', () => {
     let t = 10_000;
     const storage = createMemoryStorage();
     const eco = new Economy({ now: () => t, storage, saveDebounceMs: 0 });
     eco.startSession();
 
+    const livesBefore = eco.getSnapshot().lives.count;
     expect(eco.beginLevel(1)).toBe(true);
+    // Entry must not spend a life — only a failed attempt does.
+    expect(eco.getSnapshot().lives.count).toBe(livesBefore);
     eco.failLevel(0.2);
+    expect(eco.getSnapshot().lives.count).toBe(livesBefore - 1);
     const snap = eco.getSnapshot();
     expect(snap.firstFailAt).not.toBeNull();
     expect(snap.availableSkus.some((s) => s.id === 'bundle.starter')).toBe(true);
@@ -146,5 +150,24 @@ describe('Economy façade', () => {
     // reload
     const eco2 = new Economy({ now: () => t, storage, saveDebounceMs: 0 });
     expect(eco2.getSnapshot().metrics.levelsAttempted).toBe(1);
+  });
+
+  it('does not burn a life on win, and never double-charges a single fail', () => {
+    let t = 20_000;
+    const storage = createMemoryStorage();
+    const eco = new Economy({ now: () => t, storage, saveDebounceMs: 0 });
+    eco.startSession();
+    const start = eco.getSnapshot().lives.count;
+
+    expect(eco.beginLevel(2)).toBe(true);
+    eco.completeLevel(2, 2, 0);
+    expect(eco.getSnapshot().lives.count).toBe(start);
+
+    expect(eco.beginLevel(3)).toBe(true);
+    eco.failLevel(0.1);
+    expect(eco.getSnapshot().lives.count).toBe(start - 1);
+    // Second failLevel without a new begin must not take another life
+    eco.failLevel(0.1);
+    expect(eco.getSnapshot().lives.count).toBe(start - 1);
   });
 });

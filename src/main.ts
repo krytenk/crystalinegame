@@ -2162,7 +2162,7 @@ function renderTitle(): void {
   }
 }
 
-/** In-play pause overlay — resume, mute, quit to results (life spent). */
+/** In-play pause overlay — resume, mute, quit to results (life spent on quit). */
 function renderPauseMenu(): void {
   overlay.style.pointerEvents = 'auto';
   overlay.style.justifyContent = 'center';
@@ -3028,7 +3028,7 @@ function renderPrelevel(): void {
   );
 }
 
-/** Loss-aversion near-miss UI (research) — life not burned until player declines. */
+/** Loss-aversion near-miss UI — life is only burned if the player declines. */
 function renderContinueOffer(): void {
   const r = app.lastResult;
   const progress = app.session ? Math.round(objectiveProgressRatio(app.session) * 100) : 0;
@@ -3048,7 +3048,9 @@ function renderContinueOffer(): void {
           ]),
         ]),
       ]),
-      el('p', { class: 'hud-tip' }, [`+5 moves · or walk away (1 life)`]),
+      el('p', { class: 'hud-tip' }, [
+        '+5 moves to finish · walk away spends 1 life (wins never cost a life)',
+      ]),
     ],
     [
       btn(`+5 MOVES · ${cost}◆`, () => acceptContinue('shards'), 'gold'),

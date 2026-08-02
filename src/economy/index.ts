@@ -128,6 +128,12 @@ export class Economy {
   private lastAlbumPageReward = 0;
   private lastAlbumGranted: { id: string; rarity: string }[] = [];
   private lastAlbumRareCount = 0;
+  /**
+   * True after beginLevel while an attempt can still cost a life.
+   * Cleared on win (no charge) or after failLevel consumes one life.
+   * Prevents double-charging and matches “life spent on fail, not on play”.
+   */
+  private lifeAtStake = false;
 
   constructor(opts: EconomyOptions = {}) {
     this.now = opts.now ?? systemClock;
@@ -314,8 +320,14 @@ export class Economy {
     };
   }
 
+  /**
+   * Gate entry: require at least one life available, but **do not spend it yet**.
+   * Lives are consumed in {@link failLevel} (loss / quit / decline continue).
+   * Wins clear the stake with no charge so successful clears never burn lives.
+   */
   beginLevel(_levelId: number): boolean {
-    if (!this.lives.consume()) return false;
+    if (this.lives.state.count <= 0) return false;
+    this.lifeAtStake = true;
     this.telemetry.noteLevelAttempt();
     this.persist();
     this.emit();
@@ -323,6 +335,8 @@ export class Economy {
   }
 
   completeLevel(levelId: number, stars: number, ddaScalar: number): void {
+    // Win: release the stake without spending a life.
+    this.lifeAtStake = false;
     const id = Math.floor(levelId);
     const prev = Number(this.progress.stars[id] ?? 0);
     const nextStars = Math.max(prev, Math.min(3, Math.max(0, Math.floor(stars))));
@@ -456,6 +470,11 @@ export class Economy {
   }
 
   failLevel(ddaScalar: number): void {
+    // Spend at most one life per attempt (start no longer consumes).
+    if (this.lifeAtStake) {
+      this.lives.consume();
+      this.lifeAtStake = false;
+    }
     this.telemetry.noteLevelFailed();
     this.telemetry.setDdaScalar(ddaScalar);
     this.dailyGoals.noteFail(this.now());
