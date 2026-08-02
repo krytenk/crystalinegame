@@ -288,6 +288,41 @@ function drawPiece(
     piece.kind === 'prism' ||
     piece.kind === 'supernova';
   const isCore = piece.kind === 'core';
+  const isRelic = piece.kind === 'relic';
+
+  // Gold treasure aura — artifacts must read as special on a crowded board
+  if (isRelic) {
+    const t = performance.now();
+    const breath = 0.55 + 0.45 * Math.sin(t * 0.005);
+    const rOuter = cell * (0.72 + pulse * 0.1) * (0.92 + breath * 0.08);
+    const outer = ctx.createRadialGradient(cx, cy, cell * 0.05, cx, cy, rOuter);
+    outer.addColorStop(0, 'rgba(255, 245, 200, 0.95)');
+    outer.addColorStop(0.3, 'rgba(255, 200, 80, 0.55)');
+    outer.addColorStop(0.65, 'rgba(255, 160, 40, 0.2)');
+    outer.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = outer;
+    ctx.beginPath();
+    ctx.arc(cx, cy, rOuter, 0, Math.PI * 2);
+    ctx.fill();
+    // Soft rotating sparkles (slower than power gems — treasure, not danger)
+    const spin = t * 0.004;
+    for (let i = 0; i < 6; i++) {
+      const a = spin + (i / 6) * Math.PI * 2;
+      const rad = cell * (0.38 + pulse * 0.06);
+      const sx = cx + Math.cos(a) * rad;
+      const sy = cy + Math.sin(a) * rad;
+      const sz = cell * 0.07;
+      const sg = ctx.createRadialGradient(sx, sy, 0, sx, sy, sz);
+      sg.addColorStop(0, '#ffffff');
+      sg.addColorStop(0.4, '#ffd24a');
+      sg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = sg;
+      ctx.beginPath();
+      ctx.arc(sx, sy, sz, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
   if (isPower || isCore) {
     // Loud prismatic bloom — readable as power from arm's length on phone
     const prismStops =
@@ -454,7 +489,9 @@ function drawPiece(
     ? 1.02 + pulse * 0.1
     : isPower
       ? 0.98 + pulse * 0.08
-      : 0.9;
+      : isRelic
+        ? 0.98 + pulse * 0.06
+        : 0.9;
   const size = forcedSize ?? cell * scale;
 
   // Soft contact shadow under gem (depth)

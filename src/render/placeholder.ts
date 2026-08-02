@@ -553,35 +553,117 @@ export class PlaceholderAtlas {
     ctx.fill();
   }
 
+  /** Gold crystal artifact — matches gem facet language (fallback only). */
   private paintRelic(ctx: CanvasRenderingContext2D): void {
-    const p = new Path2D();
-    poly(p, [
-      [0, -0.44],
-      [0.34, -0.16],
-      [0.22, 0.4],
-      [-0.22, 0.4],
-      [-0.34, -0.16],
-    ]);
-    const g = ctx.createLinearGradient(-0.2, -0.4, 0.24, 0.4);
-    g.addColorStop(0, '#fff2c8');
-    g.addColorStop(0.5, NEUTRAL.relic);
-    g.addColorStop(1, '#b8791f');
-    ctx.fillStyle = g;
-    ctx.fill(p);
+    // Soft ground pedestal (same language as painted gems)
     ctx.save();
-    ctx.clip(p);
-    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-    ctx.lineWidth = 0.02;
+    ctx.translate(0, 0.28);
+    const ped = ctx.createRadialGradient(0, 0, 0.02, 0, 0, 0.42);
+    ped.addColorStop(0, 'rgba(255, 210, 100, 0.35)');
+    ped.addColorStop(0.55, 'rgba(120, 70, 20, 0.45)');
+    ped.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = ped;
     ctx.beginPath();
-    ctx.moveTo(0, -0.44);
-    ctx.lineTo(0, 0.4);
-    ctx.moveTo(-0.34, -0.16);
-    ctx.lineTo(0.34, -0.16);
-    ctx.stroke();
+    ctx.ellipse(0, 0.06, 0.38, 0.16, 0, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
-    ctx.lineWidth = 0.05;
-    ctx.strokeStyle = 'rgba(40,22,0,0.9)';
-    ctx.stroke(p);
+
+    // Outer glow
+    const glow = ctx.createRadialGradient(0, -0.05, 0.02, 0, 0, 0.55);
+    glow.addColorStop(0, 'rgba(255, 240, 180, 0.55)');
+    glow.addColorStop(0.45, 'rgba(255, 180, 60, 0.22)');
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, 0.55, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Main crystal body — tall multi-facet cluster
+    const body = new Path2D();
+    poly(body, [
+      [0, -0.48],
+      [0.16, -0.28],
+      [0.34, -0.12],
+      [0.28, 0.22],
+      [0.12, 0.38],
+      [-0.12, 0.38],
+      [-0.28, 0.22],
+      [-0.34, -0.12],
+      [-0.16, -0.28],
+    ]);
+    const g = ctx.createLinearGradient(-0.2, -0.5, 0.28, 0.4);
+    g.addColorStop(0, '#fff8dc');
+    g.addColorStop(0.22, '#ffe08a');
+    g.addColorStop(0.5, '#ffc040');
+    g.addColorStop(0.78, '#e09020');
+    g.addColorStop(1, '#8a4a10');
+    ctx.fillStyle = g;
+    ctx.fill(body);
+
+    // Facet cuts
+    ctx.save();
+    ctx.clip(body);
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineWidth = 0.018;
+    ctx.beginPath();
+    ctx.moveTo(0, -0.48);
+    ctx.lineTo(0, 0.38);
+    ctx.moveTo(-0.28, -0.08);
+    ctx.lineTo(0.28, -0.08);
+    ctx.moveTo(-0.18, 0.18);
+    ctx.lineTo(0.18, 0.18);
+    ctx.moveTo(-0.12, -0.3);
+    ctx.lineTo(0.12, 0.1);
+    ctx.moveTo(0.12, -0.3);
+    ctx.lineTo(-0.12, 0.1);
+    ctx.stroke();
+    // Specular
+    const spec = ctx.createRadialGradient(-0.08, -0.28, 0, -0.08, -0.28, 0.2);
+    spec.addColorStop(0, 'rgba(255,255,255,0.85)');
+    spec.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = spec;
+    ctx.beginPath();
+    ctx.ellipse(-0.06, -0.26, 0.12, 0.08, -0.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Side crystal shards
+    const shard = (pts: [number, number][], light: string, dark: string) => {
+      const s = new Path2D();
+      poly(s, pts);
+      const sg = ctx.createLinearGradient(pts[0]![0], pts[0]![1], pts[2]![0], pts[2]![1]);
+      sg.addColorStop(0, light);
+      sg.addColorStop(1, dark);
+      ctx.fillStyle = sg;
+      ctx.fill(s);
+      ctx.lineWidth = 0.03;
+      ctx.strokeStyle = 'rgba(60, 30, 5, 0.75)';
+      ctx.stroke(s);
+    };
+    shard(
+      [
+        [-0.22, -0.2],
+        [-0.42, -0.02],
+        [-0.3, 0.18],
+        [-0.14, 0.06],
+      ],
+      '#ffe9a8',
+      '#c07018',
+    );
+    shard(
+      [
+        [0.22, -0.2],
+        [0.42, -0.02],
+        [0.3, 0.18],
+        [0.14, 0.06],
+      ],
+      '#fff0c0',
+      '#b86814',
+    );
+
+    ctx.lineWidth = 0.045;
+    ctx.strokeStyle = 'rgba(50, 28, 6, 0.9)';
+    ctx.stroke(body);
   }
 
   private paintCrust(ctx: CanvasRenderingContext2D, layers: number): void {
