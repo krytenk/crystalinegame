@@ -114,40 +114,29 @@ export class BoardView {
     animator?: BoardAnimator | null,
   ): void {
     const { originX, originY, cell } = this.layout;
-    const boardW = cell * snap.width;
-    const boardH = cell * snap.height;
-    drawBoardBezel(ctx, originX, originY, boardW, boardH);
-
     const pulse = 0.5 + 0.5 * Math.sin(now * 0.006);
     const useAnim = animator != null && animator.busy;
+
+    // Playable mask — holes are simply not drawn (no black squares)
+    const playable: boolean[][] = [];
+    for (let y = 0; y < snap.height; y++) {
+      const row: boolean[] = [];
+      for (let x = 0; x < snap.width; x++) {
+        row.push(!!snap.cells[y * snap.width + x]?.playable);
+      }
+      playable.push(row);
+    }
+
+    // Gold chrome follows the actual playable silhouette
+    drawShapedBoardBezel(ctx, originX, originY, cell, playable);
 
     // Floor, blockers, crust — pieces drawn separately so drops can animate.
     for (let y = 0; y < snap.height; y++) {
       for (let x = 0; x < snap.width; x++) {
         const cellData = snap.cells[y * snap.width + x];
-        if (!cellData) continue;
+        if (!cellData || !cellData.playable) continue;
         const cx = originX + x * cell + cell / 2;
         const cy = originY + y * cell + cell / 2;
-
-        if (!cellData.playable) {
-          // Deep void so non-square silhouettes read clearly between levels
-          const vx = originX + x * cell + 2;
-          const vy = originY + y * cell + 2;
-          const vs = cell - 4;
-          const voidG = ctx.createRadialGradient(cx, cy, 0, cx, cy, cell * 0.55);
-          voidG.addColorStop(0, 'rgba(4, 2, 12, 0.95)');
-          voidG.addColorStop(0.7, 'rgba(10, 6, 22, 0.88)');
-          voidG.addColorStop(1, 'rgba(2, 1, 8, 0.92)');
-          ctx.fillStyle = voidG;
-          roundRect(ctx, vx, vy, vs, vs, 10);
-          ctx.fill();
-          // Faint rim so the hole edge catches light
-          ctx.strokeStyle = 'rgba(80, 60, 120, 0.35)';
-          ctx.lineWidth = 1.2;
-          roundRect(ctx, vx + 1, vy + 1, vs - 2, vs - 2, 9);
-          ctx.stroke();
-          continue;
-        }
 
         // Soft checker felt — dark pad so gems pop (studio contrast)
         const even = (x + y) % 2 === 0;
@@ -248,10 +237,9 @@ export class BoardView {
     }
 
     if (useAnim && animator) {
-      // Clip so crystals entering from above appear to drop into the well.
+      // Clip falling pieces to the playable silhouette (not the full rect)
       ctx.save();
-      ctx.beginPath();
-      ctx.rect(originX - 4, originY - 4, cell * snap.width + 8, cell * snap.height + 8);
+      pathPlayableCells(ctx, originX, originY, cell, playable, 4);
       ctx.clip();
       const list = animator.visiblePieces();
       // Draw higher board-y last so falling pieces stack naturally.
@@ -677,68 +665,160 @@ function drawConveyorBelt(
 }
 
 /**
- * Studio match-3 board chrome: drop shadow → gold outer bezel → dark felt well.
- * Original crystal-mine palette (not a clone of any title's frame).
+ * Studio board chrome that follows the *playable* silhouette.
+ * Overlapping per-cell pads merge into one continuous gold frame —
+ * no full rectangle, no black hole squares for empty layout cells.
  */
-function drawBoardBezel(
+function drawShapedBoardBezel(
   ctx: CanvasRenderingContext2D,
   originX: number,
   originY: number,
-  boardW: number,
-  boardH: number,
+  cell: number,
+  playable: readonly (readonly boolean[])[],
 ): void {
-  const pad = 18;
-  const x = originX - pad;
-  const y = originY - pad;
-  const w = boardW + pad * 2;
-  const h = boardH + pad * 2;
-  const r = 22;
+  const rows = playable.length;
+  const cols = playable[0]?.length ?? 0;
+  if (rows === 0 || cols === 0) return;
 
-  // Soft outer shadow
+  const outerPad = Math.max(12, Math.floor(cell * 0.22));
+  const goldThick = Math.max(5, Math.floor(cell * 0.09));
+  const cornerR = Math.min(16, cell * 0.28);
+
+  // Bounding box of playable cells (for gradients)
+  let minX = cols;
+  let minY = rows;
+  let maxX = -1;
+  let maxY = -1;
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      if (!playable[y]![x]) continue;
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+  }
+  if (maxX < 0) return;
+
+  const bx = originX + minX * cell - outerPad;
+  const by = originY + minY * cell - outerPad;
+  const bw = (maxX - minX + 1) * cell + outerPad * 2;
+  const bh = (maxY - minY + 1) * cell + outerPad * 2;
+
+  // Soft outer shadow following the shape
   ctx.save();
   ctx.shadowColor = 'rgba(0,0,0,0.55)';
-  ctx.shadowBlur = 28;
+  ctx.shadowBlur = 26;
   ctx.shadowOffsetY = 10;
   ctx.fillStyle = '#1a1230';
-  roundRect(ctx, x, y, w, h, r);
+  pathPlayableCells(ctx, originX, originY, cell, playable, outerPad, cornerR);
   ctx.fill();
   ctx.restore();
 
-  // Gold outer rim
-  const gold = ctx.createLinearGradient(x, y, x + w, y + h);
+  // Gold outer rim (shape-following)
+  const gold = ctx.createLinearGradient(bx, by, bx + bw, by + bh);
   gold.addColorStop(0, '#ffe56a');
   gold.addColorStop(0.35, '#c9a227');
   gold.addColorStop(0.65, '#8a6010');
   gold.addColorStop(1, '#e8c040');
   ctx.fillStyle = gold;
-  roundRect(ctx, x, y, w, h, r);
+  pathPlayableCells(ctx, originX, originY, cell, playable, outerPad, cornerR);
   ctx.fill();
 
-  // Inner dark edge
+  // Inner dark edge (cut gold into a frame)
   ctx.fillStyle = '#120c24';
-  roundRect(ctx, x + 5, y + 5, w - 10, h - 10, 18);
+  pathPlayableCells(
+    ctx,
+    originX,
+    originY,
+    cell,
+    playable,
+    Math.max(0, outerPad - goldThick),
+    Math.max(8, cornerR - 4),
+  );
   ctx.fill();
 
-  // Highlight stroke on gold
-  ctx.strokeStyle = 'rgba(255, 245, 200, 0.55)';
-  ctx.lineWidth = 1.5;
-  roundRect(ctx, x + 2, y + 2, w - 4, h - 4, 20);
+  // Highlight stroke on gold lip
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255, 245, 200, 0.5)';
+  ctx.lineWidth = 1.4;
+  pathPlayableCells(
+    ctx,
+    originX,
+    originY,
+    cell,
+    playable,
+    outerPad - 1.5,
+    Math.max(10, cornerR - 1),
+  );
   ctx.stroke();
+  ctx.restore();
 
-  // Felt / pad fill
-  const padGrad = ctx.createLinearGradient(x, y, x, y + h);
+  // Felt / pad well under tiles
+  const padGrad = ctx.createLinearGradient(bx, by, bx, by + bh);
   padGrad.addColorStop(0, '#221848');
   padGrad.addColorStop(0.5, '#16102e');
   padGrad.addColorStop(1, '#100c22');
   ctx.fillStyle = padGrad;
-  roundRect(ctx, x + 9, y + 9, w - 18, h - 18, 14);
+  pathPlayableCells(
+    ctx,
+    originX,
+    originY,
+    cell,
+    playable,
+    Math.max(0, outerPad - goldThick - 3),
+    Math.max(6, cornerR - 6),
+  );
   ctx.fill();
 
   // Inner gold hairline
   ctx.strokeStyle = 'rgba(201, 162, 39, 0.35)';
   ctx.lineWidth = 1;
-  roundRect(ctx, x + 10, y + 10, w - 20, h - 20, 13);
+  pathPlayableCells(
+    ctx,
+    originX,
+    originY,
+    cell,
+    playable,
+    Math.max(0, outerPad - goldThick - 2),
+    Math.max(7, cornerR - 5),
+  );
   ctx.stroke();
+}
+
+/**
+ * Union path of every playable cell, expanded by `pad` pixels.
+ * Adjacent cells merge into one continuous silhouette.
+ */
+function pathPlayableCells(
+  ctx: CanvasRenderingContext2D,
+  originX: number,
+  originY: number,
+  cell: number,
+  playable: readonly (readonly boolean[])[],
+  pad: number,
+  cornerR?: number,
+): void {
+  const r = cornerR ?? Math.min(14, cell * 0.28 + Math.max(0, pad) * 0.35);
+  ctx.beginPath();
+  for (let y = 0; y < playable.length; y++) {
+    const row = playable[y]!;
+    for (let x = 0; x < row.length; x++) {
+      if (!row[x]) continue;
+      const px = originX + x * cell - pad;
+      const py = originY + y * cell - pad;
+      const pw = cell + pad * 2;
+      const ph = cell + pad * 2;
+      const rr = Math.min(r, pw / 2, ph / 2);
+      // Subpath per cell — overlapping fills merge visually
+      ctx.moveTo(px + rr, py);
+      ctx.arcTo(px + pw, py, px + pw, py + ph, rr);
+      ctx.arcTo(px + pw, py + ph, px, py + ph, rr);
+      ctx.arcTo(px, py + ph, px, py, rr);
+      ctx.arcTo(px, py, px + pw, py, rr);
+      ctx.closePath();
+    }
+  }
 }
 
 function roundRect(

@@ -411,13 +411,19 @@ function loop(): void {
     const bh = cell * snap.height;
     if (!app.paused) {
       tickSoftHint(now);
-      drawBoardDust(ctx, originX, originY, bw, bh, now);
+      // Dust only over the playable footprint (skip empty hole cells)
+      drawBoardDust(ctx, originX, originY, bw, bh, now, snap);
       drawAhaHint(ctx, now);
       drawSoftHint(ctx, now);
     } else {
-      // Dim board while paused
-      ctx.fillStyle = 'rgba(6, 4, 16, 0.35)';
-      ctx.fillRect(originX - 4, originY - 4, bw + 8, bh + 8);
+      // Dim only playable tiles while paused (not the full rect)
+      ctx.fillStyle = 'rgba(6, 4, 16, 0.4)';
+      for (let y = 0; y < snap.height; y++) {
+        for (let x = 0; x < snap.width; x++) {
+          if (!snap.cells[y * snap.width + x]?.playable) continue;
+          ctx.fillRect(originX + x * cell, originY + y * cell, cell, cell);
+        }
+      }
     }
   }
 
@@ -529,7 +535,7 @@ function drawAmbientSparkles(
   }
 }
 
-/** Gentle dust over the board pad — keeps the mine “alive” between moves. */
+/** Gentle dust over playable tiles only — skips hole cells outside the shape. */
 function drawBoardDust(
   ctx: CanvasRenderingContext2D,
   ox: number,
@@ -537,11 +543,26 @@ function drawBoardDust(
   bw: number,
   bh: number,
   now: number,
+  snap?: { width: number; height: number; cells: readonly { playable: boolean }[] },
 ): void {
   ctx.save();
+  // Clip to playable cells when we have a snapshot
+  if (snap) {
+    const cell = boardView.layout.cell;
+    ctx.beginPath();
+    for (let y = 0; y < snap.height; y++) {
+      for (let x = 0; x < snap.width; x++) {
+        if (!snap.cells[y * snap.width + x]?.playable) continue;
+        const px = ox + x * cell;
+        const py = oy + y * cell;
+        ctx.rect(px, py, cell, cell);
+      }
+    }
+    ctx.clip();
+  }
   for (let i = 0; i < 14; i++) {
     const seed = i * 41.7;
-    const x = ox + ((Math.sin(seed + now * 0.0003) * 0.5 + 0.5) * bw);
+    const x = ox + (Math.sin(seed + now * 0.0003) * 0.5 + 0.5) * bw;
     const y = oy + ((i / 14) * bh + ((now * 0.012 * (0.5 + (i % 3))) % bh));
     const a = 0.08 + 0.12 * (0.5 + 0.5 * Math.sin(now * 0.004 + seed));
     ctx.fillStyle = `rgba(180, 210, 255, ${a})`;
