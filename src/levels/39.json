@@ -5,21 +5,38 @@
   "height": 9,
   "moves": 24,
   "objectives": [
-    { "kind": "defuse", "target": 8 },
-    { "kind": "collect", "target": 3 }
+    {
+      "kind": "defuse",
+      "target": 8
+    },
+    {
+      "kind": "collect",
+      "target": 3
+    }
   ],
-  "stars": [4800, 7200, 10400],
-  "colors": ["ember", "aurum", "solar", "verdant", "tidal", "void"],
+  "stars": [
+    4800,
+    7200,
+    10400
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
   "layout": [
-    ".........",
-    ".B.....B.",
-    ".........",
-    "...B.B...",
+    "##.....##",
+    "#B.....B#",
     ".........",
     "...B.B...",
     ".........",
-    ".B.....B.",
-    "........."
+    "...B.B...",
+    ".........",
+    "#B.....B#",
+    "##.....##"
   ],
   "bombFuse": 13
 }

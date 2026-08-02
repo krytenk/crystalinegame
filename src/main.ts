@@ -944,29 +944,38 @@ function notePlayInput(): void {
 
 /** Soft colour wash on board felt — rotates each level so clears feel new. */
 function chamberTintForLevel(id: number): string {
+  // Stronger tints so consecutive levels read as different chambers
   const tints = [
-    'rgba(90, 40, 140, 0.14)', // violet
-    'rgba(30, 90, 150, 0.16)', // blue
-    'rgba(20, 110, 70, 0.14)', // green
-    'rgba(140, 80, 20, 0.15)', // amber
-    'rgba(120, 30, 70, 0.14)', // rose
-    'rgba(40, 100, 120, 0.15)', // teal
-    'rgba(100, 60, 160, 0.16)', // purple
-    'rgba(150, 100, 30, 0.14)', // gold
+    'rgba(110, 40, 170, 0.28)', // violet
+    'rgba(25, 100, 180, 0.3)', // blue
+    'rgba(15, 130, 75, 0.28)', // green
+    'rgba(170, 90, 15, 0.28)', // amber
+    'rgba(150, 25, 80, 0.28)', // rose
+    'rgba(20, 120, 140, 0.3)', // teal
+    'rgba(120, 50, 190, 0.3)', // purple
+    'rgba(180, 120, 20, 0.28)', // gold
+    'rgba(40, 70, 160, 0.28)', // indigo
+    'rgba(160, 50, 40, 0.28)', // crimson
+    'rgba(60, 140, 100, 0.28)', // jade
+    'rgba(140, 70, 130, 0.28)', // magenta
   ];
   return tints[(Math.max(1, id) - 1) % tints.length]!;
 }
 
 function chamberFlashForLevel(id: number): string {
   const flashes = [
-    'rgba(180, 120, 255, 0.55)',
-    'rgba(100, 180, 255, 0.55)',
-    'rgba(100, 220, 160, 0.5)',
-    'rgba(255, 180, 80, 0.55)',
-    'rgba(255, 120, 160, 0.5)',
-    'rgba(100, 220, 220, 0.5)',
-    'rgba(200, 140, 255, 0.55)',
-    'rgba(255, 210, 100, 0.55)',
+    'rgba(200, 130, 255, 0.75)',
+    'rgba(100, 190, 255, 0.75)',
+    'rgba(100, 240, 170, 0.7)',
+    'rgba(255, 190, 80, 0.75)',
+    'rgba(255, 120, 170, 0.7)',
+    'rgba(90, 235, 235, 0.7)',
+    'rgba(210, 140, 255, 0.75)',
+    'rgba(255, 220, 100, 0.75)',
+    'rgba(120, 150, 255, 0.72)',
+    'rgba(255, 110, 100, 0.72)',
+    'rgba(120, 240, 180, 0.7)',
+    'rgba(255, 140, 220, 0.72)',
   ];
   return flashes[(Math.max(1, id) - 1) % flashes.length]!;
 }
@@ -1170,11 +1179,15 @@ function playMatchVfx(events: readonly GameEvent[]): void {
       const cy = sy / n;
       const col = palette[ev.color] ?? '#a0d0ff';
       // Particles at t≈0; score pop slightly delayed to ~0.1s of the clear beat.
-      juice.burst(cx, cy, col, 16 + tier * 10 + ev.cascadeStep * 4);
-      juice.burst(cx, cy, '#ffffff', 6 + tier * 3);
-      juice.ring(cx, cy, col, 36 + tier * 14 + ev.cascadeStep * 8, 360 + tier * 40);
+      juice.burst(cx, cy, col, 22 + tier * 14 + ev.cascadeStep * 6);
+      juice.burst(cx, cy, '#ffffff', 10 + tier * 5);
+      juice.burst(cx, cy, '#ffe9a8', 6 + tier * 3);
+      juice.ring(cx, cy, col, 44 + tier * 18 + ev.cascadeStep * 10, 400 + tier * 50);
+      if (tier >= 4) {
+        juice.ring(cx, cy, '#ffffff', 28 + tier * 10, 320 + tier * 30);
+      }
       // Board-wide shimmer through ALL gems on every clear — stronger on chains
-      const shimmerA = 0.35 + tier * 0.08 + Math.min(0.35, ev.cascadeStep * 0.12);
+      const shimmerA = 0.45 + tier * 0.1 + Math.min(0.4, ev.cascadeStep * 0.14);
       juice.shimmerBoard(
         tier >= 5
           ? 'rgba(255, 230, 160, 1)'
@@ -1182,7 +1195,7 @@ function playMatchVfx(events: readonly GameEvent[]): void {
             ? 'rgba(220, 180, 255, 1)'
             : 'rgba(160, 220, 255, 1)',
         shimmerA,
-        380 + tier * 60 + ev.cascadeStep * 50,
+        420 + tier * 70 + ev.cascadeStep * 60,
       );
       window.setTimeout(() => {
         juice.scorePop(cx, cy - 12, ev.points, tier >= 4 ? '#ffe9a8' : '#d0e8ff');
@@ -1190,24 +1203,26 @@ function playMatchVfx(events: readonly GameEvent[]): void {
 
       hapticMatchTier(tier);
       if (tier >= 6) {
-        shakeMs = Math.max(shakeMs, 420);
-        shakeMag = Math.max(shakeMag, 18);
-        juice.requestHitStop(95);
-        juice.screenFlash('rgba(255, 240, 200, 0.7)', 320, 0.48);
+        shakeMs = Math.max(shakeMs, 520);
+        shakeMag = Math.max(shakeMag, 24);
+        juice.requestHitStop(110);
+        juice.screenFlash('rgba(255, 240, 200, 0.85)', 380, 0.58);
+        juice.explode(cx, cy, col, 1.6);
       } else if (tier === 5) {
-        shakeMs = Math.max(shakeMs, 280);
-        shakeMag = Math.max(shakeMag, 12);
-        juice.requestHitStop(65);
-        juice.screenFlash('rgba(224, 192, 255, 0.6)', 260, 0.4);
+        shakeMs = Math.max(shakeMs, 340);
+        shakeMag = Math.max(shakeMag, 16);
+        juice.requestHitStop(80);
+        juice.screenFlash('rgba(224, 192, 255, 0.72)', 300, 0.5);
+        juice.explode(cx, cy, col, 1.1);
       } else if (tier === 4) {
-        shakeMs = Math.max(shakeMs, 160);
-        shakeMag = Math.max(shakeMag, 7);
-        juice.requestHitStop(42);
-        juice.screenFlash('rgba(120, 210, 255, 0.4)', 180, 0.28);
+        shakeMs = Math.max(shakeMs, 200);
+        shakeMag = Math.max(shakeMag, 10);
+        juice.requestHitStop(55);
+        juice.screenFlash('rgba(120, 210, 255, 0.52)', 220, 0.38);
       } else {
-        shakeMs = Math.max(shakeMs, 70);
-        shakeMag = Math.max(shakeMag, 3);
-        juice.requestHitStop(22);
+        shakeMs = Math.max(shakeMs, 90);
+        shakeMag = Math.max(shakeMag, 4.5);
+        juice.requestHitStop(28);
       }
 
       // Tutorial beat 1 → 2 after forging match
@@ -1262,36 +1277,40 @@ function playMatchVfx(events: readonly GameEvent[]): void {
               ? '#ffffff'
               : '#7ed0ff';
       // Heavy explosion feedback for every power fire
-      juice.explode(p.x, p.y, powerCol, 0.9 + tier * 0.35);
-      juice.burst(p.x, p.y, '#fff0c0', 20 + tier * 8);
-      juice.ring(p.x, p.y, powerCol, 80 + tier * 20, 560);
+      juice.explode(p.x, p.y, powerCol, 1.2 + tier * 0.45);
+      juice.burst(p.x, p.y, '#fff0c0', 28 + tier * 12);
+      juice.burst(p.x, p.y, '#ffffff', 16 + tier * 6);
+      juice.ring(p.x, p.y, powerCol, 100 + tier * 28, 620);
+      juice.ring(p.x, p.y, '#ffffff', 60 + tier * 16, 480);
       juice.shimmerBoard(
         tier >= 6 ? 'rgba(255,255,255,1)' : 'rgba(255, 210, 140, 1)',
-        0.7 + tier * 0.05,
-        500 + tier * 40,
+        0.85 + tier * 0.04,
+        600 + tier * 50,
       );
       // Secondary pops along ALL affected cells for board-wipe read
-      const sample = ev.affected.slice(0, 28);
+      const sample = ev.affected.slice(0, 40);
       for (const c of sample) {
         const q = cellToLogical(c);
-        juice.burst(q.x, q.y, powerCol, 8 + Math.floor(tier / 2));
+        juice.burst(q.x, q.y, powerCol, 10 + Math.floor(tier / 2));
+        if (tier >= 5) juice.burst(q.x, q.y, '#ffffff', 4);
       }
       if (tier >= 5) {
         haptic('explode');
-        shakeMs = Math.max(shakeMs, tier >= 6 ? 480 : 320);
-        shakeMag = Math.max(shakeMag, tier >= 6 ? 20 : 14);
-        juice.requestHitStop(tier >= 6 ? 120 : 80);
+        if (tier >= 6) haptic('specialBig');
+        shakeMs = Math.max(shakeMs, tier >= 6 ? 580 : 400);
+        shakeMag = Math.max(shakeMag, tier >= 6 ? 26 : 18);
+        juice.requestHitStop(tier >= 6 ? 140 : 95);
         juice.screenFlash(
-          tier >= 6 ? 'rgba(255,255,255,0.65)' : 'rgba(255, 200, 120, 0.55)',
-          tier >= 6 ? 360 : 260,
-          tier >= 6 ? 0.55 : 0.42,
+          tier >= 6 ? 'rgba(255,255,255,0.8)' : 'rgba(255, 200, 120, 0.7)',
+          tier >= 6 ? 420 : 320,
+          tier >= 6 ? 0.65 : 0.52,
         );
       } else {
-        haptic('special');
-        shakeMs = Math.max(shakeMs, 180);
-        shakeMag = Math.max(shakeMag, 8);
-        juice.requestHitStop(50);
-        juice.screenFlash('rgba(120, 210, 255, 0.45)', 200, 0.32);
+        haptic('specialBig');
+        shakeMs = Math.max(shakeMs, 240);
+        shakeMag = Math.max(shakeMag, 12);
+        juice.requestHitStop(70);
+        juice.screenFlash('rgba(120, 210, 255, 0.55)', 260, 0.42);
       }
       if (powerFires === 1) {
         juice.powerBanner(powerLabel(ev.kind).toUpperCase());
@@ -1556,11 +1575,12 @@ function startLevel(
   const level = getLevel(id);
   app.session = createSession(level, (Date.now() ^ (id * 9973)) >>> 0, ddaScalar());
 
-  // Visibly different chamber per level (felt tint + entry flash)
+  // Visibly different chamber per level (felt tint + entry flash + ring)
   boardView.chamberTint = chamberTintForLevel(id);
-  juice.screenFlash(chamberFlashForLevel(id), 420, 0.38);
-  juice.shimmerBoard(chamberFlashForLevel(id), 0.55, 500);
-  haptic('tap');
+  juice.screenFlash(chamberFlashForLevel(id), 560, 0.52);
+  juice.shimmerBoard(chamberFlashForLevel(id), 0.85, 720);
+  juice.ring(canvasView.logicalWidth / 2, canvasView.logicalHeight * 0.48, chamberFlashForLevel(id), 220, 700);
+  haptic('special');
 
   // First Light: two-beat tutorial (forge → fire).
   if (id === 1 && (forceAha || !app.ahaDone)) {

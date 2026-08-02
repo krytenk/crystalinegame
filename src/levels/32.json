@@ -4,17 +4,33 @@
   "width": 8,
   "height": 8,
   "moves": 22,
-  "objectives": [{ "kind": "crust", "target": 32 }],
-  "stars": [3800, 5600, 8000],
-  "colors": ["ember", "aurum", "solar", "verdant", "tidal", "void"],
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 32
+    }
+  ],
+  "stars": [
+    3800,
+    5600,
+    8000
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
   "layout": [
-    "........",
-    "..1111..",
+    "##....##",
+    "#.1111.#",
     ".112211.",
     ".112211.",
     ".112211.",
     ".112211.",
-    "..1111..",
-    "........"
+    "#.1111.#",
+    "##....##"
   ]
 }

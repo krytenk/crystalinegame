@@ -4,18 +4,34 @@
   "width": 8,
   "height": 8,
   "moves": 22,
-  "objectives": [{ "kind": "defuse", "target": 6 }],
-  "stars": [3600, 5400, 7800],
-  "colors": ["ember", "aurum", "solar", "verdant", "tidal", "void"],
+  "objectives": [
+    {
+      "kind": "defuse",
+      "target": 6
+    }
+  ],
+  "stars": [
+    3600,
+    5400,
+    7800
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
   "layout": [
-    "........",
-    ".B....B.",
-    "........",
-    "....B...",
-    "...B....",
-    "........",
-    ".B....B.",
-    "........"
+    "###..###",
+    "#B....B#",
+    "#......#",
+    "..B..B..",
+    "...BB...",
+    "#......#",
+    "#......#",
+    "###..###"
   ],
   "bombFuse": 11
 }

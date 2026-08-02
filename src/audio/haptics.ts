@@ -24,26 +24,27 @@ export type HapticKind =
   | 'softFail';
 
 const PATTERNS: Readonly<Record<HapticKind, number | number[]>> = {
-  tap: 8,
-  reject: 14,
-  clear: 18,
-  /** Match-3 */
-  clear3: [16, 22, 18],
-  /** Match-4 / forge tier */
-  clear4: [20, 28, 24, 28, 30],
-  /** Match-5 prism tier */
-  clear5: [24, 32, 28, 36, 32, 40],
-  /** 6+ / supernova clear */
-  clear6: [30, 40, 35, 45, 40, 50, 45],
-  clearBig: [28, 40, 32, 48, 36],
-  cascade: [14, 36, 18, 40, 22, 44, 26],
-  cascadeBig: [20, 40, 24, 48, 28, 55, 32, 60, 40],
-  special: [28, 40, 35, 50, 40],
-  specialBig: [35, 50, 40, 60, 45, 70, 50],
-  explode: [40, 55, 45, 70, 50, 80, 55],
-  forge: [25, 35, 40, 30],
-  win: [30, 55, 30, 55, 45, 60, 50],
-  softFail: [18, 70, 24],
+  tap: 10,
+  reject: 18,
+  clear: 22,
+  /** Match-3 — short double beat */
+  clear3: [22, 28, 26],
+  /** Match-4 / forge tier — building rhythm */
+  clear4: [28, 32, 30, 36, 40, 30],
+  /** Match-5 prism tier — longer punchy cascade */
+  clear5: [32, 36, 34, 42, 38, 48, 40],
+  /** 6+ / supernova clear — heavy multi-hit */
+  clear6: [40, 45, 42, 55, 48, 60, 50, 65],
+  clearBig: [35, 45, 40, 55, 48],
+  cascade: [18, 40, 24, 48, 28, 52, 32],
+  cascadeBig: [28, 48, 32, 58, 36, 68, 42, 72, 50],
+  special: [36, 48, 42, 60, 50],
+  specialBig: [45, 55, 50, 70, 55, 80, 60],
+  /** Power detonation — longest, hardest pattern */
+  explode: [50, 60, 55, 80, 60, 95, 70, 100, 65],
+  forge: [32, 40, 48, 36, 40],
+  win: [35, 60, 35, 60, 50, 70, 55],
+  softFail: [22, 80, 30],
 };
 
 /** Scale haptic intensity by cascade step (1-based). */

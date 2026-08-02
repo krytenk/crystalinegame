@@ -115,15 +115,22 @@ export class JuiceSystem {
     if (this.particles.length > 700) this.particles.splice(0, this.particles.length - 700);
   }
 
-  /** Dense radial explosion for power clears. */
+  /** Dense radial explosion for power clears — multi-wave, very loud. */
   explode(x: number, y: number, color: string, power = 1): void {
-    const count = Math.floor(36 + power * 28);
+    const count = Math.floor(48 + power * 40);
     this.burst(x, y, color, count);
-    this.burst(x, y, '#ffffff', Math.floor(12 + power * 10));
-    this.burst(x, y, '#ffe9a8', Math.floor(10 + power * 8));
-    this.ring(x, y, color, 70 + power * 40, 480 + power * 80);
-    this.ring(x, y, '#ffffff', 40 + power * 25, 360 + power * 40);
-    this.screenFlash(color.includes('rgba') ? color : `rgba(255, 240, 200, 0.55)`, 200 + power * 40, 0.28 + power * 0.08);
+    this.burst(x, y, '#ffffff', Math.floor(18 + power * 14));
+    this.burst(x, y, '#ffe9a8', Math.floor(14 + power * 12));
+    this.burst(x, y, '#e0c0ff', Math.floor(10 + power * 8));
+    // Triple shockwave rings
+    this.ring(x, y, color, 90 + power * 50, 520 + power * 90);
+    this.ring(x, y, '#ffffff', 55 + power * 35, 400 + power * 50);
+    this.ring(x, y, color, 120 + power * 55, 640 + power * 100);
+    this.screenFlash(
+      color.includes('rgba') ? color : `rgba(255, 240, 200, 0.7)`,
+      260 + power * 55,
+      0.38 + power * 0.12,
+    );
   }
 
   /** Expanding ring shockwave (forge / power / big cascade). */

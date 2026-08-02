@@ -130,9 +130,22 @@ export class BoardView {
         const cy = originY + y * cell + cell / 2;
 
         if (!cellData.playable) {
-          ctx.fillStyle = 'rgba(8, 6, 16, 0.75)';
-          roundRect(ctx, originX + x * cell + 3, originY + y * cell + 3, cell - 6, cell - 6, 8);
+          // Deep void so non-square silhouettes read clearly between levels
+          const vx = originX + x * cell + 2;
+          const vy = originY + y * cell + 2;
+          const vs = cell - 4;
+          const voidG = ctx.createRadialGradient(cx, cy, 0, cx, cy, cell * 0.55);
+          voidG.addColorStop(0, 'rgba(4, 2, 12, 0.95)');
+          voidG.addColorStop(0.7, 'rgba(10, 6, 22, 0.88)');
+          voidG.addColorStop(1, 'rgba(2, 1, 8, 0.92)');
+          ctx.fillStyle = voidG;
+          roundRect(ctx, vx, vy, vs, vs, 10);
           ctx.fill();
+          // Faint rim so the hole edge catches light
+          ctx.strokeStyle = 'rgba(80, 60, 120, 0.35)';
+          ctx.lineWidth = 1.2;
+          roundRect(ctx, vx + 1, vy + 1, vs - 2, vs - 2, 9);
+          ctx.stroke();
           continue;
         }
 
@@ -174,18 +187,29 @@ export class BoardView {
         // animator owns all piece drawing (including stones/bombs).
         if (!useAnim && cellData.piece) {
           drawPiece(ctx, atlas, cellData.piece, cx, cy, cell, dprBucket, pulse, this.glyphs);
-          // Chain shimmer wash over gems
+          // Chain shimmer wash over gems — bright pulse through the whole board
           if (this.shimmer && this.shimmer.alpha > 0.02) {
             ctx.save();
-            ctx.globalAlpha = Math.min(0.85, this.shimmer.alpha);
-            const sg = ctx.createRadialGradient(cx, cy, cell * 0.05, cx, cy, cell * 0.48);
-            sg.addColorStop(0, this.shimmer.color);
-            sg.addColorStop(0.55, 'rgba(255,255,255,0.15)');
+            const a = Math.min(0.95, this.shimmer.alpha);
+            ctx.globalAlpha = a;
+            const sg = ctx.createRadialGradient(cx, cy, cell * 0.02, cx, cy, cell * 0.55);
+            sg.addColorStop(0, '#ffffff');
+            sg.addColorStop(0.25, this.shimmer.color);
+            sg.addColorStop(0.6, 'rgba(255,255,255,0.25)');
             sg.addColorStop(1, 'rgba(0,0,0,0)');
             ctx.fillStyle = sg;
             ctx.beginPath();
-            ctx.arc(cx, cy, cell * 0.48, 0, Math.PI * 2);
+            ctx.arc(cx, cy, cell * 0.55, 0, Math.PI * 2);
             ctx.fill();
+            // Outer prism rim flash
+            ctx.globalAlpha = a * 0.65;
+            ctx.strokeStyle = this.shimmer.color;
+            ctx.lineWidth = 2.2;
+            ctx.shadowColor = this.shimmer.color;
+            ctx.shadowBlur = 14;
+            ctx.beginPath();
+            ctx.arc(cx, cy, cell * 0.4, 0, Math.PI * 2);
+            ctx.stroke();
             ctx.restore();
           }
         }
@@ -265,7 +289,7 @@ function drawPiece(
     piece.kind === 'supernova';
   const isCore = piece.kind === 'core';
   if (isPower || isCore) {
-    // Bright multi-layer prismatic bloom — must read as power from arm's length
+    // Loud prismatic bloom — readable as power from arm's length on phone
     const prismStops =
       isCore
         ? (['#fff6c8', '#ffd24a', '#ff9a40'] as const)
@@ -276,85 +300,149 @@ function drawPiece(
             : piece.kind === 'burst'
               ? (['#fff0c0', '#ffc060', '#ff8040'] as const)
               : (['#e8ffff', '#7ed0ff', '#4080ff'] as const);
-    const rOuter = (isCore || piece.kind === 'supernova' ? cell * 0.92 : cell * 0.82) * (1 + pulse * 0.12);
-    // Soft outer prism wash
-    const outer = ctx.createRadialGradient(cx, cy, cell * 0.05, cx, cy, rOuter);
-    outer.addColorStop(0, prismStops[0]!);
-    outer.addColorStop(0.25, prismStops[1]! + 'cc');
-    outer.addColorStop(0.55, prismStops[2]! + '66');
+    const rOuter =
+      (isCore || piece.kind === 'supernova' ? cell * 1.05 : cell * 0.95) *
+      (1 + pulse * 0.18);
+    // Wide outer prism wash (very bright)
+    const outer = ctx.createRadialGradient(cx, cy, cell * 0.04, cx, cy, rOuter);
+    outer.addColorStop(0, '#ffffff');
+    outer.addColorStop(0.12, prismStops[0]!);
+    outer.addColorStop(0.35, prismStops[1]! + 'ee');
+    outer.addColorStop(0.65, prismStops[2]! + '88');
     outer.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = outer;
     ctx.beginPath();
     ctx.arc(cx, cy, rOuter, 0, Math.PI * 2);
     ctx.fill();
-    // Bright core halo
-    const mid = ctx.createRadialGradient(cx, cy, 0, cx, cy, cell * 0.42);
-    mid.addColorStop(0, 'rgba(255,255,255,0.95)');
-    mid.addColorStop(0.35, prismStops[0]!);
+    // Second color wash slightly offset for prismatic split
+    const tHue = performance.now() * 0.004;
+    const ox = Math.cos(tHue) * cell * 0.06;
+    const oy = Math.sin(tHue * 1.3) * cell * 0.06;
+    const split = ctx.createRadialGradient(cx + ox, cy + oy, 0, cx, cy, cell * 0.55);
+    split.addColorStop(0, prismStops[2]! + 'aa');
+    split.addColorStop(0.5, prismStops[1]! + '55');
+    split.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = split;
+    ctx.beginPath();
+    ctx.arc(cx, cy, cell * 0.55, 0, Math.PI * 2);
+    ctx.fill();
+    // Hot white core
+    const mid = ctx.createRadialGradient(cx, cy, 0, cx, cy, cell * 0.48);
+    mid.addColorStop(0, 'rgba(255,255,255,1)');
+    mid.addColorStop(0.25, prismStops[0]!);
+    mid.addColorStop(0.6, prismStops[1]! + '99');
     mid.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = mid;
     ctx.beginPath();
-    ctx.arc(cx, cy, cell * 0.42 * (0.95 + pulse * 0.1), 0, Math.PI * 2);
+    ctx.arc(cx, cy, cell * 0.48 * (0.95 + pulse * 0.12), 0, Math.PI * 2);
     ctx.fill();
 
-    // Fast dual-orbit spark rings (obvious spin)
+    // Fast dual-orbit spark rings — large, glowing, obvious spin
     const t = performance.now();
-    const spinFast = t * 0.012;
-    const spinSlow = t * 0.007;
-    const sparks = isCore || piece.kind === 'supernova' ? 12 : 10;
+    const spinFast = t * 0.018; // ~faster orbit
+    const spinMid = t * 0.011;
+    const spinSlow = t * 0.006;
+    const sparks = isCore || piece.kind === 'supernova' ? 14 : 12;
     for (let i = 0; i < sparks; i++) {
       const a = spinFast + (i / sparks) * Math.PI * 2;
-      const rad = cell * (0.42 + pulse * 0.1);
+      const rad = cell * (0.48 + pulse * 0.12);
       const sx = cx + Math.cos(a) * rad;
       const sy = cy + Math.sin(a) * rad;
-      const sz = cell * (0.1 + (i % 3) * 0.02);
+      const sz = cell * (0.14 + (i % 3) * 0.03);
+      // Motion streak behind each spark
+      const trailA = a - 0.35;
+      const tx = cx + Math.cos(trailA) * rad;
+      const ty = cy + Math.sin(trailA) * rad;
+      ctx.save();
+      ctx.strokeStyle = prismStops[i % 3]!;
+      ctx.globalAlpha = 0.55;
+      ctx.lineWidth = sz * 0.7;
+      ctx.lineCap = 'round';
+      ctx.shadowColor = prismStops[0]!;
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.moveTo(tx, ty);
+      ctx.lineTo(sx, sy);
+      ctx.stroke();
+      ctx.restore();
       const sg = ctx.createRadialGradient(sx, sy, 0, sx, sy, sz);
       sg.addColorStop(0, '#ffffff');
-      sg.addColorStop(0.35, prismStops[i % 3]!);
+      sg.addColorStop(0.3, prismStops[i % 3]!);
       sg.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = sg;
       ctx.beginPath();
       ctx.arc(sx, sy, sz, 0, Math.PI * 2);
       ctx.fill();
     }
-    // Counter-rotating inner dots
-    for (let i = 0; i < 6; i++) {
-      const a = -spinSlow + (i / 6) * Math.PI * 2;
-      const rad = cell * 0.28;
+    // Mid ring: elongated spinning diamonds
+    for (let i = 0; i < 8; i++) {
+      const a = -spinMid + (i / 8) * Math.PI * 2;
+      const rad = cell * 0.34;
       const sx = cx + Math.cos(a) * rad;
       const sy = cy + Math.sin(a) * rad;
-      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.rotate(a + Math.PI / 2);
+      ctx.fillStyle = i % 2 === 0 ? '#ffffff' : prismStops[i % 3]!;
+      ctx.globalAlpha = 0.95;
+      ctx.shadowColor = prismStops[1]!;
+      ctx.shadowBlur = 10;
       ctx.beginPath();
-      ctx.arc(sx, sy, cell * 0.045, 0, Math.PI * 2);
+      ctx.moveTo(0, -cell * 0.07);
+      ctx.lineTo(cell * 0.04, 0);
+      ctx.lineTo(0, cell * 0.07);
+      ctx.lineTo(-cell * 0.04, 0);
+      ctx.closePath();
       ctx.fill();
+      ctx.restore();
     }
-    // Prism ring stroke
+    // Counter-rotating inner bright dots
+    for (let i = 0; i < 8; i++) {
+      const a = -spinSlow + (i / 8) * Math.PI * 2;
+      const rad = cell * 0.22;
+      const sx = cx + Math.cos(a) * rad;
+      const sy = cy + Math.sin(a) * rad;
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = prismStops[0]!;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(sx, sy, cell * 0.055, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+    // Double prism ring strokes
     ctx.save();
     ctx.strokeStyle = prismStops[0]!;
-    ctx.globalAlpha = 0.55 + pulse * 0.35;
-    ctx.lineWidth = 2.5 + pulse * 2;
+    ctx.globalAlpha = 0.7 + pulse * 0.3;
+    ctx.lineWidth = 3.2 + pulse * 2.5;
     ctx.shadowColor = prismStops[1]!;
-    ctx.shadowBlur = 18;
+    ctx.shadowBlur = 22;
     ctx.beginPath();
-    ctx.arc(cx, cy, cell * 0.4, 0, Math.PI * 2);
+    ctx.arc(cx, cy, cell * 0.44, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = prismStops[2]!;
+    ctx.globalAlpha = 0.45 + pulse * 0.25;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, cell * 0.52 + pulse * cell * 0.04, 0, Math.PI * 2);
     ctx.stroke();
     ctx.restore();
 
     // Line powers: thick axis flash
     if (piece.kind === 'line') {
       ctx.save();
-      ctx.globalAlpha = 0.45 + pulse * 0.35;
-      ctx.strokeStyle = '#b8f0ff';
-      ctx.lineWidth = 3.5 + pulse * 3;
+      ctx.globalAlpha = 0.55 + pulse * 0.4;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 4.5 + pulse * 3.5;
       ctx.shadowColor = '#7ed0ff';
-      ctx.shadowBlur = 16;
+      ctx.shadowBlur = 20;
       ctx.beginPath();
       if (piece.orientation === 'v') {
-        ctx.moveTo(cx, cy - cell * 0.48);
-        ctx.lineTo(cx, cy + cell * 0.48);
+        ctx.moveTo(cx, cy - cell * 0.52);
+        ctx.lineTo(cx, cy + cell * 0.52);
       } else {
-        ctx.moveTo(cx - cell * 0.48, cy);
-        ctx.lineTo(cx + cell * 0.48, cy);
+        ctx.moveTo(cx - cell * 0.52, cy);
+        ctx.lineTo(cx + cell * 0.52, cy);
       }
       ctx.stroke();
       ctx.restore();
