@@ -1,7 +1,9 @@
 ext {
     minSdkVersion = 24
     compileSdkVersion = 36
-    targetSdkVersion = 34
+    // Play Console requires a recent targetSdk; keep compileSdk ≥ targetSdk.
+    // Platform 36 is installed in the portable SDK used for CI/dev builds.
+    targetSdkVersion = 36
     androidxActivityVersion = '1.11.0'
     androidxAppCompatVersion = '1.7.1'
     androidxCoordinatorLayoutVersion = '1.3.0'

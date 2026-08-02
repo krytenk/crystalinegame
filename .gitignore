@@ -24,7 +24,14 @@ android/**/build/
 android/local.properties
 android/app/src/main/assets/public/
 android/captures/
+android/keystore/
+android/keystore.properties
+android/*.jks
+android/*.keystore
+*.jks
+*.keystore
 *.apk
 *.aab
 !release/.gitkeep
 release/*.apk
+release/*.aab

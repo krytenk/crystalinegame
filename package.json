@@ -15,6 +15,9 @@
     "assets:harbor": "python3 tools/bake_harbor.py",
     "cap:sync": "npm run build && npx cap sync android",
     "android:apk": "npm run cap:sync && node tools/build-android-apk.mjs",
+    "android:keystore": "node tools/generate-upload-keystore.mjs",
+    "android:bundle": "npm run cap:sync && node tools/build-android-release.mjs",
+    "android:release": "npm run android:bundle",
     "android:open": "npx cap open android"
   },
   "devDependencies": {

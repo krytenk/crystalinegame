@@ -1,36 +1,21 @@
-# Android APK (Capacitor)
+# Android (Capacitor) — debug & Play release
 
-Crystalline is a Vite web game wrapped for Android with **[Capacitor](https://capacitorjs.com/)**.
+Crystalline is a Vite web game wrapped with **[Capacitor 8](https://capacitorjs.com/)**.
 
-## Pre-built debug APK
+For the full Play Console checklist see **[PLAY_STORE.md](./PLAY_STORE.md)**.
 
-After a successful build:
+## Identity
 
-```text
-release/crystalline-debug.apk
-```
+| Field | Value |
+|-------|--------|
+| Application ID | `ca.departurebaydigital.crystalline` |
+| App name | Crystalline |
+| Min SDK | 24 (Android 7.0+) |
+| Target / compile SDK | 36 |
+| Permissions | `INTERNET`, `VIBRATE` |
+| Orientation | Portrait locked |
 
-Install on a device (USB debugging on):
-
-```bash
-adb install -r release/crystalline-debug.apk
-```
-
-Or copy the APK to the phone and open it (allow “install from unknown sources” if prompted).
-
-**Note:** This is a **debug-signed** APK for demos / sideloading — not a Play Store release. For store publishing you need a release keystore (`assembleRelease`).
-
-## Build yourself
-
-### Prerequisites
-
-| Tool | Notes |
-|------|--------|
-| **Node 18+** | Already used for the web game |
-| **JDK 21** | Capacitor 8 / modern AGP require Java 21 |
-| **Android SDK** | Platform **36**, build-tools, platform-tools |
-
-Example portable layout used on this machine:
+## Environment
 
 ```bash
 export JAVA_HOME="$HOME/.local/jdk21"
@@ -38,57 +23,59 @@ export ANDROID_HOME="$HOME/android-sdk"
 export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$PATH"
 ```
 
-### One-shot
+Need JDK **21**, Android SDK **platform 36**, build-tools, platform-tools.
+
+## Debug APK (sideload / USB)
 
 ```bash
-npm install
 npm run android:apk
+adb install -r release/crystalline-debug.apk
 ```
 
-That runs: Vite build → `cap sync android` → Gradle `assembleDebug` → copies APK to `release/`.
+## Play Store App Bundle (AAB)
 
-### Step by step
+### 1. Upload keystore (once)
 
 ```bash
-npm run build
-npx cap sync android
-cd android && ./gradlew assembleDebug
-# APK: android/app/build/outputs/apk/debug/app-debug.apk
+npm run android:keystore
+# → android/keystore/crystalline-upload.jks
+# → android/keystore.properties   (gitignored)
 ```
 
-Open in Android Studio:
+Back up the keystore and passwords offline.
+
+### 2. Build release
 
 ```bash
-npm run android:open
+npm run android:bundle
+# → release/crystalline-release.aab   ← upload to Play Console
+# → release/crystalline-release.apk   ← optional smoke-test
 ```
 
-## App identity
+Release builds are signed only when `android/keystore.properties` exists.
 
-| Field | Value |
-|-------|--------|
-| Application ID | `ca.departurebaydigital.crystalline` |
-| App name | Crystalline |
-| Min SDK | 24 (Android 7.0+) |
-| Permissions | `INTERNET` (YouTube Shorts ad placeholders), `VIBRATE` (haptics) |
+### 3. Version bumps
 
-## What works offline
+Edit `android/app/build.gradle`:
 
-- Core match-3, cavern, album, economy (all local)  
-- **Needs network** only for Discworld Shorts embeds in the simulated ad UI  
+- `versionCode` — integer, must increase every Play upload  
+- `versionName` — user-visible (`1.0.0`, `1.0.1`, …)
 
-## Play Store / release signing
+## Store assets in repo
 
-1. Generate a keystore (keep it private).  
-2. Configure `android/app` signing in `build.gradle` or via Android Studio.  
-3. `./gradlew assembleRelease` (or App Bundle: `bundleRelease`).  
-
-Not set up in this repo by default (demo / portfolio build).
+| Asset | Path |
+|-------|------|
+| 512 icon | `store/icons/ic_launcher_512.png` |
+| Feature graphic | `store/feature_graphic.png` |
+| Listing copy | `store/LISTING.md` |
+| Privacy policy | `store/privacy/index.html` |
 
 ## Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
-| `invalid source release: 21` | Use JDK **21**, not 17 |
-| AAR metadata wants compileSdk 36 | Install `platforms;android-36` via `sdkmanager` |
-| `sdk.dir` missing | Write `android/local.properties` → `sdk.dir=/path/to/sdk` |
-| Blank WebView | Re-run `npm run build && npx cap sync android` |
+| `invalid source release: 21` | Use JDK 21 |
+| Missing `keystore.properties` | `npm run android:keystore` |
+| Install fails “signatures do not match” | Uninstall debug build first |
+| Blank WebView | `npm run build && npx cap sync android` |
+| `sdk.dir` missing | Build scripts write `android/local.properties` |
