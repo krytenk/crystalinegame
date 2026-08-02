@@ -3744,6 +3744,7 @@ function metaUpgradeRow(
   return row;
 }
 
+/** Fallback text only if art fails — prefer SKU_ICON art. */
 const SKU_GLYPH: Record<string, string> = {
   'shards.pocket': '◆',
   'shards.hoard': '◆◆',
@@ -3751,9 +3752,17 @@ const SKU_GLYPH: Record<string, string> = {
   'bundle.starter': '✦',
   'lives.refill': '♥',
   'ads.remove': '☁',
-  'ads.pass7': '☁7',
-  'ads.pass30': '☁30',
+  'ads.pass7': '☁',
+  'ads.pass30': '☁',
   'ease.comfort': '☕',
+};
+
+/** Real shop tile art (Clear Skies passes + forever). */
+const SKU_ICON: Partial<Record<string, string>> = {
+  'ads.pass7': 'ui/shop/clear_skies_7.webp',
+  'ads.pass30': 'ui/shop/clear_skies_30.webp',
+  'ads.remove': 'ui/shop/clear_skies_forever.webp',
+  'lives.refill': 'ui/icon_lives.webp',
 };
 
 const SKU_TAG_LABEL: Record<string, string> = {
@@ -3977,13 +3986,25 @@ function renderStore(): void {
       const n = Object.values(sku.grantBoosters).reduce((a, b) => a + (b ?? 0), 0);
       if (n > 0) grantBits.push(`+${n} tools`);
     }
+    const iconPath = SKU_ICON[sku.id];
+    const glyphNode = iconPath
+      ? el('div', { class: 'sku-glyph sku-glyph-art' }, [
+          el('img', {
+            class: 'sku-glyph-img',
+            src: assetUrl(iconPath),
+            alt: '',
+            decoding: 'async',
+            draggable: 'false',
+          }),
+        ])
+      : el('div', { class: 'sku-glyph' }, [SKU_GLYPH[sku.id] ?? '◇']);
     const row = el(
       'div',
       {
         class: `sku${sku.tag ? ` tagged-${sku.tag}` : ''}${can ? '' : ' broke'}`,
       },
       [
-        el('div', { class: 'sku-glyph' }, [SKU_GLYPH[sku.id] ?? '◇']),
+        glyphNode,
         el('div', { class: 'sku-body' }, [
           el('div', { class: 'name' }, [
             displayName,

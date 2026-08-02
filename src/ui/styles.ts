@@ -964,6 +964,24 @@ export function injectStyles(): void {
       border: 2px solid rgba(201, 162, 39, 0.35);
       box-shadow: 0 3px 0 rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.12);
     }
+    .sku-glyph-art {
+      width: 56px;
+      height: 56px;
+      padding: 4px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 35% 25%, rgba(160, 210, 255, 0.35), transparent 55%),
+        linear-gradient(160deg, rgba(40, 70, 120, 0.85), rgba(16, 12, 36, 0.98));
+      border-color: rgba(126, 200, 255, 0.45);
+    }
+    .sku-glyph-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+      pointer-events: none;
+    }
     .sku-body { flex: 1; min-width: 0; }
     .sku .name {
       font-weight: 800; font-family: var(--font-display); letter-spacing: 0.02em;
