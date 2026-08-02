@@ -3,7 +3,7 @@
   "name": "Buried Offerings",
   "width": 8,
   "height": 8,
-  "moves": 24,
+  "moves": 26,
   "objectives": [
     {
       "kind": "collect",

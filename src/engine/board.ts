@@ -234,6 +234,46 @@ const fillOpening = (s: SessionState): void => {
   if (hasAnyMatch(grid) || !hasLegalMove(grid)) reshuffleBoard(grid, rng);
 };
 
+/**
+ * Collect levels previously had no relic spawns — boards were unwinnable.
+ * Seed a visible starter set, then gravity refill injects the rest.
+ */
+const seedCollectRelics = (s: SessionState): void => {
+  const target = s.level.objectives
+    .filter((o) => o.kind === 'collect')
+    .reduce((sum, o) => sum + o.target, 0);
+  if (target <= 0) return;
+
+  let onBoard = 0;
+  s.grid.forEach((cell) => {
+    if (cell.piece?.kind === 'relic') onBoard += 1;
+  });
+  // Seed about half the goal (at least 1, at most target) as gold artifacts near the top.
+  const want = Math.min(target, Math.max(1, Math.ceil(target * 0.5)));
+  if (onBoard >= want) return;
+
+  // Prefer upper playable cells so the player sees them fall.
+  const slots: { x: number; y: number }[] = [];
+  for (let y = 0; y < s.grid.height; y++) {
+    for (let x = 0; x < s.grid.width; x++) {
+      const cell = s.grid.at(x, y);
+      if (!cell.playable || cell.piece?.kind !== 'crystal') continue;
+      if (cell.crust > 0) continue;
+      slots.push({ x, y });
+    }
+  }
+  // Upper rows first
+  slots.sort((a, b) => a.y - b.y || a.x - b.x);
+
+  let need = want - onBoard;
+  for (const slot of slots) {
+    if (need <= 0) break;
+    const cell = s.grid.at(slot.x, slot.y);
+    cell.piece = makeRelic(s.ids);
+    need -= 1;
+  }
+};
+
 export const createSession = (level: LevelDef, seed: number, ddaScalar = 0): Session => {
   const rng = createRng(seed);
   const ids = createIdAllocator(1);
@@ -263,6 +303,7 @@ export const createSession = (level: LevelDef, seed: number, ddaScalar = 0): Ses
   };
 
   fillOpening(state);
+  seedCollectRelics(state);
   counters.shadowSeen = countShadowed(grid);
   state.objectives = initObjectives(level, counters);
 
@@ -384,9 +425,25 @@ export const createSession = (level: LevelDef, seed: number, ddaScalar = 0): Ses
       const cell = grid.at(at.x, at.y);
       if (!cell.playable || cell.piece === null) return events;
       if (cell.piece.kind === 'stone') return events;
+      if (cell.piece.kind === 'relic') return events; // never smash collect artifacts
       cell.piece = null;
       events.push({ t: 'clear', cells: [at], cause: 'match', cascadeStep: 0 });
-      const { falls, spawns } = applyGravity(grid, state.rng, state.table, state.ids);
+      const collectTarget = level.objectives
+        .filter((o) => o.kind === 'collect')
+        .reduce((sum, o) => sum + o.target, 0);
+      let relicsOnBoard = 0;
+      grid.forEach((c) => {
+        if (c.piece?.kind === 'relic') relicsOnBoard += 1;
+      });
+      const { falls, spawns } = applyGravity(grid, state.rng, state.table, state.ids, {
+        relics:
+          collectTarget > state.counters.relicsCollected
+            ? {
+                remaining: collectTarget - state.counters.relicsCollected,
+                onBoard: relicsOnBoard,
+              }
+            : undefined,
+      });
       if (falls.length > 0) events.push({ t: 'fall', moves: falls });
       if (spawns.length > 0) events.push({ t: 'spawn', spawns });
       events.push(...resolveCascades(state, [at]));

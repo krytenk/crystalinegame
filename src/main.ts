@@ -32,7 +32,7 @@ import {
 } from '@economy/discworldShorts';
 import { installEventTheme } from '@economy/hybridEvent';
 import { AudioDirector } from '@audio/audio';
-import { haptic, hapticCascade, hapticMatchTier } from '@audio/haptics';
+import { haptic, hapticCascade, hapticMatchTier, unlockHaptics } from '@audio/haptics';
 import { Atlas } from '@render/atlas';
 import { drawGameBackground, loadBackground } from '@render/background';
 import { CanvasView } from '@render/canvas';
@@ -211,10 +211,39 @@ const toasts: Toast[] = [];
 const OBJECTIVE_LABEL: Record<ObjectiveKind, string> = {
   score: 'Score',
   crust: 'Break crust',
-  collect: 'Drop relics',
+  collect: 'Drop artifacts',
   defuse: 'Defuse bombs',
   contain: 'Clear shadow',
 };
+
+/** Short how-to shown under each goal (prelevel + HUD). */
+const OBJECTIVE_HOWTO: Record<ObjectiveKind, string> = {
+  score: 'Match gems to rack up points before moves run out.',
+  crust: 'Match next to crusted stone to crack and clear it.',
+  collect: 'Gold artifacts fall in from the top — clear a path so they drop to the bottom row.',
+  defuse: 'Match next to bombs (or blast them) before the fuse hits zero.',
+  contain: 'Clear gems under creeping shadow so it cannot smother the board.',
+};
+
+const OBJECTIVE_ICON: Record<ObjectiveKind, string> = {
+  score: 'ui/goals/score.webp',
+  crust: 'ui/goals/crust.webp',
+  collect: 'ui/goals/collect.webp',
+  defuse: 'ui/goals/defuse.webp',
+  contain: 'ui/goals/contain.webp',
+};
+
+const goalHudImgs: Partial<Record<ObjectiveKind, HTMLImageElement>> = {};
+
+function ensureGoalHudImg(kind: ObjectiveKind): HTMLImageElement {
+  let img = goalHudImgs[kind];
+  if (img) return img;
+  img = new Image();
+  img.decoding = 'async';
+  img.src = assetUrl(OBJECTIVE_ICON[kind]);
+  goalHudImgs[kind] = img;
+  return img;
+}
 
 function pushToast(text: string, color = '#ffe9a8', life = 1600): void {
   toasts.push({ text, born: performance.now(), life, color });
@@ -643,8 +672,8 @@ function drawChrome(ctx: CanvasRenderingContext2D, now: number): void {
   ctx.fillStyle = '#fff6e8';
   ctx.fillText(hudWord, 32, 48);
 
-  drawChip(ctx, 32, 68, `♥ ${snap.lives.count}`, '#ff7a8a', body, 96);
-  drawChip(ctx, 140, 68, `◆ ${snap.wallet.shards}`, '#7ecbff', body, 108);
+  drawIconChip(ctx, 32, 68, 'ui/icon_lives.webp', String(snap.lives.count), '#ff7a8a', body, 96);
+  drawIconChip(ctx, 140, 68, 'ui/icon_shards.webp', String(snap.wallet.shards), '#7ecbff', body, 108);
   drawEssChip(ctx, 260, 68, snap.meta.essence, '#ffd24a', body, 124);
 
   if (app.screen === 'play' && app.session) {
@@ -711,7 +740,7 @@ function drawChrome(ctx: CanvasRenderingContext2D, now: number): void {
   void now;
 }
 
-/** Compact objective pills with mini progress bars (in-level HUD). */
+/** Compact objective pills with icon art + mini progress bars (in-level HUD). */
 function drawObjectiveHud(
   ctx: CanvasRenderingContext2D,
   objectives: readonly { kind: ObjectiveKind; current: number; target: number }[],
@@ -723,7 +752,7 @@ function drawObjectiveHud(
 ): void {
   let x = x0;
   const maxW = 700 - x0 - 16;
-  const pillW = Math.min(150, Math.floor(maxW / Math.max(1, objectives.length)) - 6);
+  const pillW = Math.min(168, Math.floor(maxW / Math.max(1, objectives.length)) - 6);
   for (const o of objectives) {
     const done = o.current >= o.target;
     const pct = Math.min(1, o.current / Math.max(1, o.target));
@@ -731,32 +760,45 @@ function drawObjectiveHud(
     const glow = done && !reduceMotion ? 0.55 + 0.25 * Math.sin(now * 0.008) : 0.4;
 
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    roundRectPath(ctx, x, y0, pillW, 48, 12);
+    roundRectPath(ctx, x, y0, pillW, 52, 12);
     ctx.fill();
     ctx.strokeStyle = accent;
     ctx.globalAlpha = glow;
     ctx.lineWidth = 1.8;
-    roundRectPath(ctx, x, y0, pillW, 48, 12);
+    roundRectPath(ctx, x, y0, pillW, 52, 12);
     ctx.stroke();
     ctx.globalAlpha = 1;
 
+    // Goal icon (real art, not ASCII)
+    const icon = 28;
+    const img = ensureGoalHudImg(o.kind);
+    if (img.complete && img.naturalWidth > 0) {
+      ctx.save();
+      ctx.beginPath();
+      roundRectPath(ctx, x + 6, y0 + 6, icon, icon, 8);
+      ctx.clip();
+      ctx.drawImage(img, x + 6, y0 + 6, icon, icon);
+      ctx.restore();
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+      ctx.lineWidth = 1;
+      roundRectPath(ctx, x + 6, y0 + 6, icon, icon, 8);
+      ctx.stroke();
+    }
+
+    const textX = x + 6 + icon + 6;
     ctx.fillStyle = 'rgba(255,255,255,0.55)';
     ctx.font = `800 9px ${font}`;
     ctx.textAlign = 'left';
     const label = OBJECTIVE_LABEL[o.kind];
-    ctx.fillText(label.length > 12 ? label.slice(0, 11) + '…' : label, x + 8, y0 + 13);
+    ctx.fillText(label.length > 11 ? label.slice(0, 10) + '…' : label, textX, y0 + 14);
 
     ctx.fillStyle = done ? '#4dde8a' : '#e8f4ff';
     ctx.font = `800 15px ${font}`;
-    ctx.fillText(
-      done ? '✓' : `${o.current}/${o.target}`,
-      x + 8,
-      y0 + 30,
-    );
+    ctx.fillText(done ? 'DONE' : `${o.current}/${o.target}`, textX, y0 + 32);
 
     // Progress track
     const trackX = x + 8;
-    const trackY = y0 + 36;
+    const trackY = y0 + 40;
     const trackW = pillW - 16;
     ctx.fillStyle = 'rgba(255,255,255,0.12)';
     roundRectPath(ctx, trackX, trackY, trackW, 5, 3);
@@ -812,11 +854,25 @@ function drawStatBadge(
   ctx.restore();
 }
 
-function drawChip(
+const hudIconCache = new Map<string, HTMLImageElement>();
+
+function ensureHudIcon(path: string): HTMLImageElement {
+  let img = hudIconCache.get(path);
+  if (img) return img;
+  img = new Image();
+  img.decoding = 'async';
+  img.src = assetUrl(path);
+  hudIconCache.set(path, img);
+  return img;
+}
+
+/** HUD chip with a real icon image + number (replaces ♥ / ◆ text). */
+function drawIconChip(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
-  text: string,
+  iconPath: string,
+  value: string,
   accent: string,
   font = '"Nunito", system-ui, sans-serif',
   w = 112,
@@ -828,10 +884,18 @@ function drawChip(
   ctx.lineWidth = 2;
   ctx.stroke();
   ctx.globalAlpha = 1;
+
+  const img = ensureHudIcon(iconPath);
+  const icon = 20;
+  const ix = x + 8;
+  const iy = y + (32 - icon) / 2;
+  if (img.complete && img.naturalWidth > 0) {
+    ctx.drawImage(img, ix, iy, icon, icon);
+  }
   ctx.fillStyle = accent;
   ctx.font = `800 15px ${font}`;
   ctx.textAlign = 'left';
-  ctx.fillText(text, x + 12, y + 21);
+  ctx.fillText(value, x + 8 + icon + 6, y + 21);
 }
 
 /** Essence chip with living geode art (not ✧ glyph). */
@@ -1031,10 +1095,27 @@ function drawSoftHint(ctx: CanvasRenderingContext2D, now: number): void {
 }
 
 function bindInput(): void {
+  // Mobile: prevent browser scroll/zoom stealing swipe swaps
+  canvas.style.touchAction = 'none';
+  // Unlock vibration on first gesture anywhere (Pages / WebView)
+  const prime = () => unlockHaptics();
+  window.addEventListener('pointerdown', prime, { once: true, passive: true });
+  window.addEventListener('touchstart', prime, { once: true, passive: true });
+
+  canvas.addEventListener(
+    'touchstart',
+    (e) => {
+      if (app.screen === 'play') e.preventDefault();
+    },
+    { passive: false },
+  );
+
   canvas.addEventListener('pointerdown', (e) => {
+    unlockHaptics();
     if (app.screen !== 'play' || app.paused) return;
     notePlayInput();
     audio.resume();
+    haptic('tap');
     canvas.setPointerCapture(e.pointerId);
     const p = canvasView.clientToLogical(e.clientX, e.clientY);
 
@@ -1160,6 +1241,15 @@ function playMatchVfx(events: readonly GameEvent[]): void {
   for (const ev of events) {
     if (ev.t === 'swapRejected') {
       haptic('reject');
+    } else if (ev.t === 'relicCollected') {
+      const p = cellToLogical(ev.at);
+      juice.burst(p.x, p.y, '#ffd679', 22);
+      juice.burst(p.x, p.y, '#fff6c8', 12);
+      juice.ring(p.x, p.y, '#ffd24a', 70, 480);
+      juice.scorePop(p.x, p.y - 10, 300, '#ffe9a8');
+      juice.shimmerBoard('rgba(255, 210, 100, 1)', 0.55, 420);
+      haptic('relic');
+      pushToast(`Artifact secured! ${ev.total}`, '#ffd679', 1400);
     } else if (ev.t === 'match') {
       const tier = tierFromMatch(ev.shape, ev.cells.length);
       vfx.playAtCells(tier, ev.cells, cellToLogical);
@@ -1890,10 +1980,34 @@ function renderTitle(): void {
   const wrap = el('div', { class: 'panel panel-title' }, []);
   wrap.append(
     el('div', { class: 'title-gems', 'aria-hidden': 'true' }, [
-      el('span', { class: 'title-gem g1' }, ['◆']),
-      el('span', { class: 'title-gem g2' }, ['✦']),
-      el('span', { class: 'title-gem g3' }, ['◇']),
-      el('span', { class: 'title-gem g4' }, ['❖']),
+      el('img', {
+        class: 'title-gem g1',
+        src: assetUrl('ui/title/tidal.webp'),
+        alt: '',
+        decoding: 'async',
+        draggable: 'false',
+      }),
+      el('img', {
+        class: 'title-gem g2',
+        src: assetUrl('ui/title/aurum.webp'),
+        alt: '',
+        decoding: 'async',
+        draggable: 'false',
+      }),
+      el('img', {
+        class: 'title-gem g3',
+        src: assetUrl('ui/title/void.webp'),
+        alt: '',
+        decoding: 'async',
+        draggable: 'false',
+      }),
+      el('img', {
+        class: 'title-gem g4',
+        src: assetUrl('ui/title/ember.webp'),
+        alt: '',
+        decoding: 'async',
+        draggable: 'false',
+      }),
     ]),
     el('div', { class: 'title-kicker' }, [theme().id === 'harbor' ? 'COZY HARBOR MATCH-3' : 'CRYSTAL MINE MATCH-3']),
     el('h1', {}, [theme().productName.toUpperCase()]),
@@ -2688,9 +2802,19 @@ function renderPrelevel(): void {
 
   const goals = el('div', { class: 'goal-row' }, [
     ...level.objectives.map((o) =>
-      el('div', { class: 'goal-chip' }, [
-        el('span', { class: 'goal-k' }, [OBJECTIVE_LABEL[o.kind]]),
-        el('span', { class: 'goal-v' }, [String(o.target)]),
+      el('div', { class: 'goal-chip goal-chip-visual' }, [
+        el('img', {
+          class: 'goal-icon',
+          src: assetUrl(OBJECTIVE_ICON[o.kind]),
+          alt: OBJECTIVE_LABEL[o.kind],
+          decoding: 'async',
+          draggable: 'false',
+        }),
+        el('div', { class: 'goal-chip-body' }, [
+          el('span', { class: 'goal-k' }, [OBJECTIVE_LABEL[o.kind]]),
+          el('span', { class: 'goal-v' }, [`×${o.target}`]),
+          el('span', { class: 'goal-how' }, [OBJECTIVE_HOWTO[o.kind]]),
+        ]),
       ]),
     ),
   ]);

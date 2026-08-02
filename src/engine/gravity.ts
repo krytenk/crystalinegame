@@ -17,12 +17,26 @@ import type { FallMove, SpawnRef } from './events';
 import type { Grid2D } from './grid';
 import type { Rng } from './rng';
 import { pickNonMatchingColor, type SpawnTable } from './spawn';
-import { isFallable, makeCrystal, type IdAllocator } from './tile';
+import { isFallable, makeCrystal, makeRelic, type IdAllocator } from './tile';
 import type { Cell, Piece } from './types';
 
 export interface GravityResult {
   readonly falls: FallMove[];
   readonly spawns: SpawnRef[];
+}
+
+/**
+ * Collect-objective relic injection during top-of-board refill.
+ * `remaining` = objective target − already collected.
+ * Spawns relics until `onBoard + newlySpawned` covers remaining (with a small buffer).
+ */
+export interface RelicSpawnPlan {
+  remaining: number;
+  onBoard: number;
+}
+
+export interface GravityOpts {
+  readonly relics?: RelicSpawnPlan;
 }
 
 /**
@@ -34,9 +48,18 @@ export const applyGravity = (
   rng: Rng,
   table: SpawnTable,
   ids: IdAllocator,
+  opts: GravityOpts = {},
 ): GravityResult => {
   const falls: FallMove[] = [];
   const spawns: SpawnRef[] = [];
+
+  // How many relics still need to appear for collect goals (in flight + not yet collected).
+  let relicsToInject = 0;
+  if (opts.relics && opts.relics.remaining > 0) {
+    const deficit = opts.relics.remaining - opts.relics.onBoard;
+    // Inject at least the deficit, and keep a small surplus so chains don't starve.
+    relicsToInject = Math.max(0, deficit + (deficit > 0 ? 1 : 0));
+  }
 
   for (let x = 0; x < grid.width; x++) {
     // Collect playable row indices top→bottom for this column.
@@ -62,8 +85,44 @@ export const applyGravity = (
         segEnd++;
       }
 
-      compactSegment(grid, x, shaft, segStart, segEnd, falls, spawns, rng, table, ids);
+      compactSegment(
+        grid,
+        x,
+        shaft,
+        segStart,
+        segEnd,
+        falls,
+        spawns,
+        rng,
+        table,
+        ids,
+        () => {
+          if (relicsToInject <= 0) return false;
+          // Aggressive when we still need several; always fair chance when any remain.
+          const p = Math.min(0.72, 0.28 + relicsToInject * 0.12);
+          if (rng.chance(p)) {
+            relicsToInject -= 1;
+            return true;
+          }
+          return false;
+        },
+      );
       segStart = segEnd + 1;
+    }
+  }
+
+  // If RNG was unlucky and we still need relics, force-inject into any top-of-column
+  // crystal that just spawned (last spawns in list).
+  if (relicsToInject > 0) {
+    for (let i = spawns.length - 1; i >= 0 && relicsToInject > 0; i--) {
+      const s = spawns[i]!;
+      if (s.piece.kind !== 'crystal') continue;
+      const cell = grid.at(s.to.x, s.to.y);
+      if (cell.piece?.id !== s.piece.id) continue;
+      const relic = makeRelic(ids);
+      cell.piece = relic;
+      (spawns as SpawnRef[])[i] = { ...s, piece: relic };
+      relicsToInject -= 1;
     }
   }
 
@@ -85,6 +144,7 @@ const compactSegment = (
   rng: Rng,
   table: SpawnTable,
   ids: IdAllocator,
+  shouldSpawnRelic: () => boolean,
 ): void => {
   // Collect fallable pieces from bottom to top of segment (we want bottom-first stack).
   const stack: { piece: Piece; fromY: number }[] = [];
@@ -121,15 +181,16 @@ const compactSegment = (
   }
 
   // Remaining empty cells at the top of the segment need spawns.
-  // Count empties top→bottom and fill them with new crystals falling in.
+  // Count empties top→bottom and fill them with new crystals (or relics) falling in.
   let fromAbove = 0;
   for (let i = segStart; i <= segEnd; i++) {
     const y = shaft[i] as number;
     const cell = grid.at(x, y);
     if (cell.piece !== null) continue;
     fromAbove++;
-    const color = pickNonMatchingColor(rng, table, grid, x, y);
-    const piece = makeCrystal(ids, color);
+    const piece = shouldSpawnRelic()
+      ? makeRelic(ids)
+      : makeCrystal(ids, pickNonMatchingColor(rng, table, grid, x, y));
     cell.piece = piece;
     spawns.push({
       piece,

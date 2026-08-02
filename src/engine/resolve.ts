@@ -59,6 +59,8 @@ const clearCells = (
     const cell = grid.get(c.x, c.y);
     if (!cell || !cell.playable) continue;
     if (cell.crust > 0) continue;
+    // Relics are never destroyed by matches/blasts — only collected at the bottom.
+    if (cell.piece?.kind === 'relic') continue;
     if (cell.piece !== null) {
       cell.piece = null;
       actually.push(c);
@@ -150,17 +152,64 @@ const expandWithPowerChains = (
   return { cells: sortCoords(cells), detonations };
 };
 
+/** Total collect-objective target for this level (0 if none). */
+export const collectTarget = (session: SessionState): number =>
+  session.level.objectives
+    .filter((o) => o.kind === 'collect')
+    .reduce((sum, o) => sum + o.target, 0);
+
+/** Count relics currently sitting on the board. */
+export const countRelicsOnBoard = (session: SessionState): number => {
+  let n = 0;
+  session.grid.forEach((cell) => {
+    if (cell.piece?.kind === 'relic') n += 1;
+  });
+  return n;
+};
+
 const gravityAndRelics = (session: SessionState): GameEvent[] => {
   const events: GameEvent[] = [];
+  const target = collectTarget(session);
+  const remaining = Math.max(0, target - session.counters.relicsCollected);
   const { falls, spawns } = applyGravity(
     session.grid,
     session.rng,
     session.table as SpawnTable,
     session.ids,
+    {
+      relics:
+        remaining > 0
+          ? { remaining, onBoard: countRelicsOnBoard(session) }
+          : undefined,
+    },
   );
   if (falls.length > 0) events.push({ t: 'fall', moves: falls });
   if (spawns.length > 0) events.push({ t: 'spawn', spawns });
+  // Collect may open space for more gravity in rare stacked cases — run twice.
   events.push(...collectRelics(session.grid, session.counters));
+  // Second micro-pass: if relics sat above another relic that just collected.
+  const more = collectRelics(session.grid, session.counters);
+  if (more.length > 0) {
+    events.push(...more);
+    const g2 = applyGravity(
+      session.grid,
+      session.rng,
+      session.table as SpawnTable,
+      session.ids,
+      {
+        relics:
+          Math.max(0, target - session.counters.relicsCollected) > 0
+            ? {
+                remaining: Math.max(0, target - session.counters.relicsCollected),
+                onBoard: countRelicsOnBoard(session),
+              }
+            : undefined,
+      },
+    );
+    if (g2.falls.length > 0) events.push({ t: 'fall', moves: g2.falls });
+    if (g2.spawns.length > 0) events.push({ t: 'spawn', spawns: g2.spawns });
+    events.push(...collectRelics(session.grid, session.counters));
+  }
   return events;
 };
 

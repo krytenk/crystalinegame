@@ -318,18 +318,22 @@ export function injectStyles(): void {
     }
     .title-gem {
       position: absolute;
-      font-size: 1.1rem;
-      opacity: 0.35;
+      width: 48px;
+      height: 48px;
+      object-fit: contain;
+      pointer-events: none;
+      user-select: none;
+      opacity: 0.85;
       animation: titleGemFloat 4.5s ease-in-out infinite;
-      filter: drop-shadow(0 0 8px rgba(126, 208, 255, 0.5));
+      filter: drop-shadow(0 0 12px rgba(255, 220, 140, 0.65));
     }
-    .title-gem.g1 { left: 10%; top: 18%; color: #7ed0ff; animation-delay: 0s; }
-    .title-gem.g2 { right: 12%; top: 22%; color: #ffd24a; animation-delay: 0.6s; }
-    .title-gem.g3 { left: 16%; bottom: 22%; color: #e0c0ff; animation-delay: 1.2s; }
-    .title-gem.g4 { right: 14%; bottom: 18%; color: #ff9ab0; animation-delay: 1.8s; }
+    .title-gem.g1 { left: 8%; top: 14%; animation-delay: 0s; }
+    .title-gem.g2 { right: 10%; top: 18%; animation-delay: 0.6s; }
+    .title-gem.g3 { left: 14%; bottom: 18%; animation-delay: 1.2s; }
+    .title-gem.g4 { right: 12%; bottom: 14%; animation-delay: 1.8s; }
     @keyframes titleGemFloat {
-      0%, 100% { transform: translateY(0) scale(1); opacity: 0.3; }
-      50% { transform: translateY(-10px) scale(1.15); opacity: 0.55; }
+      0%, 100% { transform: translateY(0) scale(1); opacity: 0.75; }
+      50% { transform: translateY(-10px) scale(1.12); opacity: 1; }
     }
     .panel h1, .panel h2 {
       margin: 0 0 10px;
@@ -1122,7 +1126,7 @@ export function injectStyles(): void {
       margin-bottom: 8px;
     }
     .goal-row {
-      display: flex; flex-wrap: wrap; gap: 8px;
+      display: flex; flex-direction: column; gap: 10px;
       margin: 0 0 12px;
     }
     .goal-chip {
@@ -1134,6 +1138,36 @@ export function injectStyles(): void {
       border: 2px solid rgba(94, 200, 255, 0.35);
       box-shadow: 0 3px 0 rgba(0,0,0,0.35);
     }
+    .goal-chip-visual {
+      flex-direction: row;
+      align-items: flex-start;
+      gap: 12px;
+      min-width: 0;
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background:
+        linear-gradient(135deg, rgba(60, 40, 100, 0.55), transparent 50%),
+        linear-gradient(180deg, rgba(40, 30, 70, 0.98), rgba(12, 8, 28, 0.99));
+      border: 2px solid rgba(126, 208, 255, 0.4);
+    }
+    .goal-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 14px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: rgba(0,0,0,0.35);
+      border: 2px solid rgba(255, 210, 100, 0.45);
+      box-shadow: 0 0 16px rgba(255, 200, 80, 0.25);
+    }
+    .goal-chip-body {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      flex: 1;
+    }
     .goal-k {
       font-size: 0.62rem;
       font-weight: 800;
@@ -1144,9 +1178,17 @@ export function injectStyles(): void {
     .goal-v {
       font-family: var(--font-display);
       font-weight: 800;
-      font-size: 1.25rem;
+      font-size: 1.35rem;
       color: #5ec8ff;
-      margin-top: 2px;
+      margin-top: 0;
+      line-height: 1.1;
+    }
+    .goal-how {
+      font-size: 0.78rem;
+      font-weight: 600;
+      line-height: 1.35;
+      color: rgba(230, 220, 255, 0.88);
+      margin-top: 4px;
     }
     /* Results burst */
     .results-burst {
