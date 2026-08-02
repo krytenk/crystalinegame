@@ -1888,6 +1888,46 @@ export function injectStyles(): void {
       box-shadow: 0 4px 0 #7a1020, inset 0 2px 0 rgba(255,255,255,0.35);
       flex-shrink: 0;
     }
+    .lives-heart-img {
+      width: 64px;
+      height: 64px;
+      object-fit: contain;
+      flex-shrink: 0;
+      filter: drop-shadow(0 3px 6px rgba(0,0,0,0.45));
+    }
+    .life-spent-icon {
+      width: 72px;
+      height: 72px;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto 4px;
+      filter: drop-shadow(0 4px 10px rgba(180, 40, 80, 0.45));
+      animation: lifeSpentIn 0.55s ease-out both;
+    }
+    .life-spent-icon-sm {
+      width: 40px;
+      height: 40px;
+      object-fit: contain;
+      flex-shrink: 0;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+    }
+    .life-spent-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin: 6px 0 4px;
+    }
+    .life-spent-copy {
+      margin: 0;
+      font-weight: 700;
+      color: rgba(255, 200, 210, 0.92);
+    }
+    @keyframes lifeSpentIn {
+      0% { transform: scale(0.4); opacity: 0; }
+      60% { transform: scale(1.12); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
     /* Stage-complete fanfare (Pass 7) */
     .stage-complete {
       position: absolute; inset: 0;

@@ -3111,7 +3111,16 @@ function renderResults(): void {
     };
     requestAnimationFrame(tick);
   } else {
-    starsEl.append(el('span', {}, ['◆']));
+    // Life spent — real art, not an ASCII diamond
+    starsEl.append(
+      el('img', {
+        class: 'life-spent-icon',
+        src: assetUrl('ui/icon_life_spent.webp'),
+        alt: 'Life spent',
+        decoding: 'async',
+        draggable: 'false',
+      }),
+    );
     scoreEl.textContent = r.score.toLocaleString();
   }
 
@@ -3222,7 +3231,18 @@ function renderResults(): void {
         ? [el('p', { class: 'hud-tip' }, ['Perfect clear · discovery ' + theme().softCurrencyName.toLowerCase() + ' banked'])]
         : []),
       ...(r.status === 'lost'
-        ? [el('p', {}, ['A life was spent. Try again!'])]
+        ? [
+            el('div', { class: 'life-spent-row' }, [
+              el('img', {
+                class: 'life-spent-icon-sm',
+                src: assetUrl('ui/icon_life_spent.webp'),
+                alt: '',
+                decoding: 'async',
+                draggable: 'false',
+              }),
+              el('p', { class: 'life-spent-copy' }, ['A life was spent. Try again!']),
+            ]),
+          ]
         : []),
     ],
     [
@@ -4041,7 +4061,13 @@ function renderLivesGate(): void {
     'Out of Lives',
     [
       el('div', { class: 'lives-hero' }, [
-        el('div', { class: 'lives-heart' }, ['♥']),
+        el('img', {
+          class: 'lives-heart-img',
+          src: assetUrl('ui/icon_lives.webp'),
+          alt: 'Lives',
+          decoding: 'async',
+          draggable: 'false',
+        }),
         el('p', {}, [`Next life in ~${mins} min`]),
       ]),
       el('p', { class: 'hud-tip' }, ['Refill now, or take a breather']),
