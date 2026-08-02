@@ -1917,29 +1917,44 @@ function renderOverlay(): void {
       return b;
     };
 
+    const runReshuffle = (comfort: boolean): void => {
+      if (!app.session || boardAnim.busy) return;
+      // Capture pre-shuffle board for spiral-out, then mutate engine
+      boardAnim.sync(app.session.snapshot());
+      const events = app.session.useReshuffle();
+      audio.handle(events);
+      boardAnim.playReshuffle(app.session.snapshot(), performance.now());
+      juice.shimmerBoard('rgba(160, 220, 255, 1)', 0.85, 900);
+      juice.screenFlash('rgba(140, 200, 255, 0.45)', 420, 0.35);
+      juice.ring(
+        canvasView.logicalWidth / 2,
+        canvasView.logicalHeight * 0.48,
+        'rgba(120, 200, 255, 0.9)',
+        200,
+        700,
+      );
+      juice.powerBanner(comfort ? 'COMFORT SHUFFLE' : 'BOARD SHUFFLE');
+      pushToast(comfort ? 'Comfort reshuffle · once this dive' : 'Board reshuffled', '#b8f0ff', 2000);
+      haptic('special');
+      notePlayInput();
+      renderOverlay();
+    };
+
     const reshuffleBtn = toolBtn(
       'ui/tools/reshuffle.webp',
       comfortFree ? 'FREE' : `×${snap.boosters.reshuffle}`,
       comfortFree ? 'Comfort Tools free reshuffle' : 'Reshuffle board',
       () => {
         if (!app.session) return;
+        if (boardAnim.busy) {
+          pushToast('Wait for the board…', '#b0c0e0', 900);
+          return;
+        }
         if (economy.consumeBooster('reshuffle').ok) {
-          const events = app.session.useReshuffle();
-          audio.handle(events);
-          boardAnim.sync(app.session.snapshot());
-          pushToast('Board reshuffled', '#b8f0ff');
-          haptic('forge');
-          notePlayInput();
-          renderOverlay();
+          runReshuffle(false);
         } else if (comfortFree) {
           app.comfortReshuffleUsed = true;
-          const events = app.session.useReshuffle();
-          audio.handle(events);
-          boardAnim.sync(app.session.snapshot());
-          pushToast('Comfort reshuffle · once this dive', '#c8ffe0', 2200);
-          haptic('forge');
-          notePlayInput();
-          renderOverlay();
+          runReshuffle(true);
         } else {
           pushToast(
             snap.comfortOwned
@@ -4082,6 +4097,7 @@ function renderStore(): void {
 function renderLivesGate(): void {
   const snap = economy.getSnapshot();
   const mins = Math.max(1, Math.ceil(snap.lives.msUntilNext / 60000));
+  const cost = ECONOMY_CONST.cost.refillLives;
   panel(
     'Out of Lives',
     [
@@ -4098,15 +4114,38 @@ function renderLivesGate(): void {
       el('p', { class: 'hud-tip' }, ['Refill now, or take a breather']),
     ],
     [
-      btn(`REFILL · ${ECONOMY_CONST.cost.refillLives}◆`, () => {
-        if (economy.refillLivesWithShards()) {
-          app.screen = 'prelevel';
-          renderOverlay();
-        } else {
-          pushToast('Need more shards', '#ff9a9a');
-        }
-      }, 'gold'),
-      btn('WATCH · +1♥', () => openAd('rewardedLife', 'lives')),
+      btn(
+        [
+          el('img', {
+            class: 'btn-inline-icon',
+            src: assetUrl('ui/icon_shards.webp'),
+            alt: '',
+            decoding: 'async',
+          }),
+          document.createTextNode(` REFILL · ${cost}`),
+        ],
+        () => {
+          if (economy.refillLivesWithShards()) {
+            app.screen = 'prelevel';
+            renderOverlay();
+          } else {
+            pushToast('Need more shards', '#ff9a9a');
+          }
+        },
+        'gold',
+      ),
+      btn(
+        [
+          el('img', {
+            class: 'btn-inline-icon',
+            src: assetUrl('ui/icon_lives.webp'),
+            alt: '',
+            decoding: 'async',
+          }),
+          document.createTextNode(' WATCH · +1'),
+        ],
+        () => openAd('rewardedLife', 'lives'),
+      ),
       btn('SHOP', () => {
         app.screen = 'store';
         renderOverlay();

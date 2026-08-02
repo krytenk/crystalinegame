@@ -174,8 +174,11 @@ export class AudioDirector {
           }
           break;
         case 'reshuffle':
-          this.samples.specialWhoosh('generic');
-          this.synth.special('generic');
+          // Longer, more dramatic shuffle sting
+          this.samples.play('whooshMotion', { gain: 0.28, rate: 0.88 });
+          this.samples.play('whooshHeavy', { gain: 0.22, rate: 0.95, when: 0.12 });
+          this.samples.play('whooshCinematic', { gain: 0.18, rate: 1.05, when: 0.35 });
+          this.synth.special('prism');
           break;
         default:
           break;

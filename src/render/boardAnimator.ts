@@ -10,7 +10,7 @@
 
 import type { GameEvent } from '@engine/events';
 import type { BoardSnapshot, Coord, Piece } from '@engine/types';
-import { easeFall, easeInQuad, easeOutCubic, easeOutQuad } from './easing';
+import { easeFall, easeInBack, easeInQuad, easeOutBack, easeOutCubic, easeOutQuad } from './easing';
 import { newVis, Tweener, type Vis } from './tween';
 import type { BoardLayout } from './boardView';
 
@@ -34,6 +34,11 @@ const MAX_FALL_MS = 380;
 const SWAP_MS = 95;
 /** Delay after clear before falls read as “weight” (industry ~0.2s). */
 const POST_CLEAR_FALL_GAP_MS = 40;
+/** Dramatic board shuffle: spin-out then cascade-in. */
+const SHUFFLE_OUT_MS = 520;
+const SHUFFLE_HOLD_MS = 180;
+const SHUFFLE_IN_MS = 640;
+const SHUFFLE_STAGGER = 28;
 
 export class BoardAnimator {
   private readonly tweens = new Tweener();
@@ -118,6 +123,12 @@ export class BoardAnimator {
           t += 40;
           break;
         }
+        case 'reshuffle': {
+          // Handled via playReshuffle() for full before→after drama.
+          t += SHUFFLE_OUT_MS + SHUFFLE_HOLD_MS + SHUFFLE_IN_MS;
+          anyMotion = true;
+          break;
+        }
         default:
           break;
       }
@@ -146,6 +157,46 @@ export class BoardAnimator {
         this.logic.delete(id);
       }
     }
+    // Reshuffle phase 2: drop in the new layout with staggered spin-in
+    if (this.reshuffleAfter && now >= this.reshuffleInAt) {
+      const snap = this.reshuffleAfter;
+      this.reshuffleAfter = null;
+      this.sync(snap);
+      const list = [...this.pieces.values()];
+      const cx = (snap.width - 1) / 2;
+      const cy = (snap.height - 1) / 2;
+      list.sort((a, b) => {
+        const da = (a.vis.x - cx) ** 2 + (a.vis.y - cy) ** 2;
+        const db = (b.vis.x - cx) ** 2 + (b.vis.y - cy) ** 2;
+        return da - db;
+      });
+      list.forEach((ap, i) => {
+        const start = now + i * (SHUFFLE_STAGGER * 0.85);
+        const dir = i % 2 === 0 ? -1 : 1;
+        const tx = ap.vis.x;
+        const ty = ap.vis.y;
+        ap.vis.alpha = 0;
+        ap.vis.scale = 0.2;
+        ap.vis.rot = dir * Math.PI * 1.2;
+        ap.vis.x = cx + (tx - cx) * 1.4;
+        ap.vis.y = cy - 0.8;
+        ap.vis.glow = 0.8;
+        this.tweens.to(ap.vis, 'alpha', 1, { start, dur: SHUFFLE_IN_MS * 0.75, ease: easeOutCubic });
+        this.tweens.to(ap.vis, 'scale', 1, { start, dur: SHUFFLE_IN_MS, ease: easeOutBack });
+        this.tweens.to(ap.vis, 'rot', 0, { start, dur: SHUFFLE_IN_MS, ease: easeOutCubic });
+        this.tweens.to(ap.vis, 'x', tx, { start, dur: SHUFFLE_IN_MS, ease: easeOutCubic });
+        this.tweens.to(ap.vis, 'y', ty, { start, dur: SHUFFLE_IN_MS, ease: easeOutCubic });
+        this.tweens.to(ap.vis, 'glow', 0, {
+          start: start + SHUFFLE_IN_MS * 0.5,
+          dur: SHUFFLE_IN_MS * 0.5,
+          ease: easeOutQuad,
+        });
+      });
+      this.animUntil = Math.max(
+        this.animUntil,
+        now + SHUFFLE_IN_MS + list.length * SHUFFLE_STAGGER * 0.85 + 80,
+      );
+    }
     if (this.pendingSnap && now >= this.pendingSnapAt && !this.tweens.busy) {
       this.sync(this.pendingSnap);
       this.pendingSnap = null;
@@ -155,6 +206,73 @@ export class BoardAnimator {
   visiblePieces(): readonly AnimPiece[] {
     return [...this.pieces.values()].filter((p) => p.vis.alpha > 0.02);
   }
+
+  /**
+   * Dramatic reshuffle: current gems spiral out, brief pause, new layout cascades in.
+   * Caller must sync() the pre-reshuffle board first, then mutate the engine, then call this with snapAfter.
+   */
+  playReshuffle(snapAfter: BoardSnapshot, now = performance.now()): void {
+    const list = [...this.pieces.values()].filter((p) => !p.dying);
+    // Deterministic spiral order: center-out by board distance
+    const cx = (snapAfter.width - 1) / 2;
+    const cy = (snapAfter.height - 1) / 2;
+    list.sort((a, b) => {
+      const da = (a.vis.x - cx) ** 2 + (a.vis.y - cy) ** 2;
+      const db = (b.vis.x - cx) ** 2 + (b.vis.y - cy) ** 2;
+      return da - db;
+    });
+
+    list.forEach((ap, i) => {
+      const start = now + i * SHUFFLE_STAGGER;
+      const dir = i % 2 === 0 ? 1 : -1;
+      this.tweens.cancel(ap.vis);
+      ap.dying = true;
+      // Spiral outward + spin + shrink + fade
+      this.tweens.to(ap.vis, 'rot', dir * (Math.PI * 1.6 + (i % 5) * 0.15), {
+        start,
+        dur: SHUFFLE_OUT_MS,
+        ease: easeInQuad,
+      });
+      this.tweens.to(ap.vis, 'scale', 0.15, {
+        start,
+        dur: SHUFFLE_OUT_MS,
+        ease: easeInBack,
+      });
+      this.tweens.to(ap.vis, 'alpha', 0, {
+        start,
+        dur: SHUFFLE_OUT_MS,
+        ease: easeInQuad,
+      });
+      this.tweens.to(ap.vis, 'x', ap.vis.x + dir * (0.35 + (i % 3) * 0.12), {
+        start,
+        dur: SHUFFLE_OUT_MS,
+        ease: easeInQuad,
+      });
+      this.tweens.to(ap.vis, 'y', ap.vis.y - 0.25 - (i % 4) * 0.08, {
+        start,
+        dur: SHUFFLE_OUT_MS,
+        ease: easeOutQuad,
+      });
+      this.tweens.to(ap.vis, 'glow', 1, {
+        start,
+        dur: SHUFFLE_OUT_MS * 0.4,
+        ease: easeOutQuad,
+      });
+    });
+
+    const outEnd = now + SHUFFLE_OUT_MS + list.length * SHUFFLE_STAGGER * 0.35;
+    const inStart = outEnd + SHUFFLE_HOLD_MS;
+
+    // After hold, load new board and cascade-in
+    this.pendingSnap = null;
+    this.animUntil = inStart + SHUFFLE_IN_MS + snapAfter.width * snapAfter.height * 4;
+    // Manual delayed sync + in-anim via pending reshuffle payload
+    this.reshuffleAfter = snapAfter;
+    this.reshuffleInAt = inStart;
+  }
+
+  private reshuffleAfter: BoardSnapshot | null = null;
+  private reshuffleInAt = 0;
 
   // ---------------------------------------------------------------------------
 

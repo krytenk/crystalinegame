@@ -265,6 +265,20 @@ export class BoardView {
         const cy = originY + ap.vis.y * cell + cell / 2;
         ctx.save();
         ctx.globalAlpha = Math.max(0, Math.min(1, ap.vis.alpha));
+        if (ap.vis.rot) {
+          ctx.translate(cx, cy);
+          ctx.rotate(ap.vis.rot);
+          ctx.translate(-cx, -cy);
+        }
+        if (ap.vis.glow > 0.02) {
+          const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, cell * 0.55);
+          g.addColorStop(0, `rgba(180, 230, 255, ${0.55 * ap.vis.glow})`);
+          g.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(cx, cy, cell * 0.55, 0, Math.PI * 2);
+          ctx.fill();
+        }
         const size = cell * (0.88 * ap.vis.scale);
         drawPiece(ctx, atlas, ap.piece, cx, cy, cell, dprBucket, pulse, this.glyphs, size);
         ctx.restore();

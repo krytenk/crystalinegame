@@ -2178,6 +2178,21 @@ export function injectStyles(): void {
       align-items: center;
       gap: 8px;
     }
+    .btn-inline-icon {
+      width: 1.35em;
+      height: 1.35em;
+      object-fit: contain;
+      vertical-align: -0.28em;
+      margin-right: 2px;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.35));
+      pointer-events: none;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
     /* Pause menu */
     .pause-card {
       width: min(340px, 100%);
