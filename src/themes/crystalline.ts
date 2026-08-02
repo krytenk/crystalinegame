@@ -138,9 +138,11 @@ export const crystallineTheme: ThemeConfig = {
     ],
     league: ['Crystal Elite', 'Vein Patrol', 'Prospectors'],
   },
+  // No shared placement reel — the old place.webm always showed the crystal lamp
+  // first, then the real prop. Ceremony is stage still + the purchased item only.
   placeCeremony: {
-    webm: 'cavern/place.webm',
-    mp4: 'cavern/place.mp4',
+    webm: '',
+    mp4: '',
     caption: 'Placed in the mine',
   },
 };

@@ -1376,7 +1376,8 @@ export function injectStyles(): void {
       width: 100%; height: 100%;
       object-fit: contain;
       display: block;
-      border-radius: 10px;
+      border-radius: 0;
+      background: transparent;
       animation: propPlace 0.55s cubic-bezier(0.22, 1.2, 0.36, 1) both;
     }
     .cavern-prop.ghost {
@@ -1689,14 +1690,16 @@ export function injectStyles(): void {
       border-radius: 12px;
       overflow: hidden;
       flex-shrink: 0;
-      background: rgba(20, 30, 50, 0.95);
+      background: transparent;
       border: 1px solid rgba(126, 208, 255, 0.22);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
     }
     .cavern-item-img {
       width: 100%; height: 100%;
-      object-fit: cover;
+      object-fit: contain;
       display: block;
+      background: transparent;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
     }
     .cavern-item.owned .cavern-item-art {
       border-color: rgba(126, 208, 255, 0.55);
@@ -1761,6 +1764,7 @@ export function injectStyles(): void {
       height: auto;
       aspect-ratio: 1;
       object-fit: contain;
+      background: transparent;
       margin-bottom: 18%;
       filter: drop-shadow(0 12px 28px rgba(80, 180, 255, 0.55));
       animation: placeDrop 1.35s cubic-bezier(0.22, 1.2, 0.36, 1) both;

@@ -3488,10 +3488,6 @@ function renderCavern(): void {
 }
 
 /**
- * Reward placement ceremony: mine-set video + the purchased prop flying in.
- * (Generated placement reel in public/cavern/place.webm|.mp4)
- */
-/**
  * Pin a full-bleed ceremony layer to the game root (not the scrollable overlay),
  * so placement / stage-complete always fills the visible phone frame.
  */
@@ -3528,6 +3524,12 @@ function scrollCavernVistaIntoView(opts?: { highlightId?: string | null }): void
   });
 }
 
+/**
+ * Reward placement ceremony: stage still + the purchased prop flying in.
+ * A single shared place.webm was wrong (always showed the crystal lamp first).
+ * Only use theme video when both paths are set AND we have no better option —
+ * currently crystalline uses still + prop only.
+ */
 function playPlacementCeremony(up: MetaUpgrade, onDone: () => void): void {
   // Snap scroll to top immediately so the player sees the ceremony, not mid-list
   overlay.scrollTop = 0;
@@ -3535,34 +3537,15 @@ function playPlacementCeremony(up: MetaUpgrade, onDone: () => void): void {
   const stageArt =
     getMetaStages().find((s) => s.id === up.stage)?.art ?? getMetaStages()[0]!.art;
   const ceremony = theme().placeCeremony;
-  const hasVideo = Boolean(ceremony.webm || ceremony.mp4);
+  // Per-item video reels are not authored — never play the generic lamp reel.
+  const hasVideo = false;
+  void hasVideo;
 
-  let mediaEl: HTMLElement;
-  if (hasVideo) {
-    const vid = document.createElement('video');
-    vid.className = 'place-ceremony-video';
-    vid.muted = true;
-    vid.playsInline = true;
-    vid.setAttribute('playsinline', '');
-    vid.preload = 'auto';
-    vid.poster = assetUrl(stageArt);
-    if (ceremony.webm) {
-      const sWebm = document.createElement('source');
-      sWebm.src = assetUrl(ceremony.webm);
-      sWebm.type = 'video/webm';
-      vid.append(sWebm);
-    }
-    if (ceremony.mp4) {
-      const sMp4 = document.createElement('source');
-      sMp4.src = assetUrl(ceremony.mp4);
-      sMp4.type = 'video/mp4';
-      vid.append(sMp4);
-    }
-    mediaEl = vid;
-  } else {
-    // Harbor (and future skins): still of the active stage — no mine reel leakage.
-    mediaEl = metaArtImg(stageArt, theme().metaHubName, 'place-ceremony-video place-ceremony-still');
-  }
+  const mediaEl = metaArtImg(
+    stageArt,
+    theme().metaHubName,
+    'place-ceremony-video place-ceremony-still',
+  );
 
   const prop = metaArtImg(up.art, up.name, 'place-ceremony-prop');
   const caption = el('div', { class: 'place-ceremony-caption' }, [
@@ -3590,16 +3573,8 @@ function playPlacementCeremony(up: MetaUpgrade, onDone: () => void): void {
     onDone();
   };
 
-  if (mediaEl instanceof HTMLVideoElement) {
-    try {
-      void mediaEl.play();
-    } catch {
-      /* autoplay policies */
-    }
-    mediaEl.addEventListener('ended', () => finish());
-  }
-  // Safety: never trap the player if media fails
-  window.setTimeout(() => finish(), hasVideo ? 2800 : 1800);
+  // Prop drop animation ~1.35s — hold a beat longer so the name lands
+  window.setTimeout(() => finish(), 2000);
 }
 
 /**
