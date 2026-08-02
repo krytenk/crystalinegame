@@ -16,7 +16,10 @@ describe('level catalogue', () => {
 
   it('opens gently and ends hard', () => {
     const first = getLevel(1);
-    expect(first.objectives).toEqual([{ kind: 'score', target: 1200 }]);
+    // Early curve: smaller board + eased score (bigger on-screen gems experiment)
+    expect(first.width).toBeLessThanOrEqual(7);
+    expect(first.height).toBeLessThanOrEqual(7);
+    expect(first.objectives).toEqual([{ kind: 'score', target: 1000 }]);
     expect(first.colors).toHaveLength(4);
 
     const midBoss = getLevel(30);

@@ -25,8 +25,10 @@ describe('L13 winnability', () => {
       maxCollect = Math.max(maxCollect, o?.current ?? 0);
       if (s.snapshot().status === 'won') wins++;
     }
-    // With fixed relic spawn, at least some runs collect 3 and win
-    expect(maxCollect).toBeGreaterThanOrEqual(3);
+    // Collect target is eased on L13 (early big-gem experiment); still must complete
+    const target =
+      level.objectives.find((o) => o.kind === 'collect')?.target ?? 2;
+    expect(maxCollect).toBeGreaterThanOrEqual(target);
     expect(wins).toBeGreaterThanOrEqual(1);
   });
 });

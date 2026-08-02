@@ -48,13 +48,17 @@ export class BoardView {
    * We use as much of the middle as possible so gems stay large.
    */
   relayout(cols: number, rows: number): void {
-    const padX = 20;
+    // Tighter side pad on small boards so gems fill the phone stage
+    const padX = cols <= 6 ? 14 : cols <= 7 ? 16 : 20;
     const top = 170;
     const bottom = LOGICAL_HEIGHT - 88;
     const availW = LOGICAL_WIDTH - padX * 2;
     const availH = bottom - top;
     // Prefer large cells; floor but never smaller than 1
-    const cell = Math.max(1, Math.floor(Math.min(availW / cols, availH / rows)));
+    let cell = Math.max(1, Math.floor(Math.min(availW / cols, availH / rows)));
+    // Soft cap so 6×6 does not become comically huge; still clearly larger than 9×9
+    const softMax = cols * rows <= 36 ? 108 : cols * rows <= 49 ? 96 : 999;
+    cell = Math.min(cell, softMax);
     const boardW = cell * cols;
     const boardH = cell * rows;
     this.layout = {
