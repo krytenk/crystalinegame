@@ -666,38 +666,13 @@ function drawAhaHint(ctx: CanvasRenderingContext2D, now: number): void {
 
 function drawChrome(ctx: CanvasRenderingContext2D, now: number): void {
   const snap = economy.getSnapshot();
-  const display = '"ScreenTechno", "CrystallineDisplay", "Nunito", system-ui, sans-serif';
   const title = '"DragonBlaze", "DragonWarrior", "GalacticKnights", "Cinzel", serif';
   const body = '"Nunito", "Segoe UI", system-ui, sans-serif';
   const reduceMotion = snap.settings.reducedMotion;
-
-  // Soft top bar — studio casual HUD (not a website header)
-  ctx.fillStyle = 'rgba(12, 8, 28, 0.88)';
-  roundRectPath(ctx, 12, 10, 696, 158, 22);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(201, 162, 39, 0.55)';
-  ctx.lineWidth = 3;
-  ctx.stroke();
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-  ctx.lineWidth = 1;
-  roundRectPath(ctx, 18, 16, 684, 146, 18);
-  ctx.stroke();
-
-  // Wordmark with stroke for mobile readability
-  ctx.font = `700 30px ${title}`;
-  ctx.textAlign = 'left';
-  ctx.lineWidth = 5;
-  ctx.strokeStyle = 'rgba(30, 16, 60, 0.9)';
   const hudWord = theme().productName.toUpperCase();
-  ctx.strokeText(hudWord, 32, 48);
-  ctx.fillStyle = '#fff6e8';
-  ctx.fillText(hudWord, 32, 48);
 
   if (app.screen === 'play' && app.session) {
-    // In-play HUD: lives + essence only (no shop credits/shards)
-    drawIconChip(ctx, 32, 68, 'ui/icon_lives.webp', String(snap.lives.count), '#ff7a8a', body, 96);
-    drawEssChip(ctx, 140, 68, snap.meta.essence, '#ffd24a', body, 124);
-
+    // Free-floating play HUD — no top panel box
     const s = app.session.snapshot();
     const movesHot = s.movesLeft <= 5;
     if (s.movesLeft !== hudLastMoves) {
@@ -709,66 +684,133 @@ function drawChrome(ctx: CanvasRenderingContext2D, now: number): void {
       hudScoreShown = s.score;
     }
 
-    // Low-moves urgency rim
+    // Center title — large
+    ctx.save();
+    ctx.font = `700 38px ${title}`;
+    ctx.textAlign = 'center';
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = 'rgba(20, 10, 40, 0.92)';
+    ctx.strokeText(hudWord, 360, 42);
+    ctx.fillStyle = '#fff6e8';
+    ctx.shadowColor = 'rgba(255, 210, 120, 0.45)';
+    ctx.shadowBlur = 14;
+    ctx.fillText(hudWord, 360, 42);
+    ctx.restore();
+
+    // Lives (left) + essence (right) — free chips
+    drawIconChip(ctx, 20, 58, 'ui/icon_lives.webp', String(snap.lives.count), '#ff7a8a', body, 100);
+    drawEssChip(ctx, 596, 58, snap.meta.essence, '#ffd24a', body, 104);
+
+    // Moves left under lives · Score right under essence
+    const movesPulse = !reduceMotion && now < hudMovesPulseUntil;
+    const scorePulse = !reduceMotion && now < hudScorePulseUntil;
+    drawFloatStat(
+      ctx,
+      28,
+      100,
+      movesHot ? 'MOVES' : 'MOVES',
+      String(s.movesLeft),
+      movesHot ? '#ff6a7a' : '#7ed0ff',
+      body,
+      movesPulse ? 1.08 : 1,
+    );
+    drawFloatStat(
+      ctx,
+      560,
+      100,
+      'SCORE',
+      s.score.toLocaleString(),
+      '#ffd24a',
+      body,
+      scorePulse ? 1.1 : 1,
+      true,
+    );
+
     if (movesHot && !reduceMotion) {
-      const pulse = 0.25 + 0.2 * (0.5 + 0.5 * Math.sin(now * 0.012));
+      const pulse = 0.2 + 0.15 * (0.5 + 0.5 * Math.sin(now * 0.012));
       ctx.save();
       ctx.strokeStyle = `rgba(255, 80, 100, ${pulse})`;
-      ctx.lineWidth = 4;
-      roundRectPath(ctx, 14, 12, 692, 154, 20);
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(78, 118, 28 + pulse * 6, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     }
 
-    const movesPulse = !reduceMotion && now < hudMovesPulseUntil;
-    const scorePulse = !reduceMotion && now < hudScorePulseUntil;
-    drawStatBadge(
-      ctx,
-      32,
-      108,
-      movesHot ? 'MOVES · LOW' : 'MOVES',
-      String(s.movesLeft),
-      movesHot ? '#ff6a7a' : '#5ec8ff',
-      display,
-      movesPulse ? 1.08 : 1,
-    );
-    drawStatBadge(
-      ctx,
-      200,
-      108,
-      'SCORE',
-      s.score.toLocaleString(),
-      '#ffd24a',
-      display,
-      scorePulse ? 1.1 : 1,
-    );
-
     if (app.pickaxeMode) {
       ctx.fillStyle = '#ffd679';
-      ctx.font = `800 14px ${body}`;
-      ctx.fillText('TAP A GEM TO SMASH', 380, 128);
+      ctx.font = `800 15px ${body}`;
+      ctx.textAlign = 'center';
+      ctx.fillText('TAP A GEM TO SMASH', 360, 148);
+      ctx.textAlign = 'left';
     } else {
-      // Goals as icon art along the top — no boxed pills
-      drawObjectiveHud(ctx, s.objectives, 380, 58, body, now, reduceMotion);
+      // Goals centered under title — large free icons
+      drawObjectiveHud(ctx, s.objectives, 160, 52, body, now, reduceMotion);
     }
   } else {
-    // Meta screens: full wallet chips
-    drawIconChip(ctx, 32, 68, 'ui/icon_lives.webp', String(snap.lives.count), '#ff7a8a', body, 96);
-    drawIconChip(ctx, 140, 68, 'ui/icon_shards.webp', String(snap.wallet.shards), '#7ecbff', body, 108);
-    drawEssChip(ctx, 260, 68, snap.meta.essence, '#ffd24a', body, 124);
+    // Meta screens: compact wallet bar (still a light panel for non-play)
+    ctx.fillStyle = 'rgba(12, 8, 28, 0.72)';
+    roundRectPath(ctx, 12, 10, 696, 120, 20);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(201, 162, 39, 0.4)';
+    ctx.lineWidth = 2;
+    roundRectPath(ctx, 12, 10, 696, 120, 20);
+    ctx.stroke();
+
+    ctx.font = `700 28px ${title}`;
+    ctx.textAlign = 'left';
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = 'rgba(30, 16, 60, 0.9)';
+    ctx.strokeText(hudWord, 32, 46);
+    ctx.fillStyle = '#fff6e8';
+    ctx.fillText(hudWord, 32, 46);
+
+    drawIconChip(ctx, 32, 62, 'ui/icon_lives.webp', String(snap.lives.count), '#ff7a8a', body, 96);
+    drawIconChip(ctx, 140, 62, 'ui/icon_shards.webp', String(snap.wallet.shards), '#7ecbff', body, 108);
+    drawEssChip(ctx, 260, 62, snap.meta.essence, '#ffd24a', body, 124);
     ctx.fillStyle = '#c4b6d8';
-    ctx.font = `800 14px ${body}`;
-    ctx.fillText('Match · Forge · Cascade · Build', 32, 132);
-    // Reset play HUD trackers off-play
+    ctx.font = `800 13px ${body}`;
+    ctx.fillText('Match · Forge · Cascade · Build', 400, 84);
     hudScoreShown = 0;
     hudLastMoves = -1;
   }
   void now;
 }
 
+/** Lightweight free-floating label+value (no framed badge box). */
+function drawFloatStat(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  label: string,
+  value: string,
+  color: string,
+  font: string,
+  scale = 1,
+  rightAlign = false,
+): void {
+  ctx.save();
+  if (scale !== 1) {
+    ctx.translate(x + 40, y + 16);
+    ctx.scale(scale, scale);
+    ctx.translate(-(x + 40), -(y + 16));
+  }
+  ctx.textAlign = rightAlign ? 'right' : 'left';
+  const tx = rightAlign ? x + 100 : x;
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.font = `800 11px ${font}`;
+  ctx.fillText(label, tx, y);
+  ctx.fillStyle = color;
+  ctx.font = `800 22px ${font}`;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = scale > 1 ? 10 : 4;
+  ctx.fillText(value, tx, y + 24);
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
 /**
- * In-level goals as JPG/webp icons + counts only — no framed boxes.
- * Reads like a clean match-3 objective strip.
+ * In-level goals as large free-floating icons under the title (no boxes).
  */
 function drawObjectiveHud(
   ctx: CanvasRenderingContext2D,
@@ -780,44 +822,45 @@ function drawObjectiveHud(
   reduceMotion: boolean,
 ): void {
   const n = Math.max(1, objectives.length);
-  const slot = Math.min(78, Math.floor((700 - x0 - 12) / n));
-  let x = x0;
+  const slot = Math.min(92, Math.floor((400) / n));
+  // Center the goal strip under the title
+  const totalW = slot * n;
+  let x = 360 - totalW / 2;
   for (const o of objectives) {
     const done = o.current >= o.target;
     const accent = done ? '#4dde8a' : '#e8f4ff';
-    const icon = 48;
+    const icon = 56;
     const img = ensureGoalHudImg(o.kind);
     const ix = x + Math.floor((slot - icon) / 2);
     const iy = y0;
 
-    // Soft ground glow under icon (not a box)
-    const pulse = done && !reduceMotion ? 0.65 + 0.2 * Math.sin(now * 0.008) : 0.45;
-    const glow = ctx.createRadialGradient(ix + icon / 2, iy + icon / 2, 2, ix + icon / 2, iy + icon / 2, icon * 0.7);
-    glow.addColorStop(0, done ? `rgba(80, 220, 140, ${0.35 * pulse})` : `rgba(255, 210, 100, ${0.22 * pulse})`);
+    const pulse = done && !reduceMotion ? 0.65 + 0.2 * Math.sin(now * 0.008) : 0.5;
+    const glow = ctx.createRadialGradient(
+      ix + icon / 2,
+      iy + icon / 2,
+      2,
+      ix + icon / 2,
+      iy + icon / 2,
+      icon * 0.75,
+    );
+    glow.addColorStop(0, done ? `rgba(80, 220, 140, ${0.4 * pulse})` : `rgba(255, 210, 100, ${0.28 * pulse})`);
     glow.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.arc(ix + icon / 2, iy + icon / 2, icon * 0.7, 0, Math.PI * 2);
+    ctx.arc(ix + icon / 2, iy + icon / 2, icon * 0.75, 0, Math.PI * 2);
     ctx.fill();
 
     if (img.complete && img.naturalWidth > 0) {
       ctx.drawImage(img, ix, iy, icon, icon);
-    } else {
-      // Fallback until image loads
-      ctx.fillStyle = 'rgba(255,255,255,0.15)';
-      ctx.beginPath();
-      ctx.arc(ix + icon / 2, iy + icon / 2, icon * 0.35, 0, Math.PI * 2);
-      ctx.fill();
     }
 
-    // Count under the art
     ctx.textAlign = 'center';
-    ctx.font = `800 15px ${font}`;
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = 'rgba(10, 6, 24, 0.85)';
+    ctx.font = `800 16px ${font}`;
+    ctx.lineWidth = 3.5;
+    ctx.strokeStyle = 'rgba(10, 6, 24, 0.9)';
     const label = done ? '✓' : `${o.current}/${o.target}`;
     const tx = x + slot / 2;
-    const ty = iy + icon + 16;
+    const ty = iy + icon + 18;
     ctx.strokeText(label, tx, ty);
     ctx.fillStyle = accent;
     ctx.fillText(label, tx, ty);
@@ -825,46 +868,7 @@ function drawObjectiveHud(
     x += slot;
   }
   ctx.textAlign = 'left';
-}
-
-function drawStatBadge(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  label: string,
-  value: string,
-  color: string,
-  font: string,
-  scale = 1,
-): void {
-  ctx.save();
-  if (scale !== 1) {
-    const cx = x + 75;
-    const cy = y + 18;
-    ctx.translate(cx, cy);
-    ctx.scale(scale, scale);
-    ctx.translate(-cx, -cy);
-  }
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  roundRectPath(ctx, x, y, 150, 38, 12);
-  ctx.fill();
-  ctx.strokeStyle = color;
-  ctx.globalAlpha = 0.65;
-  ctx.lineWidth = 2;
-  roundRectPath(ctx, x, y, 150, 38, 12);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = 'rgba(255,255,255,0.55)';
-  ctx.font = `800 10px ${font}`;
-  ctx.textAlign = 'left';
-  ctx.fillText(label, x + 12, y + 13);
-  ctx.fillStyle = color;
-  ctx.font = `800 18px ${font}`;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = scale > 1 ? 12 : 0;
-  ctx.fillText(value, x + 12, y + 31);
-  ctx.shadowBlur = 0;
-  ctx.restore();
+  void x0;
 }
 
 const hudIconCache = new Map<string, HTMLImageElement>();
@@ -1866,7 +1870,8 @@ function renderOverlay(): void {
       return;
     }
 
-    const dock = el('div', { class: 'play-dock' }, []);
+    // Free-floating bottom tools — no dock box (reshuffle | pause | pickaxe)
+    const dock = el('div', { class: 'play-dock play-dock-float' }, []);
     dock.style.pointerEvents = 'auto';
     const snap = economy.getSnapshot();
     const pauseBtn = btn('❚❚', () => {
@@ -1876,7 +1881,7 @@ function renderOverlay(): void {
       renderOverlay();
     }, 'secondary');
     pauseBtn.title = 'Pause';
-    pauseBtn.classList.add('play-tool', 'play-pause');
+    pauseBtn.classList.add('play-tool', 'play-pause', 'play-pause-float');
     const comfortFree =
       snap.comfortOwned &&
       snap.boosters.reshuffle <= 0 &&
@@ -1892,7 +1897,7 @@ function renderOverlay(): void {
       const b = el(
         'button',
         {
-          class: `play-tool play-tool-art${opts.armed ? ' armed' : ''}${opts.disabled ? ' is-disabled' : ''}${opts.free ? ' free' : ''}`,
+          class: `play-tool play-tool-art play-tool-float${opts.armed ? ' armed' : ''}${opts.disabled ? ' is-disabled' : ''}${opts.free ? ' free' : ''}`,
           type: 'button',
           title,
           disabled: opts.disabled ? true : undefined,
@@ -1972,8 +1977,13 @@ function renderOverlay(): void {
       },
     );
 
+    // Order: reshuffle left · pause center · pickaxe right
     dock.append(
-      el('div', { class: 'play-dock-tools' }, [pauseBtn, reshuffleBtn, pickBtn]),
+      el('div', { class: 'play-dock-tools play-dock-tools-float' }, [
+        reshuffleBtn,
+        pauseBtn,
+        pickBtn,
+      ]),
     );
     overlay.append(dock);
     return;
@@ -3732,12 +3742,17 @@ const SKU_GLYPH: Record<string, string> = {
   'ease.comfort': '☕',
 };
 
-/** Real shop tile art (Clear Skies passes + forever). */
+/** Real shop tile art for every SKU (no ASCII glyphs in store). */
 const SKU_ICON: Partial<Record<string, string>> = {
+  'shards.pocket': 'ui/shop/shards_pocket.webp',
+  'shards.hoard': 'ui/shop/shards_hoard.webp',
+  'shards.vault': 'ui/shop/shards_vault.webp',
+  'bundle.starter': 'ui/shop/bundle_starter.webp',
+  'lives.refill': 'ui/icon_lives.webp',
   'ads.pass7': 'ui/shop/clear_skies_7.webp',
   'ads.pass30': 'ui/shop/clear_skies_30.webp',
   'ads.remove': 'ui/shop/clear_skies_forever.webp',
-  'lives.refill': 'ui/icon_lives.webp',
+  'ease.comfort': 'ui/shop/comfort_tools.webp',
 };
 
 const SKU_TAG_LABEL: Record<string, string> = {
@@ -3939,12 +3954,24 @@ function renderStore(): void {
   const snap = economy.getSnapshot();
   const wallet = el('div', { class: 'shop-wallet' }, [
     el('div', { class: 'shop-wallet-chip credits' }, [
+      el('img', {
+        class: 'shop-wallet-icon',
+        src: assetUrl('ui/shop/credits.webp'),
+        alt: '',
+        decoding: 'async',
+      }),
       el('span', { class: 'shop-wallet-k' }, ['Credits']),
       el('span', { class: 'shop-wallet-v' }, [snap.wallet.credits.toLocaleString()]),
     ]),
     el('div', { class: 'shop-wallet-chip shards' }, [
+      el('img', {
+        class: 'shop-wallet-icon',
+        src: assetUrl('ui/icon_shards.webp'),
+        alt: '',
+        decoding: 'async',
+      }),
       el('span', { class: 'shop-wallet-k' }, [theme().premiumCurrencyName]),
-      el('span', { class: 'shop-wallet-v' }, [`◆ ${snap.wallet.shards}`]),
+      el('span', { class: 'shop-wallet-v' }, [String(snap.wallet.shards)]),
     ]),
   ]);
 
@@ -3955,8 +3982,8 @@ function renderStore(): void {
     const can = snap.wallet.credits >= sku.credits;
     const tagLabel = sku.tag ? SKU_TAG_LABEL[sku.tag] ?? sku.tag : null;
     const grantBits: string[] = [];
-    if (sku.grantShards) grantBits.push(`+${sku.grantShards} ◆`);
-    if (sku.grantLives) grantBits.push(`+${sku.grantLives} ♥`);
+    if (sku.grantShards) grantBits.push(`+${sku.grantShards} shards`);
+    if (sku.grantLives) grantBits.push(`+${sku.grantLives} lives`);
     if (sku.grantBoosters) {
       const n = Object.values(sku.grantBoosters).reduce((a, b) => a + (b ?? 0), 0);
       if (n > 0) grantBits.push(`+${n} tools`);

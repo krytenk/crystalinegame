@@ -2032,27 +2032,38 @@ export function injectStyles(): void {
     .stage-complete-card .btn {
       width: 100%;
     }
-    /* ---- Pass 8: play dock, settings, shop chrome ---- */
+    /* ---- Play tools: free-floating (no dock box) ---- */
     .play-dock {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      width: min(100%, 420px);
-      margin: 0 auto max(14px, env(safe-area-inset-bottom, 0px));
-      padding: 12px 14px;
-      border-radius: 22px;
-      background:
-        linear-gradient(180deg, rgba(36, 28, 64, 0.94), rgba(12, 8, 28, 0.96));
-      border: 3px solid rgba(201, 162, 39, 0.5);
-      box-shadow:
-        0 6px 0 rgba(0,0,0,0.45),
-        0 12px 28px rgba(0,0,0,0.4),
-        inset 0 1px 0 rgba(255,255,255,0.1);
+      justify-content: center;
+      width: 100%;
+      margin: 0 auto max(10px, env(safe-area-inset-bottom, 0px));
+      padding: 0 18px 8px;
       pointer-events: auto;
+      background: transparent;
+      border: none;
+      box-shadow: none;
+    }
+    .play-dock-float {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      padding: 0 20px max(12px, env(safe-area-inset-bottom, 0px));
     }
     .play-dock-tools {
-      display: flex; gap: 10px; flex: 1;
+      display: flex;
+      gap: 10px;
+      flex: 1;
+    }
+    .play-dock-tools-float {
+      width: 100%;
+      max-width: 420px;
+      margin: 0 auto;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 18px;
     }
     .play-dock .play-tool {
       flex: 1;
@@ -2074,12 +2085,30 @@ export function injectStyles(): void {
         linear-gradient(180deg, rgba(50, 36, 90, 0.98), rgba(18, 12, 36, 0.99));
       border: 2px solid rgba(201, 162, 39, 0.45);
     }
+    .play-dock .play-tool-float {
+      flex: 0 0 auto;
+      width: 72px;
+      min-height: 76px;
+      border-radius: 20px;
+      background:
+        radial-gradient(circle at 40% 18%, rgba(255, 230, 160, 0.28), transparent 50%),
+        linear-gradient(180deg, rgba(48, 34, 88, 0.92), rgba(14, 10, 30, 0.94));
+      border: 2px solid rgba(255, 210, 100, 0.55);
+      box-shadow:
+        0 5px 0 rgba(0,0,0,0.4),
+        0 10px 22px rgba(0,0,0,0.35),
+        0 0 18px rgba(255, 180, 60, 0.12);
+    }
     .play-dock .play-tool-art .play-tool-img {
       width: 40px;
       height: 40px;
       object-fit: contain;
       filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));
       pointer-events: none;
+    }
+    .play-dock .play-tool-float .play-tool-img {
+      width: 44px;
+      height: 44px;
     }
     .play-dock .play-tool-art .play-tool-count {
       font-family: var(--font-display);
@@ -2109,6 +2138,35 @@ export function injectStyles(): void {
       flex: 0 0 auto;
       min-width: 56px;
       letter-spacing: 0.02em;
+    }
+    .play-dock .play-pause-float {
+      width: 64px;
+      min-height: 64px;
+      border-radius: 50%;
+      font-size: 1.15rem;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        radial-gradient(circle at 35% 25%, rgba(255, 230, 160, 0.35), transparent 50%),
+        linear-gradient(180deg, #5a4090, #241848);
+      border: 2px solid rgba(255, 210, 100, 0.65);
+      box-shadow:
+        0 5px 0 rgba(0,0,0,0.4),
+        0 0 20px rgba(255, 180, 60, 0.2);
+    }
+    .shop-wallet-icon {
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
+      flex-shrink: 0;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
+    }
+    .shop-wallet-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     /* Pause menu */
     .pause-card {

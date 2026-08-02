@@ -50,8 +50,9 @@ export class BoardView {
   relayout(cols: number, rows: number): void {
     // Tighter side pad on small boards so gems fill the phone stage
     const padX = cols <= 6 ? 14 : cols <= 7 ? 16 : 20;
-    const top = 170;
-    const bottom = LOGICAL_HEIGHT - 88;
+    // Free-floating HUD (no top panel box) + floating tool buttons below board
+    const top = 148;
+    const bottom = LOGICAL_HEIGHT - 100;
     const availW = LOGICAL_WIDTH - padX * 2;
     const availH = bottom - top;
     // Prefer large cells; floor but never smaller than 1
