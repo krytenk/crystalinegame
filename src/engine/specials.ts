@@ -19,12 +19,25 @@ export const isPowerCrystal = (p: Piece | null): p is Piece =>
 
 export const isLivingCore = (p: Piece | null): p is Piece => p !== null && p.kind === 'core';
 
-/** Player-facing names for HUD toasts. */
+/** Player-facing names for HUD toasts (defaults = crystalline). */
 export const POWER_NAME: Readonly<Record<PowerKind, string>> = {
   line: 'Seam Rift',
   burst: 'Geode Burst',
   prism: 'Opal Prism',
   supernova: 'Supernova',
+};
+
+const DEFAULT_COMBOS: Readonly<Record<string, string>> = {
+  'line+line': 'Twin Fault',
+  'line+burst': 'Rift Bloom',
+  'burst+burst': 'Core Shockwave',
+  'line+prism': 'Chromatic Seams',
+  'burst+prism': 'Chromatic Bloom',
+  'prism+prism': 'Void Collapse',
+  'line+supernova': 'Solar Rift',
+  'burst+supernova': 'Nova Bloom',
+  'prism+supernova': 'Chromatic Nova',
+  'supernova+supernova': 'Total Eclipse',
 };
 
 const POWER_RANK: Record<PowerKind, number> = {
@@ -34,22 +47,26 @@ const POWER_RANK: Record<PowerKind, number> = {
   supernova: 3,
 };
 
+let activePowerNames: Readonly<Record<PowerKind, string>> = POWER_NAME;
+let activeCombos: Readonly<Record<string, string>> = DEFAULT_COMBOS;
+
+/** Theme packs install display names at boot (engine rules unchanged). */
+export function installPowerCopy(
+  names: Readonly<Record<PowerKind, string>>,
+  combos?: Readonly<Record<string, string>>,
+): void {
+  activePowerNames = { ...POWER_NAME, ...names };
+  activeCombos = combos ? { ...DEFAULT_COMBOS, ...combos } : DEFAULT_COMBOS;
+}
+
+export function powerDisplayName(kind: PowerKind): string {
+  return activePowerNames[kind] ?? POWER_NAME[kind];
+}
+
 export const comboLabel = (a: PowerKind, b: PowerKind): string => {
   const [x, y] = POWER_RANK[a] <= POWER_RANK[b] ? [a, b] : [b, a];
-  if (x === 'line' && y === 'line') return 'Twin Fault';
-  if (x === 'line' && y === 'burst') return 'Rift Bloom';
-  if (x === 'burst' && y === 'burst') return 'Core Shockwave';
-  if (x === 'line' && y === 'prism') return 'Chromatic Seams';
-  if (x === 'burst' && y === 'prism') return 'Chromatic Bloom';
-  if (x === 'prism' && y === 'prism') return 'Void Collapse';
-  if (y === 'supernova' || x === 'supernova') {
-    if (x === 'supernova' && y === 'supernova') return 'Total Eclipse';
-    if (x === 'line') return 'Solar Rift';
-    if (x === 'burst') return 'Nova Bloom';
-    if (x === 'prism') return 'Chromatic Nova';
-    return 'Supernova Cascade';
-  }
-  return 'Power Cascade';
+  const key = `${x}+${y}`;
+  return activeCombos[key] ?? DEFAULT_COMBOS[key] ?? 'Power Cascade';
 };
 
 const pushUnique = (out: Coord[], seen: Set<number>, grid: Grid2D<Cell>, c: Coord): void => {
@@ -285,7 +302,7 @@ export const planPowerSwap = (
     affected: footprintSolo(grid, powerAt, power, partnerColor),
     kind: power.kind as PowerKind,
     chainFires: [],
-    label: POWER_NAME[power.kind as PowerKind],
+    label: powerDisplayName(power.kind as PowerKind),
   };
 };
 

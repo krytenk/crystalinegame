@@ -683,8 +683,8 @@ export {
   getAlbumCards,
 } from './album';
 export type { AlbumSnapshot, AlbumSlotView, AlbumRarity } from './album';
-export { EVENT_MILESTONES } from './hybridEvent';
-export type { HybridEventSnapshot } from './hybridEvent';
+export { EVENT_MILESTONES, installEventTheme, getEventMilestones } from './hybridEvent';
+export type { HybridEventSnapshot, EventMilestone, EventThemeCatalog } from './hybridEvent';
 export type { IdleSnapshot } from './idle';
 export type { DailyGoalsSnapshot } from './dailyGoals';
 export { DAILY_CLEAR_TARGET, DAILY_GOAL_ESSENCE } from './dailyGoals';

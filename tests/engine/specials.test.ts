@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { createSession } from '../../src/engine/board';
-import { planPowerSwap, comboLabel, isPowerCrystal } from '../../src/engine/specials';
+import {
+  planPowerSwap,
+  comboLabel,
+  isPowerCrystal,
+  installPowerCopy,
+  powerDisplayName,
+} from '../../src/engine/specials';
 import { Grid2D } from '../../src/engine/grid';
 import {
   createIdAllocator,
@@ -32,6 +38,29 @@ describe('power crystal combos', () => {
     expect(comboLabel('prism', 'prism')).toBe('Void Collapse');
     expect(comboLabel('supernova', 'supernova')).toBe('Total Eclipse');
     expect(comboLabel('burst', 'supernova')).toBe('Nova Bloom');
+  });
+
+  it('installPowerCopy overrides display names for themed products', () => {
+    installPowerCopy(
+      {
+        line: 'Belt Rift',
+        burst: 'Crate Burst',
+        prism: 'Signal Prism',
+        supernova: 'Festival Bloom',
+      },
+      { 'line+line': 'Twin Tides' },
+    );
+    expect(powerDisplayName('line')).toBe('Belt Rift');
+    expect(comboLabel('line', 'line')).toBe('Twin Tides');
+    // Restore crystalline defaults for remaining cases
+    installPowerCopy({
+      line: 'Seam Rift',
+      burst: 'Geode Burst',
+      prism: 'Opal Prism',
+      supernova: 'Supernova',
+    });
+    expect(powerDisplayName('line')).toBe('Seam Rift');
+    expect(comboLabel('line', 'line')).toBe('Twin Fault');
   });
 
   it('line + line plans a dual cross covering both axes', () => {

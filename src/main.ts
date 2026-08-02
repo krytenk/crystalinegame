@@ -10,7 +10,7 @@ import { createSession, type Session } from '@engine/board';
 import { computeDda } from '@engine/dda';
 import type { Coord, ObjectiveKind } from '@engine/types';
 import type { GameEvent } from '@engine/events';
-import { POWER_NAME, type PowerKind } from '@engine/specials';
+import { installPowerCopy, type PowerKind } from '@engine/specials';
 import {
   ECONOMY_CONST,
   Economy,
@@ -30,8 +30,9 @@ import {
   setAdRotateKey,
   youtubeEmbedUrl,
 } from '@economy/discworldShorts';
+import { installEventTheme } from '@economy/hybridEvent';
 import { AudioDirector } from '@audio/audio';
-import { haptic } from '@audio/haptics';
+import { haptic, hapticCascade, hapticMatchTier } from '@audio/haptics';
 import { Atlas } from '@render/atlas';
 import { drawGameBackground, loadBackground } from '@render/background';
 import { CanvasView } from '@render/canvas';
@@ -63,6 +64,8 @@ import { resolveThemeId, setTheme, theme } from './themes';
 const activeTheme = setTheme(resolveThemeId());
 installMetaTheme(activeTheme.metaStages, activeTheme.metaUpgrades);
 installAlbumTheme(activeTheme.albumSheet, activeTheme.albumCards);
+installEventTheme(activeTheme.event);
+installPowerCopy(activeTheme.powerNames, activeTheme.comboLabels);
 installCompanion(
   {
     id: activeTheme.companion.id,
@@ -163,7 +166,10 @@ const L = (key: string, fallback = ''): string => theme().labels[key] ?? fallbac
 
 const powerLabel = (kind: string): string => {
   if (kind === 'core') return L('livingCore', 'Living Core');
-  if (kind in POWER_NAME) return POWER_NAME[kind as PowerKind];
+  const names = theme().powerNames;
+  if (kind === 'line' || kind === 'burst' || kind === 'prism' || kind === 'supernova') {
+    return names[kind as PowerKind] ?? L('powerCrystal', 'Power Crystal');
+  }
   return L('powerCrystal', 'Power Crystal');
 };
 
@@ -215,6 +221,74 @@ function pushToast(text: string, color = '#ffe9a8', life = 1600): void {
   if (toasts.length > 4) toasts.shift();
 }
 
+// ---------------------------------------------------------------------------
+// Soft-currency (essence / geode) — real art instead of ✧ / ◆ pips
+// ---------------------------------------------------------------------------
+
+type EssIconSize = 'xs' | 'sm' | 'md';
+
+/** Living geode thumbnail used next to essence amounts. */
+function essIcon(size: EssIconSize = 'sm'): HTMLImageElement {
+  const img = el('img', {
+    class: `ess-icon ess-icon-${size}`,
+    src: assetUrl(theme().bonusCrackArt),
+    alt: '',
+    decoding: 'async',
+    draggable: 'false',
+  }) as HTMLImageElement;
+  img.onerror = () => {
+    img.replaceWith(
+      el('span', { class: `ess-icon-fallback ess-icon-${size}` }, [theme().softCurrencyGlyph]),
+    );
+  };
+  return img;
+}
+
+/**
+ * Inline amount chip: [geode] 246  or  [geode] +35
+ * Use inside labels, buttons, chips, and progress rows.
+ */
+function essFig(
+  amount: number | string,
+  opts: { sign?: boolean; suffix?: string; size?: EssIconSize } = {},
+): HTMLElement {
+  const n =
+    typeof amount === 'number'
+      ? opts.sign && amount > 0
+        ? `+${amount}`
+        : String(amount)
+      : amount;
+  return el('span', { class: 'ess-fig' }, [
+    essIcon(opts.size ?? 'sm'),
+    el('span', { class: 'ess-fig-n' }, [opts.suffix ? `${n}${opts.suffix}` : n]),
+  ]);
+}
+
+/** Mixed label with optional leading/trailing text around a geode figure. */
+function essLine(
+  before: string,
+  amount: number | string,
+  after = '',
+  opts: { sign?: boolean; size?: EssIconSize } = {},
+): HTMLElement {
+  return el('span', { class: 'ess-line' }, [
+    before ? document.createTextNode(before) : '',
+    essFig(amount, opts),
+    after ? document.createTextNode(after) : '',
+  ].filter((c) => c !== '') as (Node | string)[]);
+}
+
+/** Canvas HUD: cached geode sprite for the essence chip. */
+let essHudImg: HTMLImageElement | null = null;
+function ensureEssHudImg(): HTMLImageElement {
+  if (essHudImg) return essHudImg;
+  const img = new Image();
+  img.decoding = 'async';
+  img.src = assetUrl(theme().bonusCrackArt);
+  essHudImg = img;
+  return img;
+}
+
 function mount(): void {
   injectStyles();
   applyThemeCssVars(theme().cssVars);
@@ -242,6 +316,8 @@ function mount(): void {
   boardView.glyphs = bootSettings.glyphs;
 
   setUiTapHook(() => audio.uiTap());
+  // Prefetch living-geode icon for HUD chips + DOM essence figures
+  ensureEssHudImg();
 
   // Boot splash while atlas loads
   app.screen = 'boot';
@@ -298,6 +374,7 @@ function loop(): void {
     const snap = app.session.snapshot();
     boardView.relayout(snap.width, snap.height);
     boardAnim.setLayout(boardView.layout);
+    boardView.shimmer = juice.boardShimmer;
     if (!frozen && !app.paused) boardAnim.update(now);
     boardView.draw(ctx, snap, atlas, canvasView.dprBucket, now, boardAnim);
     const { originX, originY, cell } = boardView.layout;
@@ -380,18 +457,23 @@ function drawTitleCanvas(ctx: CanvasRenderingContext2D, now: number): void {
   ctx.font = '700 64px "DragonBlaze", "DragonWarrior", "GalacticKnights", "Cinzel", serif';
   ctx.lineWidth = 8;
   ctx.strokeStyle = 'rgba(30, 16, 60, 0.85)';
-  ctx.strokeText('CRYSTALLINE', 0, 0);
+  const titleWord = theme().productName.toUpperCase();
+  ctx.strokeText(titleWord, 0, 0);
   ctx.fillStyle = '#fff6e8';
   ctx.shadowColor = '#ffd24a';
   ctx.shadowBlur = 28;
-  ctx.fillText('CRYSTALLINE', 0, 0);
+  ctx.fillText(titleWord, 0, 0);
   ctx.restore();
 
   ctx.textAlign = 'center';
   ctx.font = '700 17px "ScreenTechno", "Nunito", sans-serif';
   ctx.fillStyle = 'rgba(220,210,255,0.8)';
   ctx.shadowBlur = 0;
-  ctx.fillText('Match · Forge · Cascade · Build', w / 2, h * 0.30);
+  ctx.fillText(
+    theme().id === 'harbor' ? 'Sort · Signal · Cascade · Restore' : 'Match · Forge · Cascade · Build',
+    w / 2,
+    h * 0.30,
+  );
 }
 
 /** Slow floating sparkles for title / idle ambience. */
@@ -556,13 +638,14 @@ function drawChrome(ctx: CanvasRenderingContext2D, now: number): void {
   ctx.textAlign = 'left';
   ctx.lineWidth = 5;
   ctx.strokeStyle = 'rgba(30, 16, 60, 0.9)';
-  ctx.strokeText('CRYSTALLINE', 32, 48);
+  const hudWord = theme().productName.toUpperCase();
+  ctx.strokeText(hudWord, 32, 48);
   ctx.fillStyle = '#fff6e8';
-  ctx.fillText('CRYSTALLINE', 32, 48);
+  ctx.fillText(hudWord, 32, 48);
 
   drawChip(ctx, 32, 68, `♥ ${snap.lives.count}`, '#ff7a8a', body, 96);
   drawChip(ctx, 140, 68, `◆ ${snap.wallet.shards}`, '#7ecbff', body, 108);
-  drawChip(ctx, 260, 68, `✧ ${snap.meta.essence}`, '#ffd24a', body, 118);
+  drawEssChip(ctx, 260, 68, snap.meta.essence, '#ffd24a', body, 124);
 
   if (app.screen === 'play' && app.session) {
     const s = app.session.snapshot();
@@ -751,6 +834,51 @@ function drawChip(
   ctx.fillText(text, x + 12, y + 21);
 }
 
+/** Essence chip with living geode art (not ✧ glyph). */
+function drawEssChip(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  amount: number,
+  accent: string,
+  font = '"Nunito", system-ui, sans-serif',
+  w = 124,
+): void {
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  roundPill(ctx, x, y, w, 32);
+  ctx.strokeStyle = accent;
+  ctx.globalAlpha = 0.7;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  const img = ensureEssHudImg();
+  const icon = 22;
+  const ix = x + 8;
+  const iy = y + (32 - icon) / 2;
+  if (img.complete && img.naturalWidth > 0) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(ix + icon / 2, iy + icon / 2, icon / 2, 0, Math.PI * 2);
+    ctx.closePath();
+    // soft glow
+    ctx.shadowColor = 'rgba(126, 208, 255, 0.55)';
+    ctx.shadowBlur = 8;
+    ctx.drawImage(img, ix, iy, icon, icon);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = accent;
+    ctx.font = `800 14px ${font}`;
+    ctx.textAlign = 'left';
+    ctx.fillText(theme().softCurrencyGlyph, ix + 2, y + 21);
+  }
+
+  ctx.fillStyle = accent;
+  ctx.font = `800 15px ${font}`;
+  ctx.textAlign = 'left';
+  ctx.fillText(String(amount), x + 8 + icon + 6, y + 21);
+}
+
 function roundRectPath(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -812,6 +940,35 @@ function drawToasts(ctx: CanvasRenderingContext2D, now: number): void {
 function notePlayInput(): void {
   app.lastInputAt = performance.now();
   app.softHint = null;
+}
+
+/** Soft colour wash on board felt — rotates each level so clears feel new. */
+function chamberTintForLevel(id: number): string {
+  const tints = [
+    'rgba(90, 40, 140, 0.14)', // violet
+    'rgba(30, 90, 150, 0.16)', // blue
+    'rgba(20, 110, 70, 0.14)', // green
+    'rgba(140, 80, 20, 0.15)', // amber
+    'rgba(120, 30, 70, 0.14)', // rose
+    'rgba(40, 100, 120, 0.15)', // teal
+    'rgba(100, 60, 160, 0.16)', // purple
+    'rgba(150, 100, 30, 0.14)', // gold
+  ];
+  return tints[(Math.max(1, id) - 1) % tints.length]!;
+}
+
+function chamberFlashForLevel(id: number): string {
+  const flashes = [
+    'rgba(180, 120, 255, 0.55)',
+    'rgba(100, 180, 255, 0.55)',
+    'rgba(100, 220, 160, 0.5)',
+    'rgba(255, 180, 80, 0.55)',
+    'rgba(255, 120, 160, 0.5)',
+    'rgba(100, 220, 220, 0.5)',
+    'rgba(200, 140, 255, 0.55)',
+    'rgba(255, 210, 100, 0.55)',
+  ];
+  return flashes[(Math.max(1, id) - 1) % flashes.length]!;
 }
 
 /** Ethical ease-of-play: soft hint after idle. Comfort Tools shortens the wait. */
@@ -892,7 +1049,7 @@ function bindInput(): void {
                   ? L('livingCore', 'Living Core') + ': burst!'
                   : L('livingCore', 'Living Core') + ': score surge!';
             pushToast(msg, '#ffe9a8', 2000);
-            juice.powerBanner('LIVING CORE!');
+            juice.powerBanner((L('livingCore', 'Living Core') + '!').toUpperCase());
           }
           renderOverlay();
           return;
@@ -1013,31 +1170,44 @@ function playMatchVfx(events: readonly GameEvent[]): void {
       const cy = sy / n;
       const col = palette[ev.color] ?? '#a0d0ff';
       // Particles at t≈0; score pop slightly delayed to ~0.1s of the clear beat.
-      juice.burst(cx, cy, col, 10 + tier * 5);
-      if (tier >= 4) juice.ring(cx, cy, col, 40 + tier * 10, 380 + tier * 30);
+      juice.burst(cx, cy, col, 16 + tier * 10 + ev.cascadeStep * 4);
+      juice.burst(cx, cy, '#ffffff', 6 + tier * 3);
+      juice.ring(cx, cy, col, 36 + tier * 14 + ev.cascadeStep * 8, 360 + tier * 40);
+      // Board-wide shimmer through ALL gems on every clear — stronger on chains
+      const shimmerA = 0.35 + tier * 0.08 + Math.min(0.35, ev.cascadeStep * 0.12);
+      juice.shimmerBoard(
+        tier >= 5
+          ? 'rgba(255, 230, 160, 1)'
+          : tier >= 4
+            ? 'rgba(220, 180, 255, 1)'
+            : 'rgba(160, 220, 255, 1)',
+        shimmerA,
+        380 + tier * 60 + ev.cascadeStep * 50,
+      );
       window.setTimeout(() => {
         juice.scorePop(cx, cy - 12, ev.points, tier >= 4 ? '#ffe9a8' : '#d0e8ff');
       }, 90);
 
+      hapticMatchTier(tier);
       if (tier >= 6) {
-        shakeMs = 320;
-        shakeMag = 14;
-        juice.requestHitStop(70);
-        juice.screenFlash('rgba(255, 240, 200, 0.55)', 260, 0.38);
-        haptic('clearBig');
+        shakeMs = Math.max(shakeMs, 420);
+        shakeMag = Math.max(shakeMag, 18);
+        juice.requestHitStop(95);
+        juice.screenFlash('rgba(255, 240, 200, 0.7)', 320, 0.48);
       } else if (tier === 5) {
-        shakeMs = 200;
-        shakeMag = 8;
-        juice.requestHitStop(45);
-        juice.screenFlash('rgba(224, 192, 255, 0.45)', 200, 0.28);
-        haptic('clearBig');
+        shakeMs = Math.max(shakeMs, 280);
+        shakeMag = Math.max(shakeMag, 12);
+        juice.requestHitStop(65);
+        juice.screenFlash('rgba(224, 192, 255, 0.6)', 260, 0.4);
       } else if (tier === 4) {
-        shakeMs = 100;
-        shakeMag = 4;
-        juice.requestHitStop(28);
-        haptic('clear');
+        shakeMs = Math.max(shakeMs, 160);
+        shakeMag = Math.max(shakeMag, 7);
+        juice.requestHitStop(42);
+        juice.screenFlash('rgba(120, 210, 255, 0.4)', 180, 0.28);
       } else {
-        haptic('clear');
+        shakeMs = Math.max(shakeMs, 70);
+        shakeMag = Math.max(shakeMag, 3);
+        juice.requestHitStop(22);
       }
 
       // Tutorial beat 1 → 2 after forging match
@@ -1049,27 +1219,34 @@ function playMatchVfx(events: readonly GameEvent[]): void {
       const name = powerLabel(ev.piece.kind);
       const p = cellToLogical(ev.at);
       const col = ev.piece.kind === 'supernova' ? '#ffffff' : '#e0c0ff';
-      juice.burst(p.x, p.y, col, 22);
-      juice.ring(p.x, p.y, col, 90, 520);
-      juice.ring(p.x, p.y, '#fff6e8', 55, 380);
+      juice.explode(p.x, p.y, col, 1.2);
+      juice.ring(p.x, p.y, col, 110, 620);
+      juice.ring(p.x, p.y, '#fff6e8', 70, 480);
+      juice.shimmerBoard('rgba(230, 200, 255, 1)', 0.75, 520);
       juice.powerBanner(`${name.toUpperCase()} FORGED`);
-      juice.requestHitStop(55);
+      juice.requestHitStop(75);
       juice.screenFlash(
-        ev.piece.kind === 'supernova' ? 'rgba(255,255,255,0.4)' : 'rgba(200, 160, 255, 0.35)',
-        180,
-        0.28,
+        ev.piece.kind === 'supernova' ? 'rgba(255,255,255,0.55)' : 'rgba(200, 160, 255, 0.5)',
+        240,
+        0.4,
       );
       haptic('forge');
       if (forged <= 2) pushToast(`${name} forged!`, '#e0c0ff', 1600);
       if (app.ahaPhase === 'forge') advanceTutorialToFire();
     } else if (ev.t === 'coreSpawned') {
       const p = cellToLogical(ev.at);
-      juice.burst(p.x, p.y, '#ffe9a8', 24);
-      juice.ring(p.x, p.y, '#ffd24a', 100, 600);
-      juice.powerBanner('LIVING CORE!');
-      juice.screenFlash('rgba(255, 210, 80, 0.4)', 240, 0.3);
-      haptic('special');
-      pushToast(L('livingCore', 'Living Core') + '! Tap the spinning beacon', '#ffe9a8', 2600);
+      juice.explode(p.x, p.y, '#ffe9a8', 1.4);
+      juice.ring(p.x, p.y, '#ffd24a', 120, 700);
+      juice.shimmerBoard('rgba(255, 220, 120, 1)', 0.8, 600);
+      juice.powerBanner((L('livingCore', 'Living Core') + '!').toUpperCase());
+      juice.screenFlash('rgba(255, 210, 80, 0.55)', 300, 0.42);
+      haptic('specialBig');
+      pushToast(
+        L('livingCore', 'Living Core') +
+          (theme().id === 'harbor' ? '! Tap the spinning beacon' : '! Tap the spinning crystal'),
+        '#ffe9a8',
+        2600,
+      );
     } else if (ev.t === 'specialTriggered') {
       powerFires++;
       const tier =
@@ -1084,29 +1261,37 @@ function playMatchVfx(events: readonly GameEvent[]): void {
             : ev.kind === 'supernova' || ev.kind === 'core'
               ? '#ffffff'
               : '#7ed0ff';
-      juice.burst(p.x, p.y, powerCol, 28 + tier * 8);
-      juice.burst(p.x, p.y, '#fff0c0', 14 + tier * 4);
-      juice.ring(p.x, p.y, powerCol, 60 + tier * 14, 480);
-      // Secondary pops along affected cells for “board wipe” read
-      const sample = ev.affected.slice(0, 12);
+      // Heavy explosion feedback for every power fire
+      juice.explode(p.x, p.y, powerCol, 0.9 + tier * 0.35);
+      juice.burst(p.x, p.y, '#fff0c0', 20 + tier * 8);
+      juice.ring(p.x, p.y, powerCol, 80 + tier * 20, 560);
+      juice.shimmerBoard(
+        tier >= 6 ? 'rgba(255,255,255,1)' : 'rgba(255, 210, 140, 1)',
+        0.7 + tier * 0.05,
+        500 + tier * 40,
+      );
+      // Secondary pops along ALL affected cells for board-wipe read
+      const sample = ev.affected.slice(0, 28);
       for (const c of sample) {
         const q = cellToLogical(c);
-        juice.burst(q.x, q.y, powerCol, 4 + Math.floor(tier / 2));
+        juice.burst(q.x, q.y, powerCol, 8 + Math.floor(tier / 2));
       }
-      haptic('special');
       if (tier >= 5) {
-        shakeMs = Math.max(shakeMs, tier >= 6 ? 320 : 180);
-        shakeMag = Math.max(shakeMag, tier >= 6 ? 14 : 8);
-        juice.requestHitStop(tier >= 6 ? 90 : 55);
+        haptic('explode');
+        shakeMs = Math.max(shakeMs, tier >= 6 ? 480 : 320);
+        shakeMag = Math.max(shakeMag, tier >= 6 ? 20 : 14);
+        juice.requestHitStop(tier >= 6 ? 120 : 80);
         juice.screenFlash(
-          tier >= 6 ? 'rgba(255,255,255,0.5)' : 'rgba(255, 200, 120, 0.4)',
-          tier >= 6 ? 280 : 200,
-          tier >= 6 ? 0.4 : 0.28,
+          tier >= 6 ? 'rgba(255,255,255,0.65)' : 'rgba(255, 200, 120, 0.55)',
+          tier >= 6 ? 360 : 260,
+          tier >= 6 ? 0.55 : 0.42,
         );
       } else {
-        shakeMs = Math.max(shakeMs, 90);
-        shakeMag = Math.max(shakeMag, 4);
-        juice.requestHitStop(30);
+        haptic('special');
+        shakeMs = Math.max(shakeMs, 180);
+        shakeMag = Math.max(shakeMag, 8);
+        juice.requestHitStop(50);
+        juice.screenFlash('rgba(120, 210, 255, 0.45)', 200, 0.32);
       }
       if (powerFires === 1) {
         juice.powerBanner(powerLabel(ev.kind).toUpperCase());
@@ -1114,7 +1299,8 @@ function playMatchVfx(events: readonly GameEvent[]): void {
       } else if (powerFires === 2) {
         juice.powerBanner('POWER CASCADE!');
         pushToast('Power cascade!', '#ffb0e0', 1500);
-        juice.requestHitStop(60);
+        juice.requestHitStop(90);
+        haptic('specialBig');
       }
       if (app.ahaPhase === 'fire') completeTutorial();
     } else if (ev.t === 'levelEnded') {
@@ -1125,7 +1311,13 @@ function playMatchVfx(events: readonly GameEvent[]): void {
 
   if (maxCascade >= 1) {
     juice.cascadeBanner(maxCascade);
-    if (maxCascade >= 2) haptic('cascade');
+    hapticCascade(maxCascade);
+    // Extra full-board shimmer on multi-step chains
+    if (maxCascade >= 2) {
+      juice.shimmerBoard('rgba(200, 240, 255, 1)', 0.55 + Math.min(0.4, maxCascade * 0.1), 480 + maxCascade * 60);
+      shakeMs = Math.max(shakeMs, 80 + maxCascade * 30);
+      shakeMag = Math.max(shakeMag, 3 + maxCascade);
+    }
   }
 
   // Conveyor belt feedback (mid/deep levels) + board chrome
@@ -1288,7 +1480,11 @@ function reviveSessionWithMoves(n = 5): void {
   boardAnim.sync(app.session.snapshot());
   app.screen = 'play';
   haptic('forge');
-  pushToast(`+${n} moves — finish the geode!`, '#7dffc0', 2200);
+  pushToast(
+    `+${n} moves — finish the ${theme().id === 'harbor' ? 'sort' : 'chamber'}!`,
+    '#7dffc0',
+    2200,
+  );
   renderOverlay();
 }
 
@@ -1297,7 +1493,7 @@ function acceptContinue(via: 'ad' | 'shards'): void {
   if (via === 'shards') {
     if (!economy.spendShardsForContinue()) {
       pushToast(
-        `Need ${ECONOMY_CONST.cost.extraMoves5} shards — or watch a Short`,
+        `Need ${ECONOMY_CONST.cost.extraMoves5} ${theme().premiumCurrencyName.toLowerCase()} — or watch a Short`,
         '#ff9a9a',
       );
       return;
@@ -1360,6 +1556,12 @@ function startLevel(
   const level = getLevel(id);
   app.session = createSession(level, (Date.now() ^ (id * 9973)) >>> 0, ddaScalar());
 
+  // Visibly different chamber per level (felt tint + entry flash)
+  boardView.chamberTint = chamberTintForLevel(id);
+  juice.screenFlash(chamberFlashForLevel(id), 420, 0.38);
+  juice.shimmerBoard(chamberFlashForLevel(id), 0.55, 500);
+  haptic('tap');
+
   // First Light: two-beat tutorial (forge → fire).
   if (id === 1 && (forceAha || !app.ahaDone)) {
     const hintA = seedFirstLightAha(app.session._state.grid, app.session._state.ids);
@@ -1370,7 +1572,7 @@ function startLevel(
 
   if (prep.seedPrism && economy.consumeBooster('seedPrism').ok) {
     app.session.useSeedPrism();
-    pushToast('Opal Prism seeded!', '#e0c0ff');
+    pushToast(`${powerLabel('prism')} seeded!`, '#e0c0ff');
   }
   app.continueUsed = false;
   app.pendingContinue = false;
@@ -1466,8 +1668,10 @@ function renderOverlay(): void {
     overlay.style.justifyContent = 'center';
     overlay.style.backdropFilter = 'none';
     const splash = el('div', { class: 'boot-splash' }, [
-      el('div', { class: 'boot-logo' }, ['CRYSTALLINE']),
-      el('div', { class: 'boot-sub' }, ['Loading the mine…']),
+      el('div', { class: 'boot-logo' }, [theme().productName.toUpperCase()]),
+      el('div', { class: 'boot-sub' }, [
+        theme().id === 'harbor' ? 'Lighting the docks…' : 'Loading the mine…',
+      ]),
       el('div', { class: 'boot-bar' }, [el('div', { class: 'boot-bar-fill' }, [])]),
     ]);
     overlay.append(splash);
@@ -1784,19 +1988,27 @@ function renderPauseMenu(): void {
 }
 
 /** Soft retention prompts for map / cavern / prelevel. */
-function nextGoalHint(snap: ReturnType<Economy['getSnapshot']>): string {
+function nextGoalHint(snap: ReturnType<Economy['getSnapshot']>): HTMLElement {
   const meta = snap.meta;
   if (meta.nextAffordable) {
-    return `Ready · place ${meta.nextAffordable.name} in the cavern`;
+    return el('span', { class: 'ess-line' }, [
+      `Ready · place ${meta.nextAffordable.name} in the ${theme().metaHubName.toLowerCase()}`,
+    ]);
   }
   if (meta.nextTarget) {
     const need = Math.max(0, meta.nextTarget.cost - meta.essence);
-    return `Next · ${need}✧ for ${meta.nextTarget.name}`;
+    return essLine('Next · ', need, ` for ${meta.nextTarget.name}`);
   }
   if (meta.stagesComplete >= 4) {
-    return theme().metaHubName + ' complete · chase ★★★ on every chamber';
+    return el('span', { class: 'ess-line' }, [
+      theme().metaHubName +
+        ' complete · chase ★★★ on every ' +
+        (theme().id === 'harbor' ? 'dock' : 'chamber'),
+    ]);
   }
-  return `Next · clear level ${snap.progress.highestUnlocked}`;
+  return el('span', { class: 'ess-line' }, [
+    `Next · clear level ${snap.progress.highestUnlocked}`,
+  ]);
 }
 
 function essenceProgressBar(snap: ReturnType<Economy['getSnapshot']>): HTMLElement {
@@ -1804,12 +2016,19 @@ function essenceProgressBar(snap: ReturnType<Economy['getSnapshot']>): HTMLEleme
   const have = snap.meta.essence;
   const need = target?.cost ?? 100;
   const pct = Math.min(100, Math.floor((have / Math.max(1, need)) * 100));
+  const label = target
+    ? el('span', { class: 'ess-line' }, [
+        essFig(have, { size: 'xs' }),
+        document.createTextNode(' / '),
+        essFig(need, { size: 'xs' }),
+        document.createTextNode(` · ${target.name}`),
+      ])
+    : el('span', { class: 'ess-line' }, [
+        essFig(have, { size: 'xs' }),
+        document.createTextNode(` ${theme().softCurrencyName.toLowerCase()}`),
+      ]);
   const wrap = el('div', { class: 'essence-track-wrap' }, [
-    el('div', { class: 'essence-track-label' }, [
-      target
-        ? `✧ ${have} / ${need} · ${target.name}`
-        : `${theme().softCurrencyGlyph} ${have} ${theme().softCurrencyName.toLowerCase()}`,
-    ]),
+    el('div', { class: 'essence-track-label' }, [label]),
     el('div', { class: 'essence-track' }, [
       el('div', { class: 'essence-track-fill', style: `width:${pct}%` }, []),
     ]),
@@ -1834,6 +2053,40 @@ function companionBubble(beat: CompanionBeat, salt = 0): HTMLElement {
   ]);
 }
 
+/** Living sealed-vein / chest art for a bonus-crack pick (not glyph pips). */
+function geodeSlotArt(index: number, state: 'sealed' | 'cracked' | 'miss'): HTMLElement {
+  const stage = el('div', {
+    class: `geode-slot-art ${state}`,
+    style: `--vein-i:${index};--float-delay:${index * 0.18}s`,
+  }, []);
+  stage.append(el('div', { class: 'geode-slot-aura', 'aria-hidden': 'true' }, []));
+  const img = el('img', {
+    class: 'geode-slot-img',
+    src: assetUrl(theme().bonusCrackArt),
+    alt: '',
+    decoding: 'async',
+    draggable: 'false',
+  }) as HTMLImageElement;
+  img.onerror = () => {
+    // Fall back to a soft crystal glyph if art is missing (subdir deploy).
+    img.replaceWith(el('div', { class: 'geode-slot-glyph' }, [state === 'cracked' ? '❋' : '◆']));
+  };
+  stage.append(img);
+  if (state === 'sealed') {
+    const sparks = el('div', { class: 'geode-slot-sparks', 'aria-hidden': 'true' }, []);
+    for (let s = 0; s < 4; s++) {
+      sparks.append(
+        el('span', {
+          class: 'geode-spark',
+          style: `--i:${s};--delay:${s * 0.4 + index * 0.12}s`,
+        }, ['✦']),
+      );
+    }
+    stage.append(sparks);
+  }
+  return stage;
+}
+
 /**
  * Post-win micro-beat: pick one of three sealed geodes for bonus essence.
  * Variable reward (10 / 18 / 40) — not a second game mode.
@@ -1849,6 +2102,8 @@ function showGeodeCrackModal(onDone?: () => void): void {
     (Date.now() ^ (app.levelId * 7919) ^ (app.lastResult?.score ?? 0)) >>> 0,
   );
   let picked = false;
+  const isHarbor = theme().id === 'harbor';
+  const sealedWord = isHarbor ? 'chest' : 'vein';
 
   const grid = el('div', { class: 'geode-grid' }, []);
   for (let i = 0; i < slots.length; i++) {
@@ -1859,10 +2114,10 @@ function showGeodeCrackModal(onDone?: () => void): void {
       {
         class: 'geode-slot',
         type: 'button',
-        'aria-label': `Sealed geode ${i + 1}`,
+        'aria-label': `Sealed ${sealedWord} ${i + 1}`,
       },
       [
-        el('div', { class: 'geode-slot-glyph' }, ['◆']),
+        geodeSlotArt(i, 'sealed'),
         el('div', { class: 'geode-slot-label' }, ['Sealed']),
       ],
     ) as HTMLButtonElement;
@@ -1875,17 +2130,29 @@ function showGeodeCrackModal(onDone?: () => void): void {
       haptic(isJackpot ? 'special' : 'forge');
       cell.classList.add('cracked', isJackpot ? 'jackpot' : 'hit');
       cell.replaceChildren(
-        el('div', { class: 'geode-slot-glyph' }, [isJackpot ? '❋' : '✦']),
-        el('div', { class: 'geode-slot-reward' }, [`+${reward} ✧`]),
+        geodeSlotArt(i, 'cracked'),
+        el('div', { class: 'geode-slot-reward' }, [
+          essFig(reward, { sign: true, size: 'sm' }),
+        ]),
+        el('div', { class: 'geode-slot-label cracked-label' }, [
+          isJackpot ? 'Jackpot' : 'Cracked',
+        ]),
       );
-      // Reveal siblings as duds (dim)
+      // Reveal siblings as duds (dim) — keep their art, greyscale via CSS
       for (const sibling of grid.querySelectorAll('.geode-slot')) {
         if (sibling === cell) continue;
-        (sibling as HTMLElement).classList.add('miss');
-        (sibling as HTMLElement).setAttribute('disabled', 'true');
+        const sEl = sibling as HTMLElement;
+        sEl.classList.add('miss');
+        sEl.setAttribute('disabled', 'true');
+        const art = sEl.querySelector('.geode-slot-art');
+        if (art) art.classList.add('miss');
+        const lab = sEl.querySelector('.geode-slot-label');
+        if (lab) lab.textContent = 'Dormant';
       }
       pushToast(
-        isJackpot ? `Jackpot · +${reward}${theme().softCurrencyGlyph}!` : `${L('bonusCrack', 'Geode crack')} · +${reward}${theme().softCurrencyGlyph}`,
+        isJackpot
+          ? `Jackpot · +${reward} ${theme().softCurrencyName.toLowerCase()}!`
+          : `${L('bonusCrack', 'Geode crack')} · +${reward} ${theme().softCurrencyName.toLowerCase()}`,
         isJackpot ? '#ffd24a' : '#b8f0ff',
         2200,
       );
@@ -1898,7 +2165,7 @@ function showGeodeCrackModal(onDone?: () => void): void {
       window.setTimeout(() => {
         modal.remove();
         onDone?.();
-      }, 1100);
+      }, 1200);
     });
     grid.append(cell);
   }
@@ -1906,10 +2173,14 @@ function showGeodeCrackModal(onDone?: () => void): void {
   const modal = el('div', { class: 'geode-crack ceremony-root-layer', id: 'geode-crack-modal' }, [
     el('div', { class: 'geode-crack-card panel-enter' }, [
       companionBubble('geode', app.levelId),
-      el('div', { class: 'geode-crack-kicker' }, ['CRACK A GEODE']),
+      el('div', { class: 'geode-crack-kicker' }, [
+        isHarbor ? 'CRACK A CHEST' : 'CRACK A GEODE',
+      ]),
       el('h2', {}, ['Bonus ' + theme().softCurrencyName.toLowerCase()]),
       el('p', { class: 'hud-tip', id: 'geode-result-line' }, [
-        'Pick one sealed vein — rewards are shuffled.',
+        isHarbor
+          ? 'Pick a sealed lantern — rewards are shuffled.'
+          : 'Pick a living geode — one hides a richer crack.',
       ]),
       grid,
       btn(
@@ -1936,7 +2207,9 @@ function showDailyGiftModal(gift: { credits: number; essence: number }): void {
       el('h2', {}, ['Welcome back']),
       el('div', { class: 'daily-gift-rewards' }, [
         el('div', { class: 'daily-gift-chip' }, [`+${gift.credits} ¢`]),
-        el('div', { class: 'daily-gift-chip gold' }, [`+${gift.essence} ✧`]),
+        el('div', { class: 'daily-gift-chip gold ess-chip' }, [
+          essFig(gift.essence, { sign: true, size: 'md' }),
+        ]),
       ]),
       el('p', { class: 'hud-tip' }, ['Credits for the shop · ' + theme().softCurrencyName.toLowerCase() + ' for your ' + theme().metaHubName.toLowerCase()]),
       btn(
@@ -1946,7 +2219,11 @@ function showDailyGiftModal(gift: { credits: number; essence: number }): void {
           audio.starDing(2);
           haptic('forge');
           modal.remove();
-          pushToast(`+${gift.credits}¢ · +${gift.essence}${theme().softCurrencyGlyph} claimed`, '#ffd24a', 2200);
+          pushToast(
+            `+${gift.credits}¢ · +${gift.essence} ${theme().softCurrencyName.toLowerCase()} claimed`,
+            '#ffd24a',
+            2200,
+          );
         },
         'gold',
       ),
@@ -1962,15 +2239,36 @@ function boosterChip(
   on: boolean,
   disabled: boolean,
   onClick: () => void,
+  art?: string,
 ): HTMLButtonElement {
+  const kids: (Node | string)[] = [];
+  if (art) {
+    const img = el('img', {
+      class: 'booster-chip-art',
+      src: assetUrl(art),
+      alt: '',
+      decoding: 'async',
+      draggable: 'false',
+    }) as HTMLImageElement;
+    img.onerror = () => {
+      img.style.display = 'none';
+    };
+    kids.push(img);
+  }
+  kids.push(
+    el('span', { class: 'booster-chip-body' }, [
+      el('span', { class: 'booster-chip-label' }, [label]),
+      el('span', { class: 'meta' }, [meta]),
+    ]),
+  );
   const b = el(
     'button',
     {
-      class: `booster-chip${on ? ' on' : ''}`,
+      class: `booster-chip${on ? ' on' : ''}${art ? ' has-art' : ''}`,
       type: 'button',
       disabled: disabled ? true : undefined,
     },
-    [label, el('span', { class: 'meta' }, [meta])],
+    kids,
   ) as HTMLButtonElement;
   b.addEventListener('click', (e) => {
     e.preventDefault();
@@ -2170,13 +2468,19 @@ function renderMap(): void {
   panel(
     'Levels',
     [
-      el('p', {}, ['Clear chambers · collect stars · furnish your cavern']),
+      el('p', {}, [
+        theme().id === 'harbor'
+          ? 'Clear docks · collect stars · restore your harbor'
+          : 'Clear chambers · collect stars · furnish your cavern',
+      ]),
       el('div', { class: 'goal-banner' }, [nextGoalHint(snap)]),
       essenceProgressBar(snap),
       (() => {
         const card = el('div', { class: 'daily-goal-card' }, [
           el('div', { class: 'daily-goal-head' }, [
-            el('span', { class: 'daily-goal-title' }, ['Today’s dive']),
+            el('span', { class: 'daily-goal-title' }, [
+              theme().id === 'harbor' ? 'Today’s dock run' : 'Today’s dive',
+            ]),
             el('span', { class: 'daily-goal-streak' }, [
               daily.winStreak > 0
                 ? `🔥 ${daily.winStreak} win streak`
@@ -2185,12 +2489,18 @@ function renderMap(): void {
           ]),
           el('div', { class: 'essence-track-wrap' }, [
             el('div', { class: 'essence-track-label' }, [
-              `${Math.min(daily.clears, daily.target)}/${daily.target} clears` +
-                (daily.claimed
-                  ? ' · claimed'
-                  : daily.claimReady
-                    ? ` · +${daily.rewardEssence}${theme().softCurrencyGlyph} ready`
-                    : ''),
+              daily.claimReady
+                ? el('span', { class: 'ess-line' }, [
+                    document.createTextNode(
+                      `${Math.min(daily.clears, daily.target)}/${daily.target} clears · `,
+                    ),
+                    essFig(daily.rewardEssence, { sign: true, size: 'xs' }),
+                    document.createTextNode(' ready'),
+                  ])
+                : document.createTextNode(
+                    `${Math.min(daily.clears, daily.target)}/${daily.target} clears` +
+                      (daily.claimed ? ' · claimed' : ''),
+                  ),
             ]),
             el('div', { class: 'essence-track' }, [
               el('div', {
@@ -2203,13 +2513,20 @@ function renderMap(): void {
         if (daily.claimReady) {
           card.append(
             btn(
-              `CLAIM DAILY · +${daily.rewardEssence}${theme().softCurrencyGlyph}`,
+              [
+                document.createTextNode('CLAIM DAILY · '),
+                essFig(daily.rewardEssence, { sign: true, size: 'sm' }),
+              ],
               () => {
                 const n = economy.claimDailyGoal();
                 if (n > 0) {
                   audio.starDing(2);
                   haptic('forge');
-                  pushToast(`Daily goal · +${n}✧`, '#ffd24a', 2400);
+                  pushToast(
+                    `Daily goal · +${n} ${theme().softCurrencyName.toLowerCase()}`,
+                    '#ffd24a',
+                    2400,
+                  );
                 }
                 renderOverlay();
               },
@@ -2245,18 +2562,28 @@ function renderMap(): void {
             class: `liveops-chip idle${idle.pending > 0 ? '' : ' dim'}`,
             type: 'button',
           },
-          [
-            idle.pending > 0
-              ? `Idle · +${idle.pending}✧ claim`
-              : `Idle · ${idle.ratePerHour}✧/h`,
-          ],
+          idle.pending > 0
+            ? [
+                document.createTextNode('Idle · '),
+                essFig(idle.pending, { sign: true, size: 'xs' }),
+                document.createTextNode(' claim'),
+              ]
+            : [
+                document.createTextNode('Idle · '),
+                essFig(idle.ratePerHour, { size: 'xs' }),
+                document.createTextNode('/h'),
+              ],
         ) as HTMLButtonElement;
         idleB.addEventListener('click', () => {
           if (idle.pending > 0) {
             const n = economy.claimIdleEssence();
             if (n > 0) {
               audio.starDing(1);
-              pushToast(`${L('idleClaim', 'Cavern idle')} · +${n}${theme().softCurrencyGlyph}`, '#b8f0ff', 2200);
+              pushToast(
+                `${L('idleClaim', 'Cavern idle')} · +${n} ${theme().softCurrencyName.toLowerCase()}`,
+                '#b8f0ff',
+                2200,
+              );
             }
           } else {
             app.screen = 'cavern';
@@ -2275,7 +2602,7 @@ function renderMap(): void {
       ]),
     ],
     [
-      btn('CAVERN', () => {
+      btn(theme().id === 'harbor' ? 'DOCKS' : 'CAVERN', () => {
         app.screen = 'cavern';
         renderOverlay();
       }, 'gold'),
@@ -2369,6 +2696,9 @@ function renderPrelevel(): void {
         app.prep.seedPrism = !app.prep.seedPrism;
         renderOverlay();
       },
+      theme().id === 'harbor'
+        ? 'themes/harbor/ui/booster_prism.webp'
+        : 'ui/booster_prism.webp',
     ),
     boosterChip(
       `+5 moves ${app.prep.extraMoves ? '✓' : ''}`,
@@ -2379,6 +2709,9 @@ function renderPrelevel(): void {
         app.prep.extraMoves = !app.prep.extraMoves;
         renderOverlay();
       },
+      theme().id === 'harbor'
+        ? 'themes/harbor/ui/booster_moves.webp'
+        : 'ui/booster_moves.webp',
     ),
   ]);
 
@@ -2462,8 +2795,9 @@ function renderResults(): void {
   const snap = economy.getSnapshot();
   const essenceLine =
     r.status === 'won' && snap.lastEssenceGain > 0
-      ? el('p', { class: 'essence-gain' }, [
-          `+${snap.lastEssenceGain} ${theme().softCurrencyName.toLowerCase()} → ${theme().metaHubName}`,
+      ? el('p', { class: 'essence-gain ess-line-wrap' }, [
+          essFig(snap.lastEssenceGain, { sign: true, size: 'md' }),
+          document.createTextNode(` ${theme().softCurrencyName.toLowerCase()} → ${theme().metaHubName}`),
         ])
       : null;
   const starsEl = el('div', { class: 'results-burst-stars' }, []);
@@ -2520,7 +2854,9 @@ function renderResults(): void {
     r.status === 'won'
       ? el('div', { class: 'goal-banner soft' }, [
           snap.meta.nextAffordable
-            ? `Ready · place ${snap.meta.nextAffordable.name}`
+            ? el('span', { class: 'ess-line' }, [
+                `Ready · place ${snap.meta.nextAffordable.name}`,
+              ])
             : nextGoalHint(snap),
         ])
       : null;
@@ -2554,14 +2890,19 @@ function renderResults(): void {
 
   const albumLine =
     r.status === 'won' && snap.lastAlbumGranted.length > 0
-      ? el('p', { class: 'album-gain' }, [
-          `Album +${snap.lastAlbumGranted.length}` +
-            (snap.lastAlbumRareCount > 0
-              ? ` · ${snap.lastAlbumRareCount} rare!`
-              : ' cards') +
-            (snap.lastAlbumPageReward > 0
-              ? ` · page +${snap.lastAlbumPageReward}✧`
-              : ''),
+      ? el('p', { class: 'album-gain ess-line-wrap' }, [
+          document.createTextNode(
+            `Album +${snap.lastAlbumGranted.length}` +
+              (snap.lastAlbumRareCount > 0
+                ? ` · ${snap.lastAlbumRareCount} rare!`
+                : ' cards'),
+          ),
+          ...(snap.lastAlbumPageReward > 0
+            ? [
+                document.createTextNode(' · page '),
+                essFig(snap.lastAlbumPageReward, { sign: true, size: 'xs' }),
+              ]
+            : []),
         ])
       : null;
 
@@ -2577,13 +2918,25 @@ function renderResults(): void {
       : null;
   const dailyProg =
     r.status === 'won'
-      ? el('p', { class: 'hud-tip' }, [
+      ? el(
+          'p',
+          { class: 'hud-tip ess-line-wrap' },
           snap.daily.claimReady
-            ? `${L('dailyGoal', 'Daily dive')} ready · claim +${snap.daily.rewardEssence}${theme().softCurrencyGlyph} on Levels`
-            : snap.daily.claimed
-              ? L('dailyGoal', 'Daily dive') + ' claimed · keep streaking'
-              : `${L('dailyGoal', 'Daily dive')} ${Math.min(snap.daily.clears, snap.daily.target)}/${snap.daily.target}`,
-        ])
+            ? [
+                document.createTextNode(
+                  `${L('dailyGoal', 'Daily dive')} ready · claim `,
+                ),
+                essFig(snap.daily.rewardEssence, { sign: true, size: 'xs' }),
+                document.createTextNode(' on Levels'),
+              ]
+            : [
+                document.createTextNode(
+                  snap.daily.claimed
+                    ? L('dailyGoal', 'Daily dive') + ' claimed · keep streaking'
+                    : `${L('dailyGoal', 'Daily dive')} ${Math.min(snap.daily.clears, snap.daily.target)}/${snap.daily.target}`,
+                ),
+              ],
+        )
       : null;
 
   panel(
@@ -2611,7 +2964,7 @@ function renderResults(): void {
       ...(r.status === 'won' && app.pendingGeode
         ? [
             btn(
-              'CRACK A GEODE',
+              theme().id === 'harbor' ? 'CRACK A CHEST' : 'CRACK A GEODE',
               () => {
                 showGeodeCrackModal(() => {
                   if (app.screen === 'results') renderOverlay();
@@ -2622,7 +2975,13 @@ function renderResults(): void {
           ]
         : []),
       btn(
-        r.status === 'won' ? (app.pendingGeode ? 'NEXT · SKIP GEODE' : 'NEXT') : 'RETRY',
+        r.status === 'won'
+          ? app.pendingGeode
+            ? theme().id === 'harbor'
+              ? 'NEXT · SKIP CHEST'
+              : 'NEXT · SKIP GEODE'
+            : 'NEXT'
+          : 'RETRY',
         () => {
           if (r.status === 'won' && app.levelId < LEVEL_COUNT) {
             // Explicit next can skip geode if they already cracked; else offer then go
@@ -2647,7 +3006,13 @@ function renderResults(): void {
       ...(r.status === 'won'
         ? [
             btn(
-              snap.meta.nextAffordable ? 'PLACE IN CAVERN' : 'CAVERN',
+              snap.meta.nextAffordable
+                ? theme().id === 'harbor'
+                  ? 'PLACE ON DOCKS'
+                  : 'PLACE IN CAVERN'
+                : theme().id === 'harbor'
+                  ? 'DOCKS'
+                  : 'CAVERN',
               () => leaveResults('cavern'),
               snap.meta.nextAffordable ? 'primary' : 'secondary',
             ),
@@ -2723,7 +3088,7 @@ function renderCavern(): void {
           ? (getMetaStages().find(s => s.id === 4)?.name ?? 'Finale') + ' complete'
           : `Furnishing · ${activeStage.name}`,
       ]),
-      el('span', { class: 'cavern-essence' }, [`✧ ${meta.essence}`]),
+      el('span', { class: 'cavern-essence' }, [essFig(meta.essence, { size: 'sm' })]),
     ]),
   ]);
   vista.style.setProperty('--cavern-glow', String(Math.min(0.9, glow)));
@@ -2767,24 +3132,38 @@ function renderCavern(): void {
   const idleSnap = snap.idle;
   const idleCard = el('div', { class: 'idle-card' }, [
     el('div', { class: 'idle-card-title' }, ['Cozy idle drip']),
-    el('p', { class: 'hud-tip' }, [
-      `${idleSnap.ratePerHour}✧/hour from furnishings · cap ${idleSnap.cap} · no login punishment`,
+    el('p', { class: 'hud-tip ess-line-wrap' }, [
+      essFig(idleSnap.ratePerHour, { size: 'xs' }),
+      document.createTextNode(
+        `/hour from furnishings · cap ${idleSnap.cap} · no login punishment`,
+      ),
     ]),
     idleSnap.pending > 0
       ? btn(
-          `CLAIM · +${idleSnap.pending}✧`,
+          [
+            document.createTextNode('CLAIM · '),
+            essFig(idleSnap.pending, { sign: true, size: 'sm' }),
+          ],
           () => {
             const n = economy.claimIdleEssence();
             if (n > 0) {
               audio.starDing(1);
               haptic('forge');
-              pushToast(`Idle cavern · +${n}✧`, '#b8f0ff', 2200);
+              pushToast(
+                `Idle cavern · +${n} ${theme().softCurrencyName.toLowerCase()}`,
+                '#b8f0ff',
+                2200,
+              );
             }
             renderOverlay();
           },
           'gold',
         )
-      : el('p', { class: 'hud-tip' }, ['Come back later — the mine keeps humming.']),
+      : el('p', { class: 'hud-tip' }, [
+          theme().id === 'harbor'
+            ? 'Come back later — the tide keeps rolling.'
+            : 'Come back later — the mine keeps humming.',
+        ]),
   ]);
 
   panel(
@@ -2870,46 +3249,52 @@ function playPlacementCeremony(up: MetaUpgrade, onDone: () => void): void {
   const layer = el('div', { class: 'place-ceremony' }, []);
   const stageArt =
     getMetaStages().find((s) => s.id === up.stage)?.art ?? getMetaStages()[0]!.art;
+  const ceremony = theme().placeCeremony;
+  const hasVideo = Boolean(ceremony.webm || ceremony.mp4);
 
-  const vid = document.createElement('video');
-  vid.className = 'place-ceremony-video';
-  vid.muted = true;
-  vid.playsInline = true;
-  vid.setAttribute('playsinline', '');
-  vid.preload = 'auto';
-  // Prefer webm, fall back to mp4
-  const sWebm = document.createElement('source');
-  sWebm.src = assetUrl('cavern/place.webm');
-  sWebm.type = 'video/webm';
-  const sMp4 = document.createElement('source');
-  sMp4.src = assetUrl('cavern/place.mp4');
-  sMp4.type = 'video/mp4';
-  vid.append(sWebm, sMp4);
-  // Poster = real mine stage so it never feels empty while buffering
-  vid.poster = assetUrl(stageArt);
+  let mediaEl: HTMLElement;
+  if (hasVideo) {
+    const vid = document.createElement('video');
+    vid.className = 'place-ceremony-video';
+    vid.muted = true;
+    vid.playsInline = true;
+    vid.setAttribute('playsinline', '');
+    vid.preload = 'auto';
+    vid.poster = assetUrl(stageArt);
+    if (ceremony.webm) {
+      const sWebm = document.createElement('source');
+      sWebm.src = assetUrl(ceremony.webm);
+      sWebm.type = 'video/webm';
+      vid.append(sWebm);
+    }
+    if (ceremony.mp4) {
+      const sMp4 = document.createElement('source');
+      sMp4.src = assetUrl(ceremony.mp4);
+      sMp4.type = 'video/mp4';
+      vid.append(sMp4);
+    }
+    mediaEl = vid;
+  } else {
+    // Harbor (and future skins): still of the active stage — no mine reel leakage.
+    mediaEl = metaArtImg(stageArt, theme().metaHubName, 'place-ceremony-video place-ceremony-still');
+  }
 
   const prop = metaArtImg(up.art, up.name, 'place-ceremony-prop');
   const caption = el('div', { class: 'place-ceremony-caption' }, [
     el('div', { class: 'place-ceremony-title' }, [up.name]),
-    el('div', { class: 'place-ceremony-sub' }, ['Placed in the mine']),
+    el('div', { class: 'place-ceremony-sub' }, [ceremony.caption]),
   ]);
   const skip = btn('Continue', () => finish(), 'gold');
 
-  layer.append(vid, prop, caption, skip);
+  layer.append(mediaEl, prop, caption, skip);
   mountCeremonyLayer(layer);
   haptic('special');
-  // Soft whoosh bed under the placement reel
   try {
     const sfx = new Audio(assetUrl('sfx/whoosh-motion.ogg'));
     sfx.volume = 0.45;
     void sfx.play();
   } catch {
     /* ignore */
-  }
-  try {
-    void vid.play();
-  } catch {
-    /* autoplay policies */
   }
 
   let done = false;
@@ -2920,9 +3305,16 @@ function playPlacementCeremony(up: MetaUpgrade, onDone: () => void): void {
     onDone();
   };
 
-  vid.addEventListener('ended', () => finish());
+  if (mediaEl instanceof HTMLVideoElement) {
+    try {
+      void mediaEl.play();
+    } catch {
+      /* autoplay policies */
+    }
+    mediaEl.addEventListener('ended', () => finish());
+  }
   // Safety: never trap the player if media fails
-  window.setTimeout(() => finish(), 2800);
+  window.setTimeout(() => finish(), hasVideo ? 2800 : 1800);
 }
 
 /**
@@ -2951,17 +3343,28 @@ function showStageCompleteFanfare(stageId: number, onDone: () => void): void {
       stage
         ? metaArtImg(stage.art, stage.name, 'stage-complete-art')
         : el('div', {}, []),
-      el('div', { class: 'stage-complete-kicker' }, ['CHAMBER COMPLETE']),
+      el('div', { class: 'stage-complete-kicker' }, [
+        theme().id === 'harbor' ? 'DOCK COMPLETE' : 'CHAMBER COMPLETE',
+      ]),
       el('h2', { class: 'stage-complete-title' }, [
         stage ? stage.name : `Stage ${stageId}`,
       ]),
       el('p', { class: 'stage-complete-sub' }, [
         next
-          ? `New chamber open · ${next.name}`
-          : (getMetaStages().find(s => s.id === 4)?.name ?? 'Finale') + ' finished · the harbor is yours',
+          ? `New ${theme().id === 'harbor' ? 'dock' : 'chamber'} open · ${next.name}`
+          : (getMetaStages().find((s) => s.id === 4)?.name ?? 'Finale') +
+            (theme().id === 'harbor'
+              ? ' finished · the harbor is yours'
+              : ' finished · the mine is yours'),
       ]),
       btn(
-        next ? 'OPEN NEXT CHAMBER' : 'BEHOLD THE MINE',
+        next
+          ? theme().id === 'harbor'
+            ? 'OPEN NEXT DOCK'
+            : 'OPEN NEXT CHAMBER'
+          : theme().id === 'harbor'
+            ? 'BEHOLD THE DOCKS'
+            : 'BEHOLD THE MINE',
         () => {
           layer.remove();
           onDone();
@@ -3012,7 +3415,7 @@ function metaUpgradeRow(
   } else {
     const can = essence >= up.cost;
     const buy = btn(
-      `✧ ${up.cost}`,
+      [essFig(up.cost, { size: 'sm' })],
       () => {
         const before = economy.getSnapshot().meta.stagesComplete;
         const res = economy.buyMetaUpgrade(up.id);
@@ -3212,19 +3615,22 @@ function renderHybridEvent(): void {
       el('div', { class: 'event-mile-at' }, [`${m.at} pts`]),
       el('div', { class: 'event-mile-body' }, [
         el('div', { class: 'name' }, [m.label]),
-        el('div', { class: 'blurb' }, [
+        el('div', { class: 'blurb ess-line-wrap' }, [
           m.claimed
-            ? 'Claimed'
+            ? document.createTextNode('Claimed')
             : m.done
-              ? 'Ready · auto-claimed on clear'
-              : `+${m.essence}✧ · +${m.shards}◆`,
+              ? document.createTextNode('Ready · auto-claimed on clear')
+              : el('span', { class: 'ess-line' }, [
+                  essFig(m.essence, { sign: true, size: 'xs' }),
+                  document.createTextNode(` · +${m.shards}◆`),
+                ]),
         ]),
       ]),
       el('div', { class: 'event-mile-flag' }, [m.claimed ? '✓' : m.done ? '●' : '○']),
     ]),
   );
   panel(
-    L('eventName', 'Mine Rush'),
+    ev.name || L('eventName', 'Mine Rush'),
     [
       el('p', {}, [ev.tagline]),
       el('div', { class: 'event-hero' }, [
@@ -3354,7 +3760,7 @@ function renderStore(): void {
         app.screen = 'map';
         renderOverlay();
       }, 'secondary'),
-      btn('CAVERN', () => {
+      btn(theme().id === 'harbor' ? 'DOCKS' : 'CAVERN', () => {
         app.screen = 'cavern';
         renderOverlay();
       }, 'secondary'),

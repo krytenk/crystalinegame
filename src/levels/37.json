@@ -5,9 +5,36 @@
   "height": 8,
   "moves": 21,
   "objectives": [
-    { "kind": "collect", "target": 5 },
-    { "kind": "score", "target": 3500 }
+    {
+      "kind": "collect",
+      "target": 5
+    },
+    {
+      "kind": "score",
+      "target": 3500
+    }
   ],
-  "stars": [4300, 6500, 9400],
-  "colors": ["ember", "aurum", "solar", "verdant", "tidal", "void"]
+  "stars": [
+    4300,
+    6500,
+    9400
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "####.....",
+    "###......",
+    "##.......",
+    "#........",
+    "........#",
+    ".......##",
+    "......###",
+    ".....####"
+  ]
 }

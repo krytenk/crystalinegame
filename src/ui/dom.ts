@@ -29,7 +29,7 @@ export const clear = (node: HTMLElement): void => {
 };
 
 export const btn = (
-  label: string,
+  label: string | (Node | string)[],
   onClick: () => void,
   kind: 'primary' | 'secondary' | 'danger' | 'gold' = 'primary',
   disabled = false,
@@ -42,11 +42,12 @@ export const btn = (
         : kind === 'gold'
           ? 'btn gold'
           : 'btn secondary';
+  const kids = typeof label === 'string' ? [label] : label;
   const b = el('button', {
     class: cls,
     type: 'button',
     disabled: disabled ? true : undefined,
-  }, [label]) as HTMLButtonElement;
+  }, kids) as HTMLButtonElement;
   b.addEventListener('click', (e) => {
     e.preventDefault();
     if (b.disabled) return;

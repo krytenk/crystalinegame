@@ -5,10 +5,37 @@
   "height": 8,
   "moves": 24,
   "objectives": [
-    { "kind": "contain", "target": 14 },
-    { "kind": "score", "target": 3000 }
+    {
+      "kind": "contain",
+      "target": 14
+    },
+    {
+      "kind": "score",
+      "target": 3000
+    }
   ],
-  "stars": [4000, 6000, 8600],
-  "colors": ["ember", "aurum", "solar", "verdant", "tidal", "void"],
-  "shadowPeriod": 4
+  "stars": [
+    4000,
+    6000,
+    8600
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "shadowPeriod": 4,
+  "layout": [
+    "###..###",
+    "#......#",
+    "#......#",
+    "........",
+    "........",
+    "#......#",
+    "#......#",
+    "###..###"
+  ]
 }

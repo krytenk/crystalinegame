@@ -4,7 +4,34 @@
   "width": 8,
   "height": 9,
   "moves": 20,
-  "objectives": [{ "kind": "collect", "target": 6 }],
-  "stars": [3400, 5200, 7600],
-  "colors": ["ember", "aurum", "solar", "verdant", "tidal", "void"]
+  "objectives": [
+    {
+      "kind": "collect",
+      "target": 6
+    }
+  ],
+  "stars": [
+    3400,
+    5200,
+    7600
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    ".######.",
+    ".######.",
+    ".######.",
+    ".######.",
+    "........",
+    "........",
+    "........",
+    "........",
+    "........"
+  ]
 }

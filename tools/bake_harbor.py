@@ -278,23 +278,38 @@ def main() -> int:
         if p.exists():
             shutil.copy2(p, RAW / dst)
 
+    # Explicit mapping (hue auto-class was wrong: lantern/fish swapped).
+    # Prefer already-baked raw piece_*.png if present.
     colors: dict[str, Image.Image] = {}
-    for src in piece_files:
-        p = SESSION_IMG / src
-        if not p.exists():
-            continue
-        im = load_keyed(p)
-        name = classify_hue(im)
-        # avoid overwrite if collision
-        if name in colors:
-            # try next free
-            for alt in ["ember", "aurum", "solar", "verdant", "tidal", "void"]:
-                if alt not in colors:
-                    name = alt
-                    break
-        colors[name] = im
-        im.save(RAW / f"piece_{name}.png")
-        print(f"  piece {src} → {name}")
+    for cname in ["ember", "aurum", "solar", "verdant", "tidal", "void"]:
+        pref = RAW / f"piece_{cname}.png"
+        if pref.exists():
+            im = Image.open(pref).convert("RGBA")
+            # re-key if still has magenta
+            im = key_magenta(im)
+            colors[cname] = im
+            print(f"  piece raw → {cname}")
+    if len(colors) < 6:
+        # Fallback: session files with FIXED semantic map (not hue)
+        # 4=shell→tidal, 5=tin→verdant, 6=lantern→ember, 7=fish→void, 8=crate→aurum, 9=purse→solar
+        explicit = {
+            "4.jpg": "tidal",
+            "5.jpg": "verdant",
+            "6.jpg": "ember",
+            "7.jpg": "void",
+            "8.jpg": "aurum",
+            "9.jpg": "solar",
+        }
+        for src, name in explicit.items():
+            if name in colors:
+                continue
+            p = SESSION_IMG / src
+            if not p.exists():
+                continue
+            im = load_keyed(p)
+            colors[name] = im
+            im.save(RAW / f"piece_{name}.png")
+            print(f"  piece {src} → {name}")
 
     # Fill missing colors from lineup strip if needed
     if len(colors) < 6 and (RAW / "lineup.jpg").exists():

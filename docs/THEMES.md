@@ -38,6 +38,23 @@ installCompanion(...);
 // Economy({ saveKey: t.saveKey })
 ```
 
+## Theme surface (full)
+
+| Field | Purpose |
+|-------|---------|
+| `metaStages` / `metaUpgrades` | Diorama catalogue |
+| `albumCards` / `albumSheet` | Endless album |
+| `event` | Hybrid event id prefix, milestones, league tiers |
+| `powerNames` / `comboLabels` | Specials + combo toast names |
+| `placeCeremony` | Placement reel paths + caption (`webm`/`mp4` empty = still only) |
+| `labels` / `cssVars` / `storeCopy` | UI chrome |
+
+Boot installs all of the above before `Economy` loads:
+
+```ts
+installMetaTheme / installAlbumTheme / installEventTheme / installPowerCopy / installCompanion
+```
+
 ## Adding a new skin (Bakery / Library)
 
 1. Copy `src/themes/harbor.ts` → `bakery.ts` / `library.ts`
@@ -45,6 +62,7 @@ installCompanion(...);
 3. Add `bakery.html` setting `window.__THEME__ = 'bakery'`
 4. Generate art → `public/themes/bakery/` via a bake script
 5. Vite MPA input for the new HTML entry
+6. Fill `event`, `powerNames`, `comboLabels`, `placeCeremony`
 
 ### Hearth Bakery (later)
 
@@ -52,6 +70,7 @@ installCompanion(...);
 - Meta: storefront restoration  
 - Soft currency: **Warmth** or **Crumbs**  
 - Conveyor: kitchen pass belt  
+- Event: **Oven Rush** · powers: dough line / oven burst  
 
 ### Moonlit Library (later)
 
@@ -59,6 +78,16 @@ installCompanion(...);
 - Meta: reading nook floors  
 - Soft currency: **Ink** or **Quiet Hours**  
 - Conveyor: returns cart  
+- Event: **Quiet Hours** · powers: chapter line / seal burst  
+
+## Leftovers / next content (not blocking)
+
+| Item | Status |
+|------|--------|
+| Harbor placement reel video | Optional — still uses stage still (no mine reel) |
+| CSS class names `.cavern-*` | Cosmetic; rename later if desired |
+| Bakery / Library skins | Roadmap only |
+| Harbor-specific placement whoosh SFX | Shared whoosh bank is fine | 
 
 ## Asset bake
 

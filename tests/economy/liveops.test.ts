@@ -66,6 +66,44 @@ describe('hybrid event', () => {
     expect(snap.personal).toBeGreaterThanOrEqual(3);
     expect(snap.leagueRank).toBeGreaterThanOrEqual(1);
   });
+
+  it('installEventTheme renames product surface without changing thresholds', async () => {
+    const { installEventTheme, eventIdFor } = await import('../../src/economy/hybridEvent');
+    installEventTheme({
+      idPrefix: 'tide-rush',
+      name: 'Tide Rush',
+      tagline: 'Harbor test',
+      milestones: [
+        { at: 3, label: 'First slip', essence: 20, shards: 5 },
+        { at: 8, label: 'Deep current', essence: 35, shards: 10 },
+        { at: 15, label: 'Market clear', essence: 50, shards: 15 },
+        { at: 25, label: 'Lighthouse push', essence: 80, shards: 25 },
+      ],
+      league: ['Harbor Elite', 'Tide Patrol', 'Dockhands'],
+    });
+    const now = 1_700_000_000_000;
+    expect(eventIdFor(now).startsWith('tide-rush-')).toBe(true);
+    const m = new HybridEventModel(emptyEventPersist(now));
+    m.addWin(3);
+    m.addWin(3);
+    m.addWin(3);
+    const snap = m.snapshot(now);
+    expect(snap.name).toBe('Tide Rush');
+    expect(snap.milestones[0]?.label).toBe('First slip');
+    // Reset crystalline defaults for other tests in this file
+    installEventTheme({
+      idPrefix: 'mine-rush',
+      name: 'Mine Rush',
+      tagline: 'Clear chambers for personal milestones · soft league for flavour',
+      milestones: [
+        { at: 3, label: 'First seam', essence: 20, shards: 5 },
+        { at: 8, label: 'Deep cut', essence: 35, shards: 10 },
+        { at: 15, label: 'Gallery clear', essence: 50, shards: 15 },
+        { at: 25, label: 'Vault push', essence: 80, shards: 25 },
+      ],
+      league: ['Crystal Elite', 'Vein Patrol', 'Prospectors'],
+    });
+  });
 });
 
 describe('idle cavern', () => {

@@ -453,9 +453,10 @@ export function injectStyles(): void {
     }
     .booster-chip {
       appearance: none;
+      -webkit-appearance: none;
       border: 2px solid rgba(180, 140, 255, 0.28);
       border-radius: 18px;
-      padding: 12px 12px 10px;
+      padding: 10px 12px 10px 10px;
       text-align: left;
       cursor: pointer;
       color: var(--text);
@@ -468,10 +469,52 @@ export function injectStyles(): void {
         0 4px 0 rgba(8,4,18,0.9),
         inset 0 1px 0 rgba(255,255,255,0.1);
       transition: border-color 0.12s, transform 0.08s, box-shadow 0.12s;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .booster-chip.has-art {
+      padding-left: 8px;
+    }
+    .booster-chip-art {
+      width: 52px;
+      height: 52px;
+      flex-shrink: 0;
+      object-fit: contain;
+      border-radius: 12px;
+      background:
+        radial-gradient(circle at 40% 30%, rgba(255,255,255,0.12), transparent 60%),
+        rgba(0,0,0,0.35);
+      border: 1.5px solid rgba(255,255,255,0.12);
+      box-shadow:
+        0 2px 0 rgba(0,0,0,0.35),
+        0 0 12px rgba(140, 180, 255, 0.25);
+      filter: drop-shadow(0 0 6px rgba(160, 200, 255, 0.35));
+      pointer-events: none;
+      user-select: none;
+    }
+    .booster-chip.on .booster-chip-art {
+      border-color: rgba(255, 210, 74, 0.55);
+      box-shadow:
+        0 2px 0 rgba(0,0,0,0.35),
+        0 0 14px rgba(255, 200, 60, 0.45);
+      filter: drop-shadow(0 0 8px rgba(255, 210, 74, 0.45));
+    }
+    .booster-chip-body {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      min-width: 0;
+      flex: 1;
+      gap: 2px;
+    }
+    .booster-chip-label {
+      line-height: 1.2;
     }
     .booster-chip .meta {
       display: block;
-      margin-top: 3px;
       font-size: 0.72rem;
       color: var(--muted);
       font-weight: 700;
@@ -488,6 +531,9 @@ export function injectStyles(): void {
     .booster-chip:disabled {
       opacity: 0.4;
       cursor: not-allowed;
+    }
+    .booster-chip:disabled .booster-chip-art {
+      filter: grayscale(0.6) brightness(0.75);
     }
     .stat-grid {
       display: grid;
@@ -1306,6 +1352,80 @@ export function injectStyles(): void {
       box-shadow: 0 3px 0 rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
       text-shadow: 0 1px 2px rgba(0,0,0,0.45);
     }
+    /* Soft-currency geode icons (replace ✧ / ◆ pips) */
+    .ess-icon {
+      display: inline-block;
+      vertical-align: -0.28em;
+      object-fit: contain;
+      flex-shrink: 0;
+      pointer-events: none;
+      user-select: none;
+      filter:
+        drop-shadow(0 1px 2px rgba(0,0,0,0.55))
+        drop-shadow(0 0 6px rgba(126, 208, 255, 0.4));
+    }
+    .ess-icon-xs { width: 1.05em; height: 1.05em; min-width: 14px; min-height: 14px; }
+    .ess-icon-sm { width: 1.25em; height: 1.25em; min-width: 18px; min-height: 18px; }
+    .ess-icon-md { width: 1.7em; height: 1.7em; min-width: 26px; min-height: 26px; }
+    .ess-icon-fallback {
+      display: inline-block;
+      vertical-align: -0.1em;
+      color: #ffd24a;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .ess-fig {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.22em;
+      vertical-align: middle;
+      white-space: nowrap;
+      line-height: 1.1;
+    }
+    .ess-fig-n {
+      font-variant-numeric: tabular-nums;
+      font-weight: 800;
+    }
+    .ess-line {
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.15em 0.2em;
+      justify-content: center;
+      max-width: 100%;
+    }
+    .ess-line-wrap {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.2em 0.25em;
+      justify-content: center;
+    }
+    .btn .ess-fig,
+    .liveops-chip .ess-fig {
+      gap: 0.18em;
+    }
+    .btn .ess-icon-sm { width: 1.15em; height: 1.15em; }
+    .daily-gift-chip.ess-chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 1.15rem;
+    }
+    .cavern-essence .ess-fig {
+      color: #b8f0ff;
+    }
+    .cavern-essence .ess-icon {
+      filter:
+        drop-shadow(0 1px 2px rgba(0,0,0,0.5))
+        drop-shadow(0 0 8px rgba(126, 208, 255, 0.55));
+    }
+    .goal-banner .ess-line {
+      font: inherit;
+      color: inherit;
+      letter-spacing: inherit;
+    }
     /* Essence progress toward next cavern piece */
     .essence-track-wrap {
       margin: 0 0 12px;
@@ -1316,6 +1436,10 @@ export function injectStyles(): void {
       color: #b8e8ff;
       margin-bottom: 5px;
       letter-spacing: 0.02em;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.2em;
     }
     .essence-track {
       height: 12px;
@@ -1501,6 +1625,10 @@ export function injectStyles(): void {
     @keyframes placeFadeIn {
       from { opacity: 0; }
       to { opacity: 1; }
+    }
+    .place-ceremony-still {
+      object-fit: cover;
+      filter: brightness(0.72) saturate(1.05);
     }
     .place-ceremony-video {
       position: absolute; inset: 0;
@@ -1952,14 +2080,21 @@ export function injectStyles(): void {
       position: absolute; inset: 0;
       z-index: 52;
       display: flex; align-items: center; justify-content: center;
-      padding: 18px;
+      padding: max(12px, env(safe-area-inset-top, 0px))
+        max(12px, env(safe-area-inset-right, 0px))
+        max(12px, env(safe-area-inset-bottom, 0px))
+        max(12px, env(safe-area-inset-left, 0px));
       background: rgba(2, 4, 12, 0.86);
       backdrop-filter: blur(7px);
       animation: placeFadeIn 0.28s ease-out;
+      overflow: hidden;
+      box-sizing: border-box;
     }
     .geode-crack-card {
-      width: min(360px, 100%);
-      padding: 18px 16px 16px;
+      width: 100%;
+      max-width: min(360px, 100%);
+      min-width: 0;
+      padding: 16px 12px 14px;
       border-radius: 22px;
       text-align: center;
       background:
@@ -1970,6 +2105,8 @@ export function injectStyles(): void {
         0 12px 0 rgba(0,0,0,0.4),
         0 0 40px rgba(80, 160, 255, 0.25),
         inset 0 1px 0 rgba(255,255,255,0.1);
+      overflow: hidden;
+      box-sizing: border-box;
     }
     .geode-crack-kicker {
       font-family: var(--font-display);
@@ -1988,28 +2125,120 @@ export function injectStyles(): void {
     }
     .geode-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
+      /* minmax(0,1fr) is required — default min-width:auto lets 320px imgs blow out right */
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
       margin: 14px 0 12px;
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
     }
     .geode-slot {
       appearance: none;
-      border: 2px solid rgba(201, 162, 39, 0.45);
+      -webkit-appearance: none;
+      border: 2px solid rgba(201, 162, 39, 0.5);
       border-radius: 16px;
-      padding: 14px 8px;
-      min-height: 92px;
+      padding: 8px 4px 10px;
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
+      min-height: 0;
       cursor: pointer;
       background:
-        radial-gradient(circle at 40% 30%, rgba(126, 208, 255, 0.25), transparent 55%),
+        radial-gradient(circle at 40% 25%, rgba(126, 208, 255, 0.28), transparent 55%),
         linear-gradient(180deg, #2a2050, #121028);
       color: var(--text);
       box-shadow: 0 4px 0 rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.1);
       font-family: var(--font-body);
-      transition: transform 0.15s, filter 0.15s;
+      transition: transform 0.15s, filter 0.15s, border-color 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 2px;
+      overflow: hidden;
+      box-sizing: border-box;
     }
     .geode-slot:active:not(:disabled) {
       transform: translateY(2px);
       box-shadow: 0 2px 0 rgba(0,0,0,0.35);
+    }
+    .geode-slot-art {
+      position: relative;
+      /* Fill the grid cell; never force a fixed 88px that blows out narrow cards */
+      width: 100%;
+      max-width: 100%;
+      aspect-ratio: 1 / 1;
+      height: auto;
+      margin: 0 auto 2px;
+      display: block;
+      overflow: hidden;
+      flex: 0 0 auto;
+    }
+    .geode-slot-aura {
+      position: absolute;
+      inset: 10% 14%;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(160, 220, 255, 0.5), transparent 70%);
+      animation: geodeAura 2.4s ease-in-out infinite;
+      animation-delay: var(--float-delay, 0s);
+      pointer-events: none;
+      z-index: 1;
+    }
+    .geode-slot-img {
+      position: absolute;
+      inset: 4%;
+      z-index: 2;
+      display: block;
+      width: 92%;
+      height: 92%;
+      max-width: 100%;
+      max-height: 100%;
+      margin: auto;
+      object-fit: contain;
+      object-position: center;
+      animation: geodeFloat 2.8s ease-in-out infinite;
+      animation-delay: var(--float-delay, 0s);
+      /* Distinct living veins: slight hue drift per slot */
+      filter:
+        hue-rotate(calc(var(--vein-i, 0) * 28deg))
+        drop-shadow(0 4px 8px rgba(0,0,0,0.5))
+        drop-shadow(0 0 10px rgba(126, 208, 255, 0.4));
+      pointer-events: none;
+      user-select: none;
+    }
+    .geode-slot-art.cracked .geode-slot-img {
+      animation: geodeFloat 2.2s ease-in-out infinite, geodeCrackPop 0.45s ease-out both;
+      filter:
+        hue-rotate(calc(var(--vein-i, 0) * 28deg))
+        drop-shadow(0 4px 8px rgba(0,0,0,0.5))
+        drop-shadow(0 0 16px rgba(255, 210, 74, 0.7))
+        brightness(1.12);
+    }
+    .geode-slot-art.miss .geode-slot-img,
+    .geode-slot.miss .geode-slot-img {
+      animation: none;
+      filter: grayscale(0.75) brightness(0.55) drop-shadow(0 3px 5px rgba(0,0,0,0.4));
+      opacity: 0.7;
+    }
+    .geode-slot.miss .geode-slot-aura { opacity: 0.15; animation: none; }
+    .geode-slot-sparks {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .geode-spark {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      font-size: 0.5rem;
+      color: #b8f0ff;
+      opacity: 0;
+      text-shadow: 0 0 6px currentColor;
+      animation: geodeSpark 2.6s ease-in-out infinite;
+      animation-delay: var(--delay, 0s);
     }
     .geode-slot-glyph {
       font-size: 1.6rem;
@@ -2017,36 +2246,75 @@ export function injectStyles(): void {
       filter: drop-shadow(0 0 8px rgba(126, 208, 255, 0.5));
     }
     .geode-slot-label {
-      font-size: 0.68rem;
+      font-size: 0.62rem;
       font-weight: 800;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
       color: var(--muted);
-      margin-top: 4px;
+      margin-top: 2px;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .geode-slot-label.cracked-label {
+      color: #ffd24a;
     }
     .geode-slot-reward {
       font-family: var(--font-display);
       font-weight: 800;
-      font-size: 1rem;
+      font-size: 0.95rem;
       color: #ffd24a;
-      margin-top: 4px;
+      margin-top: 2px;
+      text-shadow: 0 0 10px rgba(255, 210, 74, 0.45);
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .geode-slot.cracked {
-      border-color: rgba(255, 210, 74, 0.7);
+      border-color: rgba(255, 210, 74, 0.75);
       pointer-events: none;
       animation: propPlace 0.4s ease-out both;
+      background:
+        radial-gradient(circle at 40% 25%, rgba(255, 210, 74, 0.22), transparent 55%),
+        linear-gradient(180deg, #3a2860, #161028);
     }
     .geode-slot.jackpot {
       box-shadow: 0 0 20px rgba(255, 200, 60, 0.55), 0 4px 0 rgba(0,0,0,0.35);
     }
     .geode-slot.miss {
-      opacity: 0.4;
-      filter: grayscale(0.5);
+      opacity: 0.55;
       pointer-events: none;
     }
-    .geode-crack-card .btn { width: 100%; }
+    .geode-crack-card .btn { width: 100%; max-width: 100%; }
     .geode-crack-card .companion-bubble {
       margin-top: 0;
+      max-width: 100%;
+    }
+    @keyframes geodeFloat {
+      0%, 100% { transform: translateY(0) rotate(-1.5deg) scale(0.96); }
+      50% { transform: translateY(-4px) rotate(1.5deg) scale(0.96); }
+    }
+    @keyframes geodeAura {
+      0%, 100% { opacity: 0.45; transform: scale(0.9); }
+      50% { opacity: 0.9; transform: scale(1.05); }
+    }
+    @keyframes geodeCrackPop {
+      0% { transform: scale(0.88); }
+      55% { transform: scale(1.06); }
+      100% { transform: scale(0.96); }
+    }
+    @keyframes geodeSpark {
+      0% { transform: translate(-50%, -50%) scale(0.4); opacity: 0; }
+      20% { opacity: 0.95; }
+      100% {
+        transform: translate(
+          calc(-50% + (var(--i, 0) - 1.5) * 12px),
+          calc(-50% - 22px - var(--i, 0) * 3px)
+        ) scale(0.35);
+        opacity: 0;
+      }
     }
     /* ---- Live-ops evolution: album, hybrid event, idle, ethics ---- */
     .liveops-strip {

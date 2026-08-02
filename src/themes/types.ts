@@ -6,12 +6,33 @@
  */
 
 import type { CrystalColor } from '@engine/types';
+import type { PowerKind } from '@engine/specials';
 import type { AlbumCardDef } from '@economy/album';
+import type { EventMilestone } from '@economy/hybridEvent';
 import type { MetaStage, MetaUpgrade } from '@economy/meta';
 import type { SkuId } from '@economy/api';
 import type { CompanionBeat } from '../narrative/companion';
 
 export type ThemeId = 'crystalline' | 'harbor';
+
+/** Soft league tiers: elite (rank ≤5), mid (≤15), casual (else). */
+export type LeagueTiers = readonly [string, string, string];
+
+export interface EventTheme {
+  /** Prefix for weekly event ids, e.g. `mine-rush` or `tide-rush`. */
+  readonly idPrefix: string;
+  readonly name: string;
+  readonly tagline: string;
+  readonly milestones: readonly EventMilestone[];
+  readonly league: LeagueTiers;
+}
+
+export interface PlaceCeremonyTheme {
+  /** Optional video under public/; if empty, ceremony uses stage still only. */
+  readonly webm: string;
+  readonly mp4: string;
+  readonly caption: string;
+}
 
 export interface CompanionTheme {
   readonly id: string;
@@ -65,5 +86,19 @@ export interface ThemeConfig {
   readonly cssVars: Readonly<Record<string, string>>;
   /** Variable-reward post-win beat name. */
   readonly bonusCrackName: string;
+  /**
+   * Art for the three sealed bonus-crack picks (geode / chest).
+   * Site-relative path under public/; shown instead of glyph pips.
+   */
+  readonly bonusCrackArt: string;
   readonly versionLabel: string;
+  /** Match-4 / L-T / 5 / 6+ special names. */
+  readonly powerNames: Readonly<Record<PowerKind, string>>;
+  /**
+   * Combo labels keyed as `line+burst` (sorted by power rank low→high).
+   * Missing keys fall back to crystalline defaults in the engine installer.
+   */
+  readonly comboLabels: Readonly<Record<string, string>>;
+  readonly event: EventTheme;
+  readonly placeCeremony: PlaceCeremonyTheme;
 }

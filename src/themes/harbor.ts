@@ -469,5 +469,42 @@ export const harborTheme: ThemeConfig = {
     '--sim': '#ff9a62',
   },
   bonusCrackName: 'Chest',
+  bonusCrackArt: 'themes/harbor/ui/geode_vein.webp',
   versionLabel: 'Lantern Harbor v0.1.0 · portfolio demo',
+  powerNames: {
+    line: 'Belt Rift',
+    burst: 'Crate Burst',
+    prism: 'Signal Prism',
+    supernova: 'Festival Bloom',
+  },
+  comboLabels: {
+    'line+line': 'Twin Tides',
+    'line+burst': 'Belt Bloom',
+    'burst+burst': 'Harbor Shockwave',
+    'line+prism': 'Lantern Seams',
+    'burst+prism': 'Lantern Bloom',
+    'prism+prism': 'Fog Collapse',
+    'line+supernova': 'Tide Rift',
+    'burst+supernova': 'Festival Burst',
+    'prism+supernova': 'Signal Nova',
+    'supernova+supernova': 'Night Festival',
+  },
+  event: {
+    idPrefix: 'tide-rush',
+    name: 'Tide Rush',
+    tagline: 'Clear docks for personal milestones · soft league for flavour',
+    milestones: [
+      { at: 3, label: 'First slip', essence: 20, shards: 5 },
+      { at: 8, label: 'Deep current', essence: 35, shards: 10 },
+      { at: 15, label: 'Market clear', essence: 50, shards: 15 },
+      { at: 25, label: 'Lighthouse push', essence: 80, shards: 25 },
+    ],
+    league: ['Harbor Elite', 'Tide Patrol', 'Dockhands'],
+  },
+  // No mine placement reel — still-image ceremony over stage art.
+  placeCeremony: {
+    webm: '',
+    mp4: '',
+    caption: 'Placed on the docks',
+  },
 };

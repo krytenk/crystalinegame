@@ -48,6 +48,8 @@ export class JuiceSystem {
   private rings: Ring[] = [];
   private flash: Flash | null = null;
   private banner: { text: string; born: number; life: number; color: string } | null = null;
+  /** Board-wide gem shimmer / glow after chain clears. */
+  private shimmer: { born: number; life: number; color: string; intensity: number } | null = null;
   hitStopUntil = 0;
 
   requestHitStop(ms: number, now = performance.now()): void {
@@ -58,24 +60,70 @@ export class JuiceSystem {
     return performance.now() < this.hitStopUntil;
   }
 
+  /** Active board shimmer for renderer (null if idle). */
+  get boardShimmer(): { alpha: number; color: string } | null {
+    if (!this.shimmer) return null;
+    const age = performance.now() - this.shimmer.born;
+    if (age > this.shimmer.life) return null;
+    const t = age / this.shimmer.life;
+    const pulse = 0.55 + 0.45 * Math.sin(t * Math.PI * 4);
+    const fade = t < 0.15 ? t / 0.15 : t > 0.7 ? Math.max(0, (1 - t) / 0.3) : 1;
+    return {
+      alpha: this.shimmer.intensity * pulse * fade,
+      color: this.shimmer.color,
+    };
+  }
+
+  /**
+   * Board-wide shimmer through all gems (chain feedback).
+   * intensity 0.2–1, life ms.
+   */
+  shimmerBoard(color = 'rgba(180, 230, 255, 1)', intensity = 0.55, life = 420): void {
+    const prev = this.shimmer;
+    const now = performance.now();
+    if (prev && now - prev.born < prev.life * 0.6) {
+      // Stack intensity on multi-step cascades
+      this.shimmer = {
+        born: now,
+        life: Math.max(life, prev.life),
+        color,
+        intensity: Math.min(1, prev.intensity * 0.5 + intensity),
+      };
+    } else {
+      this.shimmer = { born: now, life, color, intensity };
+    }
+  }
+
   burst(x: number, y: number, color: string, count = 14): void {
-    for (let i = 0; i < count; i++) {
+    const n = Math.min(80, Math.max(4, Math.floor(count)));
+    for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2;
-      const sp = 1.2 + Math.random() * 4.5;
+      const sp = 1.4 + Math.random() * 6.5;
       const roll = Math.random();
       this.particles.push({
         x,
         y,
         vx: Math.cos(a) * sp,
-        vy: Math.sin(a) * sp - 1,
+        vy: Math.sin(a) * sp - 1.4,
         life: 1,
-        maxLife: 0.35 + Math.random() * 0.45,
-        size: 2 + Math.random() * 3.5,
+        maxLife: 0.4 + Math.random() * 0.55,
+        size: 2.5 + Math.random() * 5,
         color,
-        shape: roll > 0.72 ? 1 : roll > 0.5 ? 2 : 0,
+        shape: roll > 0.65 ? 1 : roll > 0.4 ? 2 : 0,
       });
     }
-    if (this.particles.length > 480) this.particles.splice(0, this.particles.length - 480);
+    if (this.particles.length > 700) this.particles.splice(0, this.particles.length - 700);
+  }
+
+  /** Dense radial explosion for power clears. */
+  explode(x: number, y: number, color: string, power = 1): void {
+    const count = Math.floor(36 + power * 28);
+    this.burst(x, y, color, count);
+    this.burst(x, y, '#ffffff', Math.floor(12 + power * 10));
+    this.burst(x, y, '#ffe9a8', Math.floor(10 + power * 8));
+    this.ring(x, y, color, 70 + power * 40, 480 + power * 80);
+    this.ring(x, y, '#ffffff', 40 + power * 25, 360 + power * 40);
+    this.screenFlash(color.includes('rgba') ? color : `rgba(255, 240, 200, 0.55)`, 200 + power * 40, 0.28 + power * 0.08);
   }
 
   /** Expanding ring shockwave (forge / power / big cascade). */
@@ -157,6 +205,7 @@ export class JuiceSystem {
       if (now - this.rings[i]!.born > this.rings[i]!.life) this.rings.splice(i, 1);
     }
     if (this.flash && now - this.flash.born > this.flash.life) this.flash = null;
+    if (this.shimmer && now - this.shimmer.born > this.shimmer.life) this.shimmer = null;
   }
 
   draw(ctx: CanvasRenderingContext2D, now: number, viewW: number, viewH = 1280): void {

@@ -19,6 +19,40 @@ export const EVENT_MILESTONES: readonly EventMilestone[] = [
   { at: 25, label: 'Vault push', essence: 80, shards: 25 },
 ] as const;
 
+export interface EventThemeCatalog {
+  readonly idPrefix: string;
+  readonly name: string;
+  readonly tagline: string;
+  readonly milestones: readonly EventMilestone[];
+  /** elite (≤5), mid (≤15), casual */
+  readonly league: readonly [string, string, string];
+}
+
+const DEFAULT_EVENT: EventThemeCatalog = {
+  idPrefix: 'mine-rush',
+  name: 'Mine Rush',
+  tagline: 'Clear chambers for personal milestones · soft league for flavour',
+  milestones: EVENT_MILESTONES,
+  league: ['Crystal Elite', 'Vein Patrol', 'Prospectors'],
+};
+
+let activeEvent: EventThemeCatalog = DEFAULT_EVENT;
+
+/** Theme packs call at boot so event copy/id never collides across products. */
+export function installEventTheme(catalog: EventThemeCatalog): void {
+  activeEvent = {
+    idPrefix: catalog.idPrefix || DEFAULT_EVENT.idPrefix,
+    name: catalog.name || DEFAULT_EVENT.name,
+    tagline: catalog.tagline || DEFAULT_EVENT.tagline,
+    milestones: catalog.milestones?.length ? catalog.milestones : DEFAULT_EVENT.milestones,
+    league: catalog.league ?? DEFAULT_EVENT.league,
+  };
+}
+
+export function getEventMilestones(): readonly EventMilestone[] {
+  return activeEvent.milestones;
+}
+
 export interface HybridEventPersist {
   readonly id: string;
   readonly endsAt: number;
@@ -46,7 +80,7 @@ const MS_DAY = 86_400_000;
 /** Weekly event id from install-agnostic week bucket. */
 export function eventIdFor(now: number): string {
   const week = Math.floor(now / (7 * MS_DAY));
-  return `mine-rush-${week}`;
+  return `${activeEvent.idPrefix}-${week}`;
 }
 
 export function emptyEventPersist(now: number): HybridEventPersist {
@@ -123,7 +157,7 @@ export class HybridEventModel {
     let essence = 0;
     let shards = 0;
     const labels: string[] = [];
-    for (const m of EVENT_MILESTONES) {
+    for (const m of activeEvent.milestones) {
       if (this.personal >= m.at && !this.claimed.has(m.at)) {
         this.claimed.add(m.at);
         essence += m.essence;
@@ -136,20 +170,21 @@ export class HybridEventModel {
 
   snapshot(now: number): HybridEventSnapshot {
     this.roll(now);
-    const milestones = EVENT_MILESTONES.map((m) => ({
+    const catalog = activeEvent.milestones;
+    const milestones = catalog.map((m) => ({
       ...m,
       done: this.personal >= m.at,
       claimed: this.claimed.has(m.at),
     }));
-    const next = EVENT_MILESTONES.find((m) => this.personal < m.at) ?? null;
+    const next = catalog.find((m) => this.personal < m.at) ?? null;
     // Soft league: better personal → better rank; never zero-sum punish
     const leagueRank = Math.max(1, Math.min(50, 48 - Math.floor(this.personal * 1.4)));
-    const leagueLabel =
-      leagueRank <= 5 ? 'Crystal Elite' : leagueRank <= 15 ? 'Vein Patrol' : 'Prospectors';
+    const [elite, mid, casual] = activeEvent.league;
+    const leagueLabel = leagueRank <= 5 ? elite : leagueRank <= 15 ? mid : casual;
     return {
       id: this.id,
-      name: 'Mine Rush',
-      tagline: 'Clear chambers for personal milestones · soft league for flavour',
+      name: activeEvent.name,
+      tagline: activeEvent.tagline,
       endsAt: this.endsAt,
       msLeft: Math.max(0, this.endsAt - now),
       personal: this.personal,

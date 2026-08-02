@@ -117,5 +117,30 @@ export const crystallineTheme: ThemeConfig = {
   },
   cssVars: {},
   bonusCrackName: 'Geode',
+  bonusCrackArt: 'ui/geode_vein.webp',
   versionLabel: 'Crystalline v0.1.0 · portfolio demo',
+  powerNames: {
+    line: 'Seam Rift',
+    burst: 'Geode Burst',
+    prism: 'Opal Prism',
+    supernova: 'Supernova',
+  },
+  comboLabels: {},
+  event: {
+    idPrefix: 'mine-rush',
+    name: 'Mine Rush',
+    tagline: 'Clear chambers for personal milestones · soft league for flavour',
+    milestones: [
+      { at: 3, label: 'First seam', essence: 20, shards: 5 },
+      { at: 8, label: 'Deep cut', essence: 35, shards: 10 },
+      { at: 15, label: 'Gallery clear', essence: 50, shards: 15 },
+      { at: 25, label: 'Vault push', essence: 80, shards: 25 },
+    ],
+    league: ['Crystal Elite', 'Vein Patrol', 'Prospectors'],
+  },
+  placeCeremony: {
+    webm: 'cavern/place.webm',
+    mp4: 'cavern/place.mp4',
+    caption: 'Placed in the mine',
+  },
 };
