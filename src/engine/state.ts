@@ -59,6 +59,11 @@ export interface SessionState {
 
   counters: SessionCounters;
   objectives: ObjectiveProgress[];
+  /**
+   * Once true, the sugar-crush win flourish has already run for this session.
+   * Prevents re-entry if end-of-level logic is invoked more than once.
+   */
+  winFlourishPlayed: boolean;
 }
 
 export const newCounters = (): SessionCounters => ({

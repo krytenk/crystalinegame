@@ -34,6 +34,7 @@ import {
   makeSupernova,
   type IdAllocator,
 } from './tile';
+import { hasAnyMatch } from './match';
 import {
   SCORE,
   type Cell,
@@ -431,6 +432,132 @@ export const triggerSpecial = (
   if (!piece || !isPowerCrystal(piece)) return [];
   const other: Piece = partner ?? { id: -1, kind: 'crystal', color: piece.color };
   return triggerPowerSwap(session, at, piece, at, other);
+};
+
+const POWER_RANK: Record<string, number> = {
+  supernova: 4,
+  prism: 3,
+  burst: 2,
+  line: 1,
+};
+
+const listPowerCoords = (session: SessionState): Coord[] => {
+  const out: Coord[] = [];
+  session.grid.forEach((cell, coord) => {
+    if (cell.playable && isPowerCrystal(cell.piece)) out.push(coord);
+  });
+  out.sort((a, b) => {
+    const pa = session.grid.at(a.x, a.y).piece;
+    const pb = session.grid.at(b.x, b.y).piece;
+    return (POWER_RANK[pb?.kind ?? ''] ?? 0) - (POWER_RANK[pa?.kind ?? ''] ?? 0);
+  });
+  return out;
+};
+
+const listCrystalCoords = (session: SessionState): Coord[] => {
+  const out: Coord[] = [];
+  session.grid.forEach((cell, coord) => {
+    if (cell.playable && cell.piece?.kind === 'crystal' && cell.crust === 0) out.push(coord);
+  });
+  return out;
+};
+
+/**
+ * Victory sugar-crush: leftover moves become free specials, every power gem
+ * auto-detonates, and the board keeps cascading so the clear feels like a reward.
+ * Pure model — UI animates the event stream.
+ */
+export const resolveWinFlourish = (session: SessionState): GameEvent[] => {
+  const events: GameEvent[] = [];
+  const leftover = Math.max(0, session.movesLeft);
+  const convert = Math.min(leftover, 12);
+
+  if (leftover > 0) {
+    session.movesLeft = 0;
+    events.push({ t: 'movesChanged', left: 0 });
+    // Cash leftover moves into score so the flourish pays off on the results screen
+    const moveBonus = leftover * 200;
+    session.score += moveBonus;
+    events.push({ t: 'scoreChanged', score: session.score, delta: moveBonus });
+  }
+
+  // Forge free power gems equal to leftover moves (capped)
+  const crystals = listCrystalCoords(session);
+  let forged = 0;
+  for (let i = 0; i < convert; i++) {
+    if (crystals.length === 0) break;
+    const pick = session.rng.int(crystals.length);
+    const at = crystals.splice(pick, 1)[0] as Coord;
+    const roll = session.rng.next();
+    const piece =
+      roll < 0.12
+        ? makeSupernova(session.ids)
+        : roll < 0.32
+          ? makePrism(session.ids)
+          : roll < 0.62
+            ? makeBurst(session.ids, session.level.colors[session.rng.int(session.level.colors.length)] ?? 'ember')
+            : makeLine(
+                session.ids,
+                session.level.colors[session.rng.int(session.level.colors.length)] ?? 'ember',
+                session.rng.chance(0.5) ? 'h' : 'v',
+              );
+    session.grid.at(at.x, at.y).piece = piece;
+    events.push({ t: 'spawnSpecial', at, piece });
+    forged += 1;
+  }
+
+  events.push({ t: 'winFlourish', leftoverMoves: leftover, specialsForged: forged });
+
+  // Auto-claim any Living Cores still on the board
+  const cores: Coord[] = [];
+  session.grid.forEach((cell, coord) => {
+    if (cell.piece?.kind === 'core') cores.push(coord);
+  });
+  for (const at of cores) {
+    events.push(...claimLivingCore(session, at));
+  }
+
+  // Detonate powers one-by-one so the animator can stage each blast + drop
+  let safety = 0;
+  while (safety++ < 18) {
+    const powers = listPowerCoords(session);
+    if (powers.length === 0) break;
+    const at = powers[0] as Coord;
+    const piece = session.grid.at(at.x, at.y).piece;
+    // Give prisms a random colour partner so they wipe a full colour set
+    const partnerColor =
+      session.level.colors[session.rng.int(Math.max(1, session.level.colors.length))] ?? 'ember';
+    const partner: Piece = {
+      id: -1,
+      kind: 'crystal',
+      color: piece?.color ?? partnerColor,
+    };
+    events.push(...triggerSpecial(session, at, partner));
+  }
+
+  // Sweep any residual colour matches from the last gravity pass
+  if (hasAnyMatch(session.grid)) {
+    events.push(...resolveCascades(session, []));
+  }
+
+  // Final leftover specials (rare — forged during last cascade)
+  safety = 0;
+  while (safety++ < 6) {
+    const powers = listPowerCoords(session);
+    if (powers.length === 0) break;
+    const at = powers[0] as Coord;
+    const partnerColor =
+      session.level.colors[session.rng.int(Math.max(1, session.level.colors.length))] ?? 'ember';
+    events.push(
+      ...triggerSpecial(session, at, {
+        id: -1,
+        kind: 'crystal',
+        color: partnerColor,
+      }),
+    );
+  }
+
+  return events;
 };
 
 /**

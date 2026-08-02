@@ -160,6 +160,11 @@ export class AudioDirector {
             this.synth.clear(ev.steps, 5);
           }
           break;
+        case 'winFlourish':
+          this.samples.play('whooshCinematic', { gain: 0.2, rate: 1.05 });
+          this.synth.clear(4, 6);
+          this.synth.special('supernova');
+          break;
         case 'levelEnded':
           if (ev.status === 'won') {
             this.samples.play('whooshCinematic', { gain: 0.22, rate: 1 });

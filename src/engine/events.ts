@@ -116,6 +116,15 @@ export type GameEvent =
   // -- session ------------------------------------------------------------
   | { readonly t: 'scoreChanged'; readonly score: number; readonly delta: number }
   | { readonly t: 'objectives'; readonly progress: readonly ObjectiveProgress[] }
+  /**
+   * Goal met — leftover moves convert to free specials and the board keeps
+   * cascading/exploding as a victory reward (sugar-crush style).
+   */
+  | {
+      readonly t: 'winFlourish';
+      readonly leftoverMoves: number;
+      readonly specialsForged: number;
+    }
   | {
       readonly t: 'levelEnded';
       readonly status: Exclude<LevelStatus, 'playing'>;

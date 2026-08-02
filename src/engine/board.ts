@@ -19,7 +19,12 @@ import {
   refreshObjectives,
   starsFromScore,
 } from './objectives';
-import { claimLivingCore, resolveCascades, triggerPowerSwap } from './resolve';
+import {
+  claimLivingCore,
+  resolveCascades,
+  resolveWinFlourish,
+  triggerPowerSwap,
+} from './resolve';
 import { createRng } from './rng';
 import {
   conveyorShiftRow,
@@ -145,11 +150,20 @@ const endIfNeeded = (s: SessionState, events: GameEvent[]): void => {
   }
 
   if (allObjectivesMet(s.objectives)) {
+    // Sugar-crush victory: leftover moves → free specials, powers auto-fire,
+    // board keeps cascading before we freeze the session as won.
+    if (!s.winFlourishPlayed) {
+      s.winFlourishPlayed = true;
+      events.push(...resolveWinFlourish(s));
+      s.objectives = refreshObjectives(s);
+      events.push({ t: 'objectives', progress: s.objectives });
+    }
     s.status = 'won';
     s.endReason = 'objectivesMet';
+    // Moves already cashed into score during the flourish; stars from final score.
     s.stars = starsFromScore(s.score, s.level.stars, {
       won: true,
-      movesLeft: s.movesLeft,
+      movesLeft: 0,
     });
     events.push({
       t: 'levelEnded',
@@ -300,6 +314,7 @@ export const createSession = (level: LevelDef, seed: number, ddaScalar = 0): Ses
     table,
     counters,
     objectives: [],
+    winFlourishPlayed: false,
   };
 
   fillOpening(state);

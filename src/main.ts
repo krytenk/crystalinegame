@@ -1162,6 +1162,10 @@ function bindInput(): void {
             pushToast(msg, '#ffe9a8', 2000);
             juice.powerBanner((L('livingCore', 'Living Core') + '!').toUpperCase());
           }
+          const ended = events.find((ev) => ev.t === 'levelEnded');
+          if (ended && ended.t === 'levelEnded') {
+            scheduleFinishAfterBoard(ended.status, ended.score, ended.stars, ended.reason);
+          }
           renderOverlay();
           return;
         }
@@ -1179,10 +1183,7 @@ function bindInput(): void {
           boardAnim.play(events, app.session.snapshot(), performance.now());
           const ended = events.find((ev) => ev.t === 'levelEnded');
           if (ended && ended.t === 'levelEnded') {
-            window.setTimeout(
-              () => finishLevel(ended.status, ended.score, ended.stars, ended.reason),
-              400,
-            );
+            scheduleFinishAfterBoard(ended.status, ended.score, ended.stars, ended.reason);
           }
           pushToast('Pickaxe!', '#ffd679');
         } else {
@@ -1235,11 +1236,34 @@ function doSwap(a: Coord, b: Coord): void {
 
   const ended = events.find((ev) => ev.t === 'levelEnded');
   if (ended && ended.t === 'levelEnded') {
-    const wait = Math.max(0, Math.min(900, boardAnim.busy ? 550 : 0));
-    window.setTimeout(() => {
-      finishLevel(ended.status, ended.score, ended.stars, ended.reason);
-    }, wait);
+    scheduleFinishAfterBoard(ended.status, ended.score, ended.stars, ended.reason);
   }
+}
+
+/**
+ * Wait for the board animator (and win sugar-crush) to settle before results.
+ * Wins can carry long cascade event streams — poll until idle, with a hard cap.
+ */
+function scheduleFinishAfterBoard(
+  status: 'won' | 'lost',
+  score: number,
+  stars: number,
+  reason?: 'objectivesMet' | 'outOfMoves' | 'bombExpired',
+): void {
+  const born = performance.now();
+  // Wins with flourish need longer; losses can flip faster
+  const minWait = status === 'won' ? 700 : 350;
+  const maxWait = status === 'won' ? 9000 : 1400;
+
+  const tryFinish = (): void => {
+    const age = performance.now() - born;
+    if (age < minWait || (boardAnim.busy && age < maxWait)) {
+      window.setTimeout(tryFinish, 80);
+      return;
+    }
+    finishLevel(status, score, stars, reason);
+  };
+  window.setTimeout(tryFinish, minWait);
 }
 
 /** Fire escalating visual rewards + juice for power crystals and combos. */
@@ -1271,6 +1295,32 @@ function playMatchVfx(events: readonly GameEvent[]): void {
       juice.shimmerBoard('rgba(255, 210, 100, 1)', 0.55, 420);
       haptic('relic');
       pushToast(`Artifact secured! ${ev.total}`, '#ffd679', 1400);
+    } else if (ev.t === 'winFlourish') {
+      // Sugar-crush victory banner — leftover moves become free fireworks
+      juice.powerBanner(
+        ev.leftoverMoves > 0
+          ? `BONUS ×${ev.leftoverMoves}!`
+          : 'VICTORY CASCADE!',
+      );
+      juice.shimmerBoard('rgba(255, 230, 140, 1)', 0.95, 900);
+      juice.screenFlash('rgba(255, 240, 180, 0.65)', 480, 0.5);
+      juice.ring(
+        canvasView.logicalWidth / 2,
+        canvasView.logicalHeight * 0.48,
+        '#ffd24a',
+        260,
+        900,
+      );
+      haptic('win');
+      if (ev.specialsForged > 0) {
+        pushToast(
+          `${ev.specialsForged} free power${ev.specialsForged === 1 ? '' : 's'}!`,
+          '#ffe9a8',
+          1800,
+        );
+      } else {
+        pushToast('Victory cascade!', '#ffe9a8', 1600);
+      }
     } else if (ev.t === 'match') {
       const tier = tierFromMatch(ev.shape, ev.cells.length);
       vfx.playAtCells(tier, ev.cells, cellToLogical);
