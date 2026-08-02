@@ -2046,10 +2046,18 @@ export function injectStyles(): void {
       box-shadow: none;
     }
     .play-dock-float {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
       background: transparent !important;
       border: none !important;
       box-shadow: none !important;
-      padding: 0 20px max(12px, env(safe-area-inset-bottom, 0px));
+      /* Sit in the reserved tool band under the board (~11% of stage) */
+      padding: 0 18px max(14px, env(safe-area-inset-bottom, 0px));
+      margin: 0;
+      z-index: 12;
+      pointer-events: none; /* only children receive taps */
     }
     .play-dock-tools {
       display: flex;
@@ -2064,6 +2072,7 @@ export function injectStyles(): void {
       align-items: flex-end;
       justify-content: space-between;
       gap: 18px;
+      pointer-events: auto;
     }
     .play-dock .play-tool {
       flex: 1;
@@ -2087,9 +2096,9 @@ export function injectStyles(): void {
     }
     .play-dock .play-tool-float {
       flex: 0 0 auto;
-      width: 72px;
-      min-height: 76px;
-      border-radius: 20px;
+      width: 64px;
+      min-height: 68px;
+      border-radius: 18px;
       background:
         radial-gradient(circle at 40% 18%, rgba(255, 230, 160, 0.28), transparent 50%),
         linear-gradient(180deg, rgba(48, 34, 88, 0.92), rgba(14, 10, 30, 0.94));
@@ -2107,8 +2116,8 @@ export function injectStyles(): void {
       pointer-events: none;
     }
     .play-dock .play-tool-float .play-tool-img {
-      width: 44px;
-      height: 44px;
+      width: 38px;
+      height: 38px;
     }
     .play-dock .play-tool-art .play-tool-count {
       font-family: var(--font-display);
@@ -2140,14 +2149,15 @@ export function injectStyles(): void {
       letter-spacing: 0.02em;
     }
     .play-dock .play-pause-float {
-      width: 64px;
-      min-height: 64px;
+      width: 58px;
+      min-height: 58px;
       border-radius: 50%;
-      font-size: 1.15rem;
+      font-size: 1.05rem;
       padding: 0;
       display: flex;
       align-items: center;
       justify-content: center;
+      pointer-events: auto;
       background:
         radial-gradient(circle at 35% 25%, rgba(255, 230, 160, 0.35), transparent 50%),
         linear-gradient(180deg, #5a4090, #241848);

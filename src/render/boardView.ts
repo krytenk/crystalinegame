@@ -44,28 +44,39 @@ export class BoardView {
 
   /**
    * Fit board into the play area of the logical canvas.
-   * HUD sits above (~0–170); action bar below (~bottom 90).
-   * We use as much of the middle as possible so gems stay large.
+   * Free-floating top HUD + bottom tool buttons must never cover playable cells.
    */
   relayout(cols: number, rows: number): void {
     // Tighter side pad on small boards so gems fill the phone stage
     const padX = cols <= 6 ? 14 : cols <= 7 ? 16 : 20;
-    // Free-floating HUD (no top panel box) + floating tool buttons below board
-    const top = 148;
-    const bottom = LOGICAL_HEIGHT - 100;
+    // Match HTML floating tools (~76px) + safe gap + bezel bleed
+    const PLAY_HUD_TOP = 150;
+    const PLAY_TOOL_RESERVE = 148;
+    const BEZEL_BLEED = 28;
+    const top = PLAY_HUD_TOP;
+    const bottom = LOGICAL_HEIGHT - PLAY_TOOL_RESERVE;
     const availW = LOGICAL_WIDTH - padX * 2;
-    const availH = bottom - top;
+    const availH = Math.max(1, bottom - top);
     // Prefer large cells; floor but never smaller than 1
     let cell = Math.max(1, Math.floor(Math.min(availW / cols, availH / rows)));
-    // Soft cap so 6×6 does not become comically huge; still clearly larger than 9×9
-    const softMax = cols * rows <= 36 ? 108 : cols * rows <= 49 ? 96 : 999;
+    // Soft cap so early boards stay big but still clear the tool zone
+    const softMax = cols * rows <= 36 ? 100 : cols * rows <= 49 ? 90 : 84;
     cell = Math.min(cell, softMax);
+    // Ensure full board + bezel fits in [top, bottom]
+    const maxCellByH = Math.floor((availH - BEZEL_BLEED) / rows);
+    const maxCellByW = Math.floor(availW / cols);
+    cell = Math.max(1, Math.min(cell, maxCellByH, maxCellByW));
+
     const boardW = cell * cols;
     const boardH = cell * rows;
+    // Center in the play band, then clamp so bottom edge clears the tool buttons
+    let originY = top + Math.floor((availH - boardH) * 0.28);
+    const maxOriginY = bottom - boardH - BEZEL_BLEED;
+    originY = Math.max(top, Math.min(originY, maxOriginY));
+
     this.layout = {
       originX: Math.floor((LOGICAL_WIDTH - boardW) / 2),
-      // Bias slightly upward so the board sits under the HUD, not the action bar
-      originY: top + Math.floor((availH - boardH) * 0.35),
+      originY,
       cell,
       width: cols,
       height: rows,
