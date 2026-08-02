@@ -873,6 +873,65 @@ export function injectStyles(): void {
         inset 0 2px 0 rgba(255,255,255,0.35);
       transform: scale(1.06);
     }
+    .level-node.boss {
+      border-color: #ff6a7a;
+      background:
+        radial-gradient(circle at 32% 28%, rgba(255, 180, 120, 0.55), transparent 42%),
+        radial-gradient(circle at 70% 75%, rgba(160, 20, 80, 0.55), transparent 50%),
+        linear-gradient(160deg, #8a2040, #401028 55%, #200818);
+      box-shadow:
+        0 5px 0 #401018,
+        0 0 16px rgba(255, 80, 100, 0.35),
+        inset 0 2px 0 rgba(255,255,255,0.2);
+    }
+    .level-node.boss.current {
+      border-color: #ffd24a;
+      box-shadow:
+        0 5px 0 #8a6010,
+        0 0 0 3px rgba(255, 100, 120, 0.5),
+        0 0 24px rgba(255, 120, 80, 0.45),
+        inset 0 2px 0 rgba(255,255,255,0.3);
+    }
+    .level-boss-tag {
+      position: absolute;
+      top: -6px;
+      right: -4px;
+      font-size: 0.48rem;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      padding: 2px 5px;
+      border-radius: 6px;
+      background: linear-gradient(180deg, #ff6a7a, #c02040);
+      color: #fff8f0;
+      box-shadow: 0 2px 0 #601018;
+      font-family: var(--font-body);
+    }
+    .level-banner.boss {
+      box-shadow: 0 0 0 2px rgba(255, 100, 120, 0.45), 0 12px 28px rgba(0,0,0,0.45);
+    }
+    .boss-callout {
+      margin: 0 0 12px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background:
+        linear-gradient(135deg, rgba(120, 30, 50, 0.55), transparent 55%),
+        linear-gradient(180deg, rgba(50, 20, 40, 0.95), rgba(16, 8, 20, 0.98));
+      border: 2px solid rgba(255, 120, 140, 0.45);
+      box-shadow: 0 3px 0 rgba(0,0,0,0.35);
+    }
+    .boss-callout-k {
+      font-size: 0.68rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      color: #ff9aaa;
+      margin-bottom: 4px;
+    }
+    .boss-callout-v {
+      font-size: 0.86rem;
+      font-weight: 600;
+      line-height: 1.35;
+      color: rgba(255, 240, 245, 0.92);
+    }
     .level-node:active:not(.locked) { transform: translateY(3px) scale(0.98); }
     .sku {
       display: flex; justify-content: space-between; align-items: center;

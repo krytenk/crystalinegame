@@ -1,23 +1,23 @@
 {
   "id": 36,
   "name": "Twin Charge",
-  "width": 8,
-  "height": 8,
-  "moves": 22,
+  "width": 7,
+  "height": 7,
+  "moves": 18,
   "objectives": [
     {
       "kind": "defuse",
-      "target": 4
+      "target": 3
     },
     {
       "kind": "crust",
-      "target": 28
+      "target": 18
     }
   ],
   "stars": [
-    4200,
-    6400,
-    9200
+    4880,
+    7564,
+    11224
   ],
   "colors": [
     "ember",
@@ -28,14 +28,14 @@
     "void"
   ],
   "layout": [
-    "###..###",
-    "#.1111.#",
-    "#B1111B#",
-    ".111111.",
-    ".111111.",
-    "#B1111B#",
-    "#.1111.#",
-    "###..###"
+    "#B.2..#",
+    "..222..",
+    ".22322.",
+    "B23332.",
+    "..232..",
+    "...2.B.",
+    "#.....#"
   ],
-  "bombFuse": 12
+  "boss": false,
+  "bombFuse": 4
 }

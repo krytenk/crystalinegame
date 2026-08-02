@@ -165,6 +165,17 @@ function validate(file: string, raw: unknown): LevelDef {
     fail('layout places bombs but no "bombFuse" is set');
   }
 
+  const boss = raw['boss'] === true;
+
+  // Board-size policy: readable big gems — 7×7 max normally; bosses may use 8×7.
+  if (boss) {
+    if (width > 8 || height > 7) {
+      fail('boss boards must be at most 8×7');
+    }
+  } else if (width > 7 || height > 7) {
+    fail('non-boss boards must be at most 7×7 (big-gem curve)');
+  }
+
   return {
     id,
     name,
@@ -177,6 +188,7 @@ function validate(file: string, raw: unknown): LevelDef {
     ...(layout ? { layout } : {}),
     ...(shadowPeriod !== undefined ? { shadowPeriod } : {}),
     ...(bombFuse !== undefined ? { bombFuse } : {}),
+    ...(boss ? { boss: true } : {}),
   };
 }
 
@@ -208,4 +220,15 @@ export const getLevel = (id: number): LevelDef => {
  * free-to-play title applies economic pressure, and where the Publisher Dashboard
  * expects to see conversion events cluster. Documented in docs/ECONOMY.md.
  */
-export const PRESSURE_POINTS: readonly number[] = [8, 15, 22, 28, 30, 35, 40];
+export const PRESSURE_POINTS: readonly number[] = [8, 15, 20, 25, 30, 35, 40];
+
+/** Chapter / arc bosses — flagged in JSON; also listed here for UI helpers. */
+export const BOSS_LEVELS: readonly number[] = [10, 15, 20, 25, 30, 35, 40];
+
+export const isBossLevel = (id: number): boolean => {
+  try {
+    return getLevel(id).boss === true;
+  } catch {
+    return BOSS_LEVELS.includes(id);
+  }
+};

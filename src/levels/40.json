@@ -1,28 +1,50 @@
 {
   "id": 40,
   "name": "Heart of the Spire",
-  "width": 9,
-  "height": 9,
-  "moves": 26,
+  "width": 8,
+  "height": 7,
+  "moves": 22,
   "objectives": [
-    { "kind": "crust", "target": 31 },
-    { "kind": "defuse", "target": 6 },
-    { "kind": "collect", "target": 3 },
-    { "kind": "contain", "target": 18 }
+    {
+      "kind": "crust",
+      "target": 18
+    },
+    {
+      "kind": "defuse",
+      "target": 4
+    },
+    {
+      "kind": "collect",
+      "target": 3
+    },
+    {
+      "kind": "contain",
+      "target": 14
+    }
   ],
-  "stars": [5200, 7800, 11200],
-  "colors": ["ember", "aurum", "solar", "verdant", "tidal", "void"],
+  "stars": [
+    5200,
+    8060,
+    11959
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
   "layout": [
-    "##.....##",
-    "#..B.B..#",
-    "..11111..",
-    ".1122211.",
-    "B1233321B",
-    ".1122211.",
-    "..11111..",
-    "#..B.B..#",
-    "##.....##"
+    "###B.###",
+    "##.22.##",
+    "#B2332.#",
+    ".233332.",
+    "#B2332B#",
+    "##.22.##",
+    "###..###"
   ],
-  "shadowPeriod": 4,
-  "bombFuse": 14
+  "boss": true,
+  "bombFuse": 3,
+  "shadowPeriod": 2
 }

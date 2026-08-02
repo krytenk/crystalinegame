@@ -1,36 +1,41 @@
 {
   "id": 25,
-  "name": "First Dark",
+  "name": "Nightfall Gate",
   "width": 8,
-  "height": 8,
-  "moves": 26,
+  "height": 7,
+  "moves": 22,
   "objectives": [
     {
       "kind": "contain",
-      "target": 10
+      "target": 12
+    },
+    {
+      "kind": "score",
+      "target": 4000
     }
   ],
   "stars": [
-    2600,
+    3400,
     4000,
-    5900
+    5800
   ],
   "colors": [
     "ember",
     "aurum",
     "solar",
     "verdant",
-    "tidal"
+    "tidal",
+    "void"
   ],
-  "shadowPeriod": 5,
   "layout": [
-    "##....##",
     "#......#",
     "........",
     "........",
     "........",
     "........",
-    "#......#",
-    "##....##"
-  ]
+    "........",
+    "#......#"
+  ],
+  "boss": true,
+  "shadowPeriod": 3
 }

@@ -1,31 +1,31 @@
 {
   "id": 30,
   "name": "The Living Core",
-  "width": 9,
-  "height": 9,
-  "moves": 24,
+  "width": 8,
+  "height": 7,
+  "moves": 22,
   "objectives": [
     {
       "kind": "crust",
-      "target": 21
+      "target": 16
     },
     {
       "kind": "defuse",
-      "target": 4
+      "target": 3
     },
     {
       "kind": "collect",
-      "target": 4
+      "target": 3
     },
     {
       "kind": "contain",
-      "target": 20
+      "target": 14
     }
   ],
   "stars": [
-    3900,
-    6000,
-    8800
+    4400,
+    6820,
+    10120
   ],
   "colors": [
     "ember",
@@ -36,16 +36,15 @@
     "void"
   ],
   "layout": [
-    "##.....##",
-    "##..B..##",
-    "...111...",
-    "..11211..",
-    ".B12321B.",
-    "..11211..",
-    "...111...",
-    "##..B..##",
-    "##.....##"
+    "###B.###",
+    "##.22.##",
+    "#.2332.#",
+    "B233332.",
+    "#.2332.#",
+    "##..B.##",
+    "###..###"
   ],
-  "shadowPeriod": 4,
-  "bombFuse": 14
+  "boss": true,
+  "bombFuse": 4,
+  "shadowPeriod": 3
 }

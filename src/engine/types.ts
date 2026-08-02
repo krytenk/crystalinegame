@@ -221,6 +221,11 @@ export interface LevelDef {
   readonly bombFuse?: number;
   /** Base spawn weights per colour before DDA modulation. Defaults to uniform. */
   readonly spawnWeights?: Partial<Record<CrystalColor, number>>;
+  /**
+   * Chapter / mid-arc boss. Larger silhouette (up to 8×7 after L20), multi-goal,
+   * map/prelevel fanfare. Difficulty is constraints — not tiny dense boards.
+   */
+  readonly boss?: boolean;
 }
 
 // ---------------------------------------------------------------------------

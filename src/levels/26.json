@@ -1,36 +1,37 @@
 {
   "id": 26,
   "name": "The Spreading",
-  "width": 8,
-  "height": 8,
-  "moves": 24,
+  "width": 7,
+  "height": 7,
+  "moves": 20,
   "objectives": [
     {
       "kind": "contain",
-      "target": 14
+      "target": 12
     }
   ],
   "stars": [
-    2500,
-    3900,
-    5600
+    4080,
+    6324,
+    9384
   ],
   "colors": [
     "ember",
     "aurum",
     "solar",
     "verdant",
-    "tidal"
+    "tidal",
+    "void"
   ],
-  "shadowPeriod": 4,
   "layout": [
-    "###..###",
-    "##....##",
-    "#......#",
-    "...##...",
-    "...##...",
-    "#......#",
-    "##....##",
-    "###..###"
-  ]
+    "###.###",
+    "##...##",
+    "#.....#",
+    ".......",
+    "#.....#",
+    "##...##",
+    "###.###"
+  ],
+  "boss": false,
+  "shadowPeriod": 3
 }

@@ -48,7 +48,7 @@ import {
   seedFirstLightAha,
   type TutorialPhase,
 } from '@engine/tutorial';
-import { getLevel, LEVEL_COUNT, LEVELS } from './levels';
+import { getLevel, isBossLevel, LEVEL_COUNT, LEVELS } from './levels';
 import {
   COMPANION,
   companionLine,
@@ -2629,11 +2629,15 @@ function renderMap(): void {
       const locked = lvl.id > snap.progress.highestUnlocked;
       const stars = starCountForLevel(snap.progress.stars, lvl.id);
       const isNext = lvl.id === nextPlayId && !locked;
+      const boss = isBossLevel(lvl.id);
       const starText = stars > 0 ? '★'.repeat(stars) : locked ? '🔒' : '·';
       const kids: (string | Node)[] = [
         `${lvl.id}`,
         el('div', { class: 'level-stars' }, [starText]),
       ];
+      if (boss) {
+        kids.push(el('div', { class: 'level-boss-tag' }, ['BOSS']));
+      }
       if (isNext) {
         kids.push(el('div', { class: 'level-you' }, ['YOU']));
       }
@@ -2643,10 +2647,11 @@ function renderMap(): void {
       const b = el(
         'button',
         {
-          class: `level-node${locked ? ' locked' : ''}${lvl.id === app.levelId ? ' current' : ''}${stars > 0 ? ' cleared' : ''}${isNext ? ' next-play' : ''}${levelHasConveyor(lvl.id) ? ' has-belt' : ''}`,
+          class: `level-node${locked ? ' locked' : ''}${lvl.id === app.levelId ? ' current' : ''}${stars > 0 ? ' cleared' : ''}${isNext ? ' next-play' : ''}${levelHasConveyor(lvl.id) ? ' has-belt' : ''}${boss ? ' boss' : ''}`,
           type: 'button',
           disabled: locked ? true : undefined,
           title:
+            (boss ? 'Boss · ' : '') +
             (stars > 0 ? `${stars} star${stars === 1 ? '' : 's'}` : locked ? 'Locked' : 'Play') +
             (levelHasConveyor(lvl.id) ? ' · ' + L('conveyorActive', 'Conveyor active').toLowerCase() : ''),
         },
@@ -2848,7 +2853,8 @@ function renderPrelevel(): void {
         : level.id <= 30
           ? `${uiRoot}ui/prelevel_deep.webp`
           : `${uiRoot}ui/prelevel_deep.webp`;
-  const banner = el('div', { class: `level-banner depth-${ch.depth}` }, [
+  const boss = level.boss === true || isBossLevel(level.id);
+  const banner = el('div', { class: `level-banner depth-${ch.depth}${boss ? ' boss' : ''}` }, [
     el('img', {
       class: 'level-banner-art',
       src: assetUrl(bannerArt),
@@ -2859,10 +2865,14 @@ function renderPrelevel(): void {
     el('div', { class: 'level-banner-content' }, [
       el('div', { class: 'level-banner-num' }, [`${level.id}`]),
       el('div', { class: 'level-banner-body' }, [
-        el('div', { class: 'level-banner-chapter' }, [`${ch.roman} · ${ch.title}`]),
+        el('div', { class: 'level-banner-chapter' }, [
+          boss ? '⚔ BOSS · ' : '',
+          `${ch.roman} · ${ch.title}`,
+        ]),
         el('div', { class: 'level-banner-name' }, [level.name]),
         el('div', { class: 'level-banner-meta' }, [
           `${level.moves} moves  ·  ${level.width}×${level.height}`,
+          boss ? '  ·  multi-threat' : '',
         ]),
         el('div', { class: 'level-banner-stars' }, [
           best > 0 ? '★'.repeat(best) + '☆'.repeat(3 - best) : '☆☆☆  best',
@@ -2891,15 +2901,25 @@ function renderPrelevel(): void {
   ]);
 
   // Soft retention: tie this dive to cavern progress
-  const starNudge =
-    best < 3
+  const starNudge = boss
+    ? best < 3
+      ? 'Boss chamber — stacked goals, tight moves, bigger reward on ★★★'
+      : 'Boss cleared · still farm ' + theme().softCurrencyName.toLowerCase() + ' on re-runs'
+    : best < 3
       ? best === 0
         ? 'First clear mints ' + theme().softCurrencyName.toLowerCase() + ' · ★★★ pays discovery bonus'
         : `Best ★${best} · push higher for more ${theme().softCurrencyName.toLowerCase()}`
       : '★★★ sealed · still farm ' + theme().softCurrencyName.toLowerCase() + ' on clears';
 
-  const wardenBeat: CompanionBeat =
-    level.id >= 31 ? 'coreSpire' : level.id >= 21 ? 'cavern' : 'title';
+  const wardenBeat: CompanionBeat = boss
+    ? level.id >= 30
+      ? 'coreSpire'
+      : 'cavern'
+    : level.id >= 31
+      ? 'coreSpire'
+      : level.id >= 21
+        ? 'cavern'
+        : 'title';
 
   const chips = el('div', { class: 'booster-row' }, [
     boosterChip(
@@ -2931,13 +2951,23 @@ function renderPrelevel(): void {
   ]);
 
   panel(
-    `Level ${level.id}`,
+    boss ? `Boss ${level.id}` : `Level ${level.id}`,
     [
       banner,
-      companionBubble(wardenBeat, level.id + best),
+      companionBubble(wardenBeat, level.id + best + (boss ? 100 : 0)),
+      ...(boss
+        ? [
+            el('div', { class: 'boss-callout' }, [
+              el('div', { class: 'boss-callout-k' }, ['BOSS CHAMBER']),
+              el('div', { class: 'boss-callout-v' }, [
+                'Clear every objective. Powers and cascades are your friends — leftover moves explode into a victory flourish.',
+              ]),
+            ]),
+          ]
+        : []),
       el('div', { class: 'goal-banner soft' }, [nextGoalHint(snap)]),
       essenceProgressBar(snap),
-      el('p', { class: 'hud-tip' }, ['Goals']),
+      el('p', { class: 'hud-tip' }, [boss ? 'Boss goals' : 'Goals']),
       goals,
       el('p', { class: 'hud-tip star-nudge' }, [starNudge]),
       ...(levelHasConveyor(level.id)

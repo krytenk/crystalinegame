@@ -1,36 +1,41 @@
 {
   "id": 20,
-  "name": "Countdown",
+  "name": "Fuse Tyrant",
   "width": 8,
-  "height": 8,
-  "moves": 22,
+  "height": 7,
+  "moves": 20,
   "objectives": [
     {
       "kind": "defuse",
       "target": 3
+    },
+    {
+      "kind": "score",
+      "target": 5000
     }
   ],
   "stars": [
-    2100,
-    3300,
-    4700
+    4250,
+    5000,
+    7250
   ],
   "colors": [
     "ember",
     "aurum",
     "solar",
     "verdant",
-    "tidal"
+    "tidal",
+    "void"
   ],
   "layout": [
-    "##....##",
-    "#......#",
-    ".B....B.",
+    "##B....#",
     "........",
     "....B...",
     "........",
-    "#......#",
-    "##....##"
+    ".....B..",
+    "........",
+    "##.....#"
   ],
-  "bombFuse": 12
+  "boss": true,
+  "bombFuse": 4
 }

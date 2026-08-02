@@ -1,9 +1,9 @@
 {
   "id": 35,
-  "name": "Night Vein",
+  "name": "Vein Warden",
   "width": 8,
-  "height": 8,
-  "moves": 24,
+  "height": 7,
+  "moves": 20,
   "objectives": [
     {
       "kind": "contain",
@@ -11,13 +11,17 @@
     },
     {
       "kind": "score",
-      "target": 3000
+      "target": 4500
+    },
+    {
+      "kind": "crust",
+      "target": 12
     }
   ],
   "stars": [
-    4000,
-    6000,
-    8600
+    3825,
+    4500,
+    6525
   ],
   "colors": [
     "ember",
@@ -27,15 +31,15 @@
     "tidal",
     "void"
   ],
-  "shadowPeriod": 4,
   "layout": [
     "###..###",
-    "#......#",
-    "#......#",
-    "........",
-    "........",
-    "#......#",
-    "#......#",
+    "##.22.##",
+    "##2332##",
+    "#.3333.#",
+    "##.33.##",
+    "##....##",
     "###..###"
-  ]
+  ],
+  "boss": true,
+  "shadowPeriod": 2
 }
