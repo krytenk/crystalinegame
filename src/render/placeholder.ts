@@ -528,28 +528,63 @@ export class PlaceholderAtlas {
     ctx.stroke(p);
   }
 
+  /** Classic black bomb with brass cap + spark fuse (fallback if atlas fails). */
   private paintBomb(ctx: CanvasRenderingContext2D): void {
+    // Soft ground glow
+    const glow = ctx.createRadialGradient(0, 0.12, 0.02, 0, 0.12, 0.48);
+    glow.addColorStop(0, 'rgba(255, 120, 40, 0.28)');
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.ellipse(0, 0.28, 0.36, 0.14, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Sphere body
     const body = new Path2D();
-    body.arc(0, 0.05, 0.37, 0, Math.PI * 2);
-    const g = ctx.createRadialGradient(-0.12, -0.08, 0.03, 0, 0.05, 0.42);
-    g.addColorStop(0, shade(NEUTRAL.bomb, 0.55));
-    g.addColorStop(1, shade(NEUTRAL.bomb, -0.55));
+    body.arc(0, 0.06, 0.36, 0, Math.PI * 2);
+    const g = ctx.createRadialGradient(-0.12, -0.1, 0.02, 0.04, 0.1, 0.42);
+    g.addColorStop(0, '#6a7088');
+    g.addColorStop(0.35, '#2a3048');
+    g.addColorStop(0.75, '#12161f');
+    g.addColorStop(1, '#05070c');
     ctx.fillStyle = g;
     ctx.fill(body);
-    ctx.lineWidth = 0.05;
-    ctx.strokeStyle = 'rgba(6,8,18,0.92)';
+    // Specular
+    const spec = ctx.createRadialGradient(-0.12, -0.08, 0, -0.1, -0.06, 0.18);
+    spec.addColorStop(0, 'rgba(255,255,255,0.55)');
+    spec.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = spec;
+    ctx.beginPath();
+    ctx.ellipse(-0.1, -0.06, 0.12, 0.08, -0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = 0.045;
+    ctx.strokeStyle = 'rgba(0,0,0,0.9)';
     ctx.stroke(body);
 
-    // Fuse. The live countdown digit is drawn by board.ts on top of this.
-    ctx.strokeStyle = '#c8a26a';
-    ctx.lineWidth = 0.05;
+    // Brass fuse collar
+    ctx.fillStyle = '#c9a227';
     ctx.beginPath();
-    ctx.moveTo(0.06, -0.28);
-    ctx.quadraticCurveTo(0.28, -0.38, 0.22, -0.46);
+    ctx.ellipse(0, -0.28, 0.1, 0.06, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#8a6010';
+    ctx.lineWidth = 0.025;
     ctx.stroke();
-    ctx.fillStyle = '#ffcf6b';
+
+    // Fuse cord + spark (countdown digit drawn by boardView)
+    ctx.strokeStyle = '#d4a86a';
+    ctx.lineWidth = 0.045;
+    ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.arc(0.22, -0.46, 0.055, 0, Math.PI * 2);
+    ctx.moveTo(0.02, -0.32);
+    ctx.quadraticCurveTo(0.18, -0.42, 0.2, -0.5);
+    ctx.stroke();
+    const spark = ctx.createRadialGradient(0.2, -0.5, 0, 0.2, -0.5, 0.1);
+    spark.addColorStop(0, '#fff6c8');
+    spark.addColorStop(0.4, '#ff9020');
+    spark.addColorStop(1, 'rgba(255,80,0,0)');
+    ctx.fillStyle = spark;
+    ctx.beginPath();
+    ctx.arc(0.2, -0.5, 0.1, 0, Math.PI * 2);
     ctx.fill();
   }
 

@@ -1999,8 +1999,45 @@ export function injectStyles(): void {
       padding: 14px 12px;
       min-height: 52px;
     }
+    .play-dock .play-tool-art {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      padding: 8px 10px 6px;
+      min-height: 72px;
+      background:
+        radial-gradient(circle at 40% 20%, rgba(255, 220, 140, 0.18), transparent 55%),
+        linear-gradient(180deg, rgba(50, 36, 90, 0.98), rgba(18, 12, 36, 0.99));
+      border: 2px solid rgba(201, 162, 39, 0.45);
+    }
+    .play-dock .play-tool-art .play-tool-img {
+      width: 40px;
+      height: 40px;
+      object-fit: contain;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));
+      pointer-events: none;
+    }
+    .play-dock .play-tool-art .play-tool-count {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 0.85rem;
+      color: #ffe9a8;
+      line-height: 1;
+      text-shadow: 0 1px 0 rgba(0,0,0,0.55);
+    }
+    .play-dock .play-tool-art.free .play-tool-count {
+      color: #7dffb0;
+    }
+    .play-dock .play-tool-art.is-disabled {
+      opacity: 0.42;
+      filter: grayscale(0.35);
+    }
     .play-dock .play-tool.armed {
       animation: nextPulse 1.2s ease-in-out infinite;
+      border-color: #ffe06a !important;
+      box-shadow: 0 0 16px rgba(255, 200, 80, 0.45);
     }
     .play-dock .play-quit {
       flex-shrink: 0;

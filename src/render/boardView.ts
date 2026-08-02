@@ -521,14 +521,19 @@ function drawPiece(
   }
 
   if (piece.kind === 'bomb' && piece.fuse !== undefined) {
-    ctx.fillStyle = '#fff';
-    ctx.font = `800 ${Math.floor(cell * 0.28)}px "Nunito",sans-serif`;
+    // Fuse countdown on the bomb body — hot when low
+    const hot = piece.fuse <= 2;
+    ctx.fillStyle = hot ? '#ff6a5a' : '#fff8e8';
+    ctx.font = `800 ${Math.floor(cell * 0.3)}px "Nunito",sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = 'rgba(0,0,0,0.65)';
-    ctx.strokeText(String(piece.fuse), cx, cy + cell * 0.08);
-    ctx.fillText(String(piece.fuse), cx, cy + cell * 0.08);
+    ctx.lineWidth = 3.5;
+    ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+    ctx.shadowColor = hot ? 'rgba(255, 80, 40, 0.85)' : 'rgba(0,0,0,0.4)';
+    ctx.shadowBlur = hot ? 10 : 0;
+    ctx.strokeText(String(piece.fuse), cx, cy + cell * 0.06);
+    ctx.fillText(String(piece.fuse), cx, cy + cell * 0.06);
+    ctx.shadowBlur = 0;
   }
   if (glyphs && piece.color) {
     atlas.draw(ctx, frameKey.glyph(piece.color), cx, cy, cell * 0.35, dprBucket);

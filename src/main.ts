@@ -693,11 +693,11 @@ function drawChrome(ctx: CanvasRenderingContext2D, now: number): void {
   ctx.fillStyle = '#fff6e8';
   ctx.fillText(hudWord, 32, 48);
 
-  drawIconChip(ctx, 32, 68, 'ui/icon_lives.webp', String(snap.lives.count), '#ff7a8a', body, 96);
-  drawIconChip(ctx, 140, 68, 'ui/icon_shards.webp', String(snap.wallet.shards), '#7ecbff', body, 108);
-  drawEssChip(ctx, 260, 68, snap.meta.essence, '#ffd24a', body, 124);
-
   if (app.screen === 'play' && app.session) {
+    // In-play HUD: lives + essence only (no shop credits/shards)
+    drawIconChip(ctx, 32, 68, 'ui/icon_lives.webp', String(snap.lives.count), '#ff7a8a', body, 96);
+    drawEssChip(ctx, 140, 68, snap.meta.essence, '#ffd24a', body, 124);
+
     const s = app.session.snapshot();
     const movesHot = s.movesLeft <= 5;
     if (s.movesLeft !== hudLastMoves) {
@@ -748,9 +748,14 @@ function drawChrome(ctx: CanvasRenderingContext2D, now: number): void {
       ctx.font = `800 14px ${body}`;
       ctx.fillText('TAP A GEM TO SMASH', 380, 128);
     } else {
-      drawObjectiveHud(ctx, s.objectives, 380, 104, body, now, reduceMotion);
+      // Goals as icon art along the top — no boxed pills
+      drawObjectiveHud(ctx, s.objectives, 380, 58, body, now, reduceMotion);
     }
   } else {
+    // Meta screens: full wallet chips
+    drawIconChip(ctx, 32, 68, 'ui/icon_lives.webp', String(snap.lives.count), '#ff7a8a', body, 96);
+    drawIconChip(ctx, 140, 68, 'ui/icon_shards.webp', String(snap.wallet.shards), '#7ecbff', body, 108);
+    drawEssChip(ctx, 260, 68, snap.meta.essence, '#ffd24a', body, 124);
     ctx.fillStyle = '#c4b6d8';
     ctx.font = `800 14px ${body}`;
     ctx.fillText('Match · Forge · Cascade · Build', 32, 132);
@@ -761,7 +766,10 @@ function drawChrome(ctx: CanvasRenderingContext2D, now: number): void {
   void now;
 }
 
-/** Compact objective pills with icon art + mini progress bars (in-level HUD). */
+/**
+ * In-level goals as JPG/webp icons + counts only — no framed boxes.
+ * Reads like a clean match-3 objective strip.
+ */
 function drawObjectiveHud(
   ctx: CanvasRenderingContext2D,
   objectives: readonly { kind: ObjectiveKind; current: number; target: number }[],
@@ -771,68 +779,52 @@ function drawObjectiveHud(
   now: number,
   reduceMotion: boolean,
 ): void {
+  const n = Math.max(1, objectives.length);
+  const slot = Math.min(78, Math.floor((700 - x0 - 12) / n));
   let x = x0;
-  const maxW = 700 - x0 - 16;
-  const pillW = Math.min(168, Math.floor(maxW / Math.max(1, objectives.length)) - 6);
   for (const o of objectives) {
     const done = o.current >= o.target;
-    const pct = Math.min(1, o.current / Math.max(1, o.target));
-    const accent = done ? '#4dde8a' : '#7ed0ff';
-    const glow = done && !reduceMotion ? 0.55 + 0.25 * Math.sin(now * 0.008) : 0.4;
-
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    roundRectPath(ctx, x, y0, pillW, 52, 12);
-    ctx.fill();
-    ctx.strokeStyle = accent;
-    ctx.globalAlpha = glow;
-    ctx.lineWidth = 1.8;
-    roundRectPath(ctx, x, y0, pillW, 52, 12);
-    ctx.stroke();
-    ctx.globalAlpha = 1;
-
-    // Goal icon (real art, not ASCII)
-    const icon = 28;
+    const accent = done ? '#4dde8a' : '#e8f4ff';
+    const icon = 48;
     const img = ensureGoalHudImg(o.kind);
-    if (img.complete && img.naturalWidth > 0) {
-      ctx.save();
-      ctx.beginPath();
-      roundRectPath(ctx, x + 6, y0 + 6, icon, icon, 8);
-      ctx.clip();
-      ctx.drawImage(img, x + 6, y0 + 6, icon, icon);
-      ctx.restore();
-      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-      ctx.lineWidth = 1;
-      roundRectPath(ctx, x + 6, y0 + 6, icon, icon, 8);
-      ctx.stroke();
-    }
+    const ix = x + Math.floor((slot - icon) / 2);
+    const iy = y0;
 
-    const textX = x + 6 + icon + 6;
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.font = `800 9px ${font}`;
-    ctx.textAlign = 'left';
-    const label = OBJECTIVE_LABEL[o.kind];
-    ctx.fillText(label.length > 11 ? label.slice(0, 10) + '…' : label, textX, y0 + 14);
-
-    ctx.fillStyle = done ? '#4dde8a' : '#e8f4ff';
-    ctx.font = `800 15px ${font}`;
-    ctx.fillText(done ? 'DONE' : `${o.current}/${o.target}`, textX, y0 + 32);
-
-    // Progress track
-    const trackX = x + 8;
-    const trackY = y0 + 40;
-    const trackW = pillW - 16;
-    ctx.fillStyle = 'rgba(255,255,255,0.12)';
-    roundRectPath(ctx, trackX, trackY, trackW, 5, 3);
+    // Soft ground glow under icon (not a box)
+    const pulse = done && !reduceMotion ? 0.65 + 0.2 * Math.sin(now * 0.008) : 0.45;
+    const glow = ctx.createRadialGradient(ix + icon / 2, iy + icon / 2, 2, ix + icon / 2, iy + icon / 2, icon * 0.7);
+    glow.addColorStop(0, done ? `rgba(80, 220, 140, ${0.35 * pulse})` : `rgba(255, 210, 100, ${0.22 * pulse})`);
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(ix + icon / 2, iy + icon / 2, icon * 0.7, 0, Math.PI * 2);
     ctx.fill();
-    if (pct > 0) {
-      ctx.fillStyle = accent;
-      roundRectPath(ctx, trackX, trackY, Math.max(4, trackW * pct), 5, 3);
+
+    if (img.complete && img.naturalWidth > 0) {
+      ctx.drawImage(img, ix, iy, icon, icon);
+    } else {
+      // Fallback until image loads
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      ctx.beginPath();
+      ctx.arc(ix + icon / 2, iy + icon / 2, icon * 0.35, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    x += pillW + 6;
-    if (x + 40 > 700) break;
+    // Count under the art
+    ctx.textAlign = 'center';
+    ctx.font = `800 15px ${font}`;
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(10, 6, 24, 0.85)';
+    const label = done ? '✓' : `${o.current}/${o.target}`;
+    const tx = x + slot / 2;
+    const ty = iy + icon + 16;
+    ctx.strokeText(label, tx, ty);
+    ctx.fillStyle = accent;
+    ctx.fillText(label, tx, ty);
+
+    x += slot;
   }
+  ctx.textAlign = 'left';
 }
 
 function drawStatBadge(
@@ -1889,11 +1881,41 @@ function renderOverlay(): void {
       snap.comfortOwned &&
       snap.boosters.reshuffle <= 0 &&
       !app.comfortReshuffleUsed;
-    const reshuffleLabel = comfortFree
-      ? '⟲ FREE'
-      : `⟲ ×${snap.boosters.reshuffle}`;
-    const reshuffleBtn = btn(
-      reshuffleLabel,
+
+    const toolBtn = (
+      iconSrc: string,
+      countLabel: string,
+      title: string,
+      onClick: () => void,
+      opts: { armed?: boolean; disabled?: boolean; free?: boolean } = {},
+    ): HTMLElement => {
+      const b = el(
+        'button',
+        {
+          class: `play-tool play-tool-art${opts.armed ? ' armed' : ''}${opts.disabled ? ' is-disabled' : ''}${opts.free ? ' free' : ''}`,
+          type: 'button',
+          title,
+          disabled: opts.disabled ? true : undefined,
+        },
+        [
+          el('img', {
+            class: 'play-tool-img',
+            src: assetUrl(iconSrc),
+            alt: '',
+            decoding: 'async',
+            draggable: 'false',
+          }),
+          el('span', { class: 'play-tool-count' }, [countLabel]),
+        ],
+      ) as HTMLButtonElement;
+      if (!opts.disabled) b.addEventListener('click', onClick);
+      return b;
+    };
+
+    const reshuffleBtn = toolBtn(
+      'ui/tools/reshuffle.webp',
+      comfortFree ? 'FREE' : `×${snap.boosters.reshuffle}`,
+      comfortFree ? 'Comfort Tools free reshuffle' : 'Reshuffle board',
       () => {
         if (!app.session) return;
         if (economy.consumeBooster('reshuffle').ok) {
@@ -1922,15 +1944,13 @@ function renderOverlay(): void {
           );
         }
       },
-      comfortFree ? 'gold' : 'secondary',
-      snap.boosters.reshuffle <= 0 && !comfortFree,
+      { disabled: snap.boosters.reshuffle <= 0 && !comfortFree, free: comfortFree },
     );
-    reshuffleBtn.title = comfortFree
-      ? 'Comfort Tools free reshuffle'
-      : 'Reshuffle board';
-    reshuffleBtn.classList.add('play-tool');
-    const pickBtn = btn(
-      app.pickaxeMode ? '✕' : `⛏ ×${snap.boosters.pickaxe}`,
+
+    const pickBtn = toolBtn(
+      'ui/tools/pickaxe.webp',
+      app.pickaxeMode ? 'ON' : `×${snap.boosters.pickaxe}`,
+      app.pickaxeMode ? 'Cancel pickaxe' : 'Pickaxe',
       () => {
         if (app.pickaxeMode) {
           app.pickaxeMode = false;
@@ -1946,12 +1966,12 @@ function renderOverlay(): void {
         haptic('special');
         renderOverlay();
       },
-      app.pickaxeMode ? 'gold' : 'secondary',
-      !app.pickaxeMode && snap.boosters.pickaxe <= 0,
+      {
+        armed: app.pickaxeMode,
+        disabled: !app.pickaxeMode && snap.boosters.pickaxe <= 0,
+      },
     );
-    pickBtn.title = app.pickaxeMode ? 'Cancel pickaxe' : 'Pickaxe';
-    pickBtn.classList.add('play-tool');
-    if (app.pickaxeMode) pickBtn.classList.add('armed');
+
     dock.append(
       el('div', { class: 'play-dock-tools' }, [pauseBtn, reshuffleBtn, pickBtn]),
     );
