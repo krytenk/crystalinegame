@@ -24,6 +24,12 @@ Mobile-first portrait (720×1280). Tap once for audio.
 
 Original **Grok Imagine** art under `public/themes/harbor/`. Baked via `python3 tools/bake_harbor.py`.
 
+## Content scale
+
+- Shared catalogue with Crystalline (**150** now; **launch target 300**; Phase 2 **301–600**)  
+- Story/chapter names are harbor-native (see `docs/CAMPAIGN_ARC.md`)  
+- 4 docks stages + placement art (stages 5–6 with Act I-C)
+
 ## Not shipping
 
 - Real IAP / ad SDKs  

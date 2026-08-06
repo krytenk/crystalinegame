@@ -1,0 +1,44 @@
+{
+  "id": 78,
+  "name": "Mixed Signal ζ",
+  "width": 7,
+  "height": 7,
+  "moves": 18,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 12
+    },
+    {
+      "kind": "defuse",
+      "target": 3
+    },
+    {
+      "kind": "collect",
+      "target": 3
+    }
+  ],
+  "stars": [
+    2300,
+    3600,
+    5300
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#B....#",
+    "...1...",
+    "..121B.",
+    ".12321.",
+    "..121..",
+    "...B...",
+    "#.....#"
+  ],
+  "bombFuse": 5
+}

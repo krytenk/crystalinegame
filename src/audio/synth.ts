@@ -446,6 +446,75 @@ export class Synth {
     this.noise({ start: t + 0.02, dur: 0.1, peak: 0.08, highpass: 2000 });
   }
 
+  /**
+   * Super Chest peak (Harbor) — wet body + tentacle plucks + chomp bloom.
+   * Longer than generic supernova so the limb choreography has a score.
+   */
+  superChest(): void {
+    const ctx = this.ensure();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    // Deep wet body
+    this.noise({ start: t, dur: 0.28, peak: 0.16, highpass: 80, lowpass: 900 });
+    this.tone(48, {
+      type: 'sine',
+      start: t,
+      dur: 0.55,
+      attack: 0.03,
+      peak: 0.3,
+      release: 0.48,
+    });
+    this.tone(72, {
+      type: 'triangle',
+      start: t + 0.02,
+      dur: 0.4,
+      attack: 0.02,
+      peak: 0.14,
+      release: 0.35,
+      filterFreq: 600,
+      filterType: 'lowpass',
+    });
+    // Tentacle plucks — staggered around the stereo field
+    const plucks = [196, 247, 294, 330, 392, 440, 523];
+    plucks.forEach((f, i) => {
+      this.tone(f, {
+        type: 'triangle',
+        start: t + 0.05 + i * 0.045,
+        dur: 0.18,
+        attack: 0.004,
+        peak: 0.11,
+        release: 0.14,
+        pan: Math.sin(i * 1.4) * 0.85,
+        filterFreq: 3200,
+      });
+      this.tone(f * 2.01, {
+        type: 'sine',
+        start: t + 0.06 + i * 0.045,
+        dur: 0.12,
+        attack: 0.003,
+        peak: 0.05,
+        release: 0.1,
+        pan: -Math.sin(i * 1.4) * 0.6,
+      });
+    });
+    // Chomp / treasure bloom mid-feast
+    this.noise({ start: t + 0.28, dur: 0.18, peak: 0.12, highpass: 1500, lowpass: 8000 });
+    const chomp = [262, 330, 392, 523];
+    chomp.forEach((f, i) => {
+      this.tone(f, {
+        type: 'sine',
+        start: t + 0.32 + i * 0.04,
+        dur: 0.35,
+        attack: 0.01,
+        peak: 0.13,
+        release: 0.3,
+        pan: -0.4 + i * 0.25,
+      });
+    });
+    // Soft recede
+    this.noise({ start: t + 0.55, dur: 0.2, peak: 0.08, highpass: 400, lowpass: 2500 });
+  }
+
   fail(): void {
     const ctx = this.ensure();
     if (!ctx) return;

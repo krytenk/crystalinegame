@@ -1,0 +1,54 @@
+{
+  "id": 55,
+  "name": "Void Bailiff",
+  "width": 8,
+  "height": 7,
+  "moves": 24,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 17
+    },
+    {
+      "kind": "defuse",
+      "target": 3
+    },
+    {
+      "kind": "collect",
+      "target": 2
+    },
+    {
+      "kind": "contain",
+      "target": 8
+    },
+    {
+      "kind": "score",
+      "target": 5100
+    }
+  ],
+  "stars": [
+    4300,
+    6700,
+    9900
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "##....##",
+    "..B11B..",
+    "..1221..",
+    ".123B21.",
+    "..1221..",
+    "...11...",
+    "#......#"
+  ],
+  "shadowPeriod": 3,
+  "bombFuse": 5,
+  "boss": true
+}

@@ -1,0 +1,40 @@
+{
+  "id": 207,
+  "name": "Cold Charge 207",
+  "width": 7,
+  "height": 7,
+  "moves": 22,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 7
+    },
+    {
+      "kind": "defuse",
+      "target": 2
+    }
+  ],
+  "stars": [
+    2990,
+    4635,
+    7027
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#.....#",
+    ".......",
+    "..B22..",
+    "..222..",
+    "..22B..",
+    ".......",
+    "#.....#"
+  ],
+  "bombFuse": 6
+}

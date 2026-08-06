@@ -35,3 +35,13 @@ android/*.keystore
 !release/.gitkeep
 release/*.apk
 release/*.aab
+
+# Local-only (Mac handoff / bake junk)
+.venv-fonts/
+dist-harbor/
+public/sfx/dragon-studio-*.mp3
+public/sfx/freesound_*.mp3
+public/sfx/humordome-*.mp3
+public/sfx/stu9-*.mp3
+*.bak
+*.bak-*

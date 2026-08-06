@@ -1,0 +1,36 @@
+{
+  "id": 92,
+  "name": "Blast Gallery δ",
+  "width": 7,
+  "height": 7,
+  "moves": 16,
+  "objectives": [
+    {
+      "kind": "defuse",
+      "target": 3
+    }
+  ],
+  "stars": [
+    1600,
+    2500,
+    3700
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#B....#",
+    ".......",
+    ".....B.",
+    "...B...",
+    ".......",
+    ".......",
+    "#.....#"
+  ],
+  "bombFuse": 4
+}

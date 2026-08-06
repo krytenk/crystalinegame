@@ -7,7 +7,8 @@
  * Pure model — no DOM. Persistence is a flat snapshot on EconomyAux.
  */
 
-export type CavernStageId = 1 | 2 | 3 | 4;
+/** Stage ids — 1–4 classic cavern; 5–8 Act I-C Under-Crown (pairs with L151–300). */
+export type CavernStageId = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
 export interface MetaUpgrade {
   readonly id: string;
@@ -61,6 +62,31 @@ export const META_STAGES: readonly MetaStage[] = [
     name: 'Deep Geode',
     tagline: 'A chamber only the stubborn reach.',
     art: 'cavern/stages/stage4.webp',
+  },
+  // Act I-C Under-Crown
+  {
+    id: 5,
+    name: 'Under-Crown',
+    tagline: 'Where the mountain starts answering back.',
+    art: 'cavern/stages/stage5.webp',
+  },
+  {
+    id: 6,
+    name: 'Spire Answer',
+    tagline: 'The mountain’s first clear reply.',
+    art: 'cavern/stages/stage6.webp',
+  },
+  {
+    id: 7,
+    name: 'Black Heartwalk',
+    tagline: 'Deeper corridors where dual threats never sleep.',
+    art: 'cavern/stages/stage7.webp',
+  },
+  {
+    id: 8,
+    name: 'Under-Crown Seal',
+    tagline: 'Act I close — the living mine rests, for now.',
+    art: 'cavern/stages/stage8.webp',
   },
 ];
 
@@ -240,6 +266,186 @@ export const META_UPGRADES: readonly MetaUpgrade[] = [
     order: 3,
     place: { left: 68, top: 14, scale: 1.1 },
   },
+  // Stage 5 — Under-Crown
+  {
+    id: 's5.lantern',
+    name: 'Fault Lantern',
+    blurb: 'A crystal lamp that hums when the belt forges power.',
+    cost: 560,
+    stage: 5,
+    glyph: '✦',
+    art: icon('s5_lantern'),
+    order: 1,
+    place: { left: 22, top: 28, scale: 1 },
+  },
+  {
+    id: 's5.vein',
+    name: 'Echo Vein',
+    blurb: 'A teal-purple seam that answers every cascade.',
+    cost: 600,
+    stage: 5,
+    glyph: '◇',
+    art: icon('s5_vein'),
+    order: 2,
+    place: { left: 68, top: 36, scale: 1.05 },
+  },
+  {
+    id: 's5.fault',
+    name: 'Glass Fault',
+    blurb: 'A cracked prism standing where light splits twice.',
+    cost: 640,
+    stage: 5,
+    glyph: '⬠',
+    art: icon('s5_fault'),
+    order: 3,
+    place: { left: 42, top: 58, scale: 1 },
+  },
+  {
+    id: 's5.seal',
+    name: 'Under-Crown Seal',
+    blurb: 'The mountain’s mark — you have been noticed.',
+    cost: 700,
+    stage: 5,
+    glyph: '◎',
+    art: icon('s5_seal'),
+    order: 4,
+    place: { left: 78, top: 55, scale: 1.1 },
+  },
+  // Stage 6 — Regent Peak Close
+  {
+    id: 's6.heart',
+    name: 'Living Answer',
+    blurb: 'A heart of facets that beats with every Supernova forge.',
+    cost: 780,
+    stage: 6,
+    glyph: '❋',
+    art: icon('s6_heart'),
+    order: 1,
+    place: { left: 48, top: 42, scale: 1.15 },
+  },
+  {
+    id: 's6.voice',
+    name: 'Mountain Voice',
+    blurb: 'Resonance crystal that sings on three-star clears.',
+    cost: 840,
+    stage: 6,
+    glyph: '♪',
+    art: icon('s6_voice'),
+    order: 2,
+    place: { left: 18, top: 50, scale: 1 },
+  },
+  {
+    id: 's6.crown',
+    name: 'Regent Crown',
+    blurb: 'Gold and amethyst for the one who finished Act I.',
+    cost: 900,
+    stage: 6,
+    glyph: '♛',
+    art: icon('s6_crown'),
+    order: 3,
+    place: { left: 72, top: 22, scale: 1.05 },
+  },
+  {
+    id: 's6.close',
+    name: 'Crown Close',
+    blurb: 'Seal the first Under-Crown — the mountain still has more chambers.',
+    cost: 1000,
+    stage: 6,
+    glyph: '✧',
+    art: icon('s6_close'),
+    order: 4,
+    place: { left: 50, top: 70, scale: 1.1 },
+  },
+  // Stage 7 — Double Seam / Black Heartwalk (L211–250)
+  {
+    id: 's7.spire',
+    name: 'Spire Answer',
+    blurb: 'A living crystal that answers every Supernova forge.',
+    cost: 1100,
+    stage: 7,
+    glyph: '✶',
+    art: icon('s7_spire'),
+    order: 1,
+    place: { left: 40, top: 30, scale: 1.1 },
+  },
+  {
+    id: 's7.seam',
+    name: 'Double Seam',
+    blurb: 'Twin veins that light when you clear dual goals.',
+    cost: 1180,
+    stage: 7,
+    glyph: '≡',
+    art: icon('s7_seam'),
+    order: 2,
+    place: { left: 70, top: 48, scale: 1 },
+  },
+  {
+    id: 's7.gallery',
+    name: 'Silent Gallery',
+    blurb: 'A quiet hall for the mid-Under-Crown march.',
+    cost: 1260,
+    stage: 7,
+    glyph: '⌂',
+    art: icon('s7_gallery'),
+    order: 3,
+    place: { left: 22, top: 55, scale: 1.05 },
+  },
+  {
+    id: 's7.heartwalk',
+    name: 'Black Heartwalk',
+    blurb: 'Obsidian steps deeper toward the regent crown.',
+    cost: 1340,
+    stage: 7,
+    glyph: '◆',
+    art: icon('s7_heartwalk'),
+    order: 4,
+    place: { left: 58, top: 68, scale: 1 },
+  },
+  // Stage 8 — Act I finale (L251–300)
+  {
+    id: 's8.answer',
+    name: 'Living Answer',
+    blurb: 'The mountain’s reply — facets that beat on perfect clears.',
+    cost: 1480,
+    stage: 8,
+    glyph: '❋',
+    art: icon('s8_answer'),
+    order: 1,
+    place: { left: 48, top: 36, scale: 1.15 },
+  },
+  {
+    id: 's8.voice',
+    name: 'Mountain Voice',
+    blurb: 'Resonance crystal that sings through the last galleries.',
+    cost: 1580,
+    stage: 8,
+    glyph: '♪',
+    art: icon('s8_voice'),
+    order: 2,
+    place: { left: 18, top: 52, scale: 1 },
+  },
+  {
+    id: 's8.regent',
+    name: 'Regent Crown',
+    blurb: 'Gold and amethyst for the one who finished Act I.',
+    cost: 1700,
+    stage: 8,
+    glyph: '♛',
+    art: icon('s8_regent'),
+    order: 3,
+    place: { left: 74, top: 24, scale: 1.08 },
+  },
+  {
+    id: 's8.close',
+    name: 'Under-Crown Seal',
+    blurb: 'Close Act I — the mine rests until Phase 2.',
+    cost: 1850,
+    stage: 8,
+    glyph: '✧',
+    art: icon('s8_close'),
+    order: 4,
+    place: { left: 50, top: 72, scale: 1.12 },
+  },
 ];
 
 export interface MetaSnapshot {
@@ -358,7 +564,8 @@ export class MetaModel {
       if (this.stageComplete(s.id)) stagesComplete = s.id;
       else break;
     }
-    const activeStageId = Math.min(4, Math.max(1, stagesComplete + 1)) as CavernStageId;
+    const maxStage = activeStages.reduce((m, s) => Math.max(m, s.id), 1);
+    const activeStageId = Math.min(maxStage, Math.max(1, stagesComplete + 1)) as CavernStageId;
     const openUpgrades = activeUpgrades.filter(
       (u) => !this.owned.has(u.id) && this.stageUnlocked(u.stage),
     ).sort((a, b) => a.cost - b.cost || a.order - b.order);

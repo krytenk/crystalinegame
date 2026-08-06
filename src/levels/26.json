@@ -1,37 +1,30 @@
 {
   "id": 26,
-  "name": "The Spreading",
+  "name": "Spreading Caverns",
   "width": 7,
   "height": 7,
-  "moves": 20,
+  "moves": 16,
   "objectives": [
     {
       "kind": "contain",
       "target": 12
+    },
+    {
+      "kind": "crust",
+      "target": 14
     }
   ],
-  "stars": [
-    4080,
-    6324,
-    9384
-  ],
-  "colors": [
-    "ember",
-    "aurum",
-    "solar",
-    "verdant",
-    "tidal",
-    "void"
-  ],
+  "stars": [4200, 6600, 9800],
+  "colors": ["ember", "aurum", "solar", "verdant", "tidal", "void"],
   "layout": [
-    "###.###",
-    "##...##",
-    "#.....#",
-    ".......",
-    "#.....#",
-    "##...##",
-    "###.###"
+    "##1.1##",
+    "#1...1#",
+    "1..#..1",
+    "1.#.#.1",
+    "1..#..1",
+    "#1...1#",
+    "##1.1##"
   ],
   "boss": false,
-  "shadowPeriod": 3
+  "shadowPeriod": 2
 }

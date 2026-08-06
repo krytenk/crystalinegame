@@ -12,7 +12,7 @@ import { findMatchesAt, hasAnyMatch } from './match';
 import { isAdjacent, swapPieces } from './moves';
 import { sortCoords, type Grid2D } from './grid';
 import type { Rng } from './rng';
-import { isPowerCrystal } from './specials';
+import { isPowerCrystal, powerSwapActivates } from './specials';
 import { isFallable, isMovable } from './tile';
 import type { Cell, Coord, Piece } from './types';
 
@@ -23,8 +23,15 @@ export const swapWouldResolve = (grid: Grid2D<Cell>, a: Coord, b: Coord): boolea
   if (!ca || !cb || !ca.playable || !cb.playable) return false;
   if (!isMovable(ca.piece) || !isMovable(cb.piece)) return false;
 
-  // Any swap involving a power crystal is a legal strategic play.
-  if (isPowerCrystal(ca.piece) || isPowerCrystal(cb.piece)) return true;
+  // Power fires only with a valid partner (same colour for line/burst).
+  if (
+    ca.piece &&
+    cb.piece &&
+    (isPowerCrystal(ca.piece) || isPowerCrystal(cb.piece)) &&
+    powerSwapActivates(ca.piece, cb.piece)
+  ) {
+    return true;
+  }
 
   swapPieces(grid, a, b);
   const matches = findMatchesAt(grid, [a, b]);

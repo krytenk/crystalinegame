@@ -1,0 +1,39 @@
+{
+  "id": 66,
+  "name": "Stone Rime β",
+  "width": 7,
+  "height": 7,
+  "moves": 18,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 16
+    },
+    {
+      "kind": "score",
+      "target": 4480
+    }
+  ],
+  "stars": [
+    3800,
+    5900,
+    8700
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#.....#",
+    ".22222.",
+    ".2...2.",
+    ".2...2.",
+    ".2...2.",
+    ".22222.",
+    "#.....#"
+  ]
+}

@@ -205,7 +205,10 @@ export interface SaveData {
   };
   readonly metrics: Metrics;
   readonly settings: {
+    /** Shape symbols on crystals (colour-blind dual-coding). */
     readonly glyphs: boolean;
+    /** Stronger contrast outlines + larger glyphs. */
+    readonly highContrast: boolean;
     readonly reducedMotion: boolean;
     readonly sfx: boolean;
     readonly music: boolean;

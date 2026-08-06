@@ -1,0 +1,40 @@
+{
+  "id": 252,
+  "name": "Bottom Ledger 252",
+  "width": 7,
+  "height": 7,
+  "moves": 20,
+  "objectives": [
+    {
+      "kind": "collect",
+      "target": 3
+    },
+    {
+      "kind": "contain",
+      "target": 11
+    }
+  ],
+  "stars": [
+    2800,
+    4340,
+    6580
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#.....#",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    "#.....#"
+  ],
+  "shadowPeriod": 3
+}

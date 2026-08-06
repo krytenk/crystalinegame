@@ -220,10 +220,26 @@ export const getLevel = (id: number): LevelDef => {
  * free-to-play title applies economic pressure, and where the Publisher Dashboard
  * expects to see conversion events cluster. Documented in docs/ECONOMY.md.
  */
-export const PRESSURE_POINTS: readonly number[] = [8, 15, 20, 25, 30, 35, 40];
+/**
+ * Economic / difficulty pressure clusters (mid-band walls + chapter bosses).
+ * Walls: L22–24 bombs · L38–42 Core→Fault · L55–60 Void gate.
+ */
+export const PRESSURE_POINTS: readonly number[] = [
+  8, 15, 20, 22, 24, 25, 30, 35, 38, 40, 42, 50, 55, 56, 60, 70, 80, 90, 100,
+  110, 120, 125, 130, 140, 145, 150,
+  // Act I-C Outer Channels / Under-Crown
+  160, 170, 180, 190, 200, 210, 220, 230, 240, 250, 260, 270, 280, 290, 300,
+];
 
 /** Chapter / arc bosses — flagged in JSON; also listed here for UI helpers. */
-export const BOSS_LEVELS: readonly number[] = [10, 15, 20, 25, 30, 35, 40];
+export const BOSS_LEVELS: readonly number[] = [
+  10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100,
+  105, 110, 115, 120, 125, 130, 135, 140, 145, 150,
+  // 151–300 (every 5th)
+  155, 160, 165, 170, 175, 180, 185, 190, 195, 200,
+  205, 210, 215, 220, 225, 230, 235, 240, 245, 250,
+  255, 260, 265, 270, 275, 280, 285, 290, 295, 300,
+];
 
 export const isBossLevel = (id: number): boolean => {
   try {

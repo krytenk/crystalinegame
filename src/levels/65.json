@@ -1,0 +1,54 @@
+{
+  "id": 65,
+  "name": "Apex Heart",
+  "width": 8,
+  "height": 7,
+  "moves": 22,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 17
+    },
+    {
+      "kind": "defuse",
+      "target": 3
+    },
+    {
+      "kind": "collect",
+      "target": 3
+    },
+    {
+      "kind": "contain",
+      "target": 10
+    },
+    {
+      "kind": "score",
+      "target": 5400
+    }
+  ],
+  "stars": [
+    4600,
+    7100,
+    10600
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#......#",
+    "..B11B..",
+    "..1221..",
+    ".123B21.",
+    "..1221..",
+    "...11...",
+    "#......#"
+  ],
+  "shadowPeriod": 2,
+  "bombFuse": 4,
+  "boss": true
+}

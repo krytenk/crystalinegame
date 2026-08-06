@@ -20,8 +20,9 @@ export function levelHasConveyor(levelId: number): boolean {
 }
 
 /**
- * Shift pieces along a playable row. Holes stay fixed; only playable cells
- * with movable pieces participate.
+ * Shift pieces along a playable row. Holes stay fixed.
+ * Stones and bombs are pinned (same as gravity) — they must not belt-slide,
+ * or defuse layouts become nondeterministic and goals feel "glitchy".
  */
 export function conveyorShiftRow(
   grid: Grid2D<Cell>,
@@ -39,24 +40,44 @@ export function conveyorShiftRow(
   }
   if (xs.length < 2) return [];
 
-  const pieces = xs.map((x) => grid.at(x, row).piece);
-  if (direction === 'left') {
-    const first = pieces.shift();
-    pieces.push(first ?? null);
-  } else {
-    const last = pieces.pop();
-    pieces.unshift(last ?? null);
+  // Split into segments broken by pinned pieces (stone/bomb) so pins stay put
+  // and only free crystals/specials rotate within each segment.
+  const isPinned = (x: number): boolean => {
+    const p = grid.at(x, row).piece;
+    return p !== null && (p.kind === 'stone' || p.kind === 'bomb');
+  };
+
+  let moved = 0;
+  let i = 0;
+  while (i < xs.length) {
+    while (i < xs.length && isPinned(xs[i]!)) i++;
+    if (i >= xs.length) break;
+    const start = i;
+    while (i < xs.length && !isPinned(xs[i]!)) i++;
+    const segXs = xs.slice(start, i);
+    if (segXs.length < 2) continue;
+    const pieces = segXs.map((x) => grid.at(x, row).piece);
+    if (direction === 'left') {
+      const first = pieces.shift();
+      pieces.push(first ?? null);
+    } else {
+      const last = pieces.pop();
+      pieces.unshift(last ?? null);
+    }
+    for (let k = 0; k < segXs.length; k++) {
+      grid.at(segXs[k]!, row).piece = pieces[k] ?? null;
+    }
+    moved += segXs.length;
   }
-  for (let i = 0; i < xs.length; i++) {
-    grid.at(xs[i]!, row).piece = pieces[i] ?? null;
-  }
+
+  if (moved === 0) return [];
 
   return [
     {
       t: 'conveyor',
       row,
       direction,
-      cells: xs.length,
+      cells: moved,
     },
   ];
 }

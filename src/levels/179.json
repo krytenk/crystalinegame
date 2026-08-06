@@ -1,0 +1,40 @@
+{
+  "id": 179,
+  "name": "Sealed Buoy 179",
+  "width": 7,
+  "height": 7,
+  "moves": 24,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 7
+    },
+    {
+      "kind": "defuse",
+      "target": 2
+    }
+  ],
+  "stars": [
+    3180,
+    4929,
+    7473
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#.....#",
+    ".......",
+    "..B22..",
+    "..222..",
+    "..22B..",
+    ".......",
+    "#.....#"
+  ],
+  "bombFuse": 7
+}

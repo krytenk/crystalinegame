@@ -31,8 +31,14 @@ export interface SessionCounters {
   bombsDefused: number;
   /** Bombs present when the level began. */
   bombsInitial: number;
-  /** Cells that were ever shadowed, used as the `contain` denominator. */
+  /** Peak concurrent shadowed cells (informational / DDA). */
   shadowSeen: number;
+  /**
+   * Cumulative shadowed cells cleared by matches — the real `contain` progress.
+   * Must never treat "no shadow on board" as done when this is still 0 (night
+   * has not fallen yet), or pure-contain levels auto-win on the first swap.
+   */
+  shadowCleared: number;
 }
 
 export type EndReason = 'objectivesMet' | 'outOfMoves' | 'bombExpired';
@@ -73,6 +79,7 @@ export const newCounters = (): SessionCounters => ({
   bombsDefused: 0,
   bombsInitial: 0,
   shadowSeen: 0,
+  shadowCleared: 0,
 });
 
 /** Convenience for modules that only need the level's colour set. */

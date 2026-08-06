@@ -27,10 +27,29 @@ Need JDK **21**, Android SDK **platform 36**, build-tools, platform-tools.
 
 ## Debug APK (sideload / USB)
 
+### Crystalline (market app — do not overwrite lightly)
+
 ```bash
 npm run android:apk
 adb install -r release/crystalline-debug.apk
 ```
+
+Package id: `ca.departurebaydigital.crystalline`  
+`adb install -r` **replaces** any existing Crystalline install (same id).
+
+### Lantern Harbor (second app — will not overwrite Crystalline)
+
+```bash
+npm run android:apk:harbor
+adb install release/lanternharbor-debug.apk
+```
+
+Package id: `ca.departurebaydigital.lanternharbor`  
+Different id → **second icon** on the phone. Leaves Crystalline alone.
+
+Harbor packaging temporarily stages `harbor.html` as the WebView entry, then
+restores Crystalline’s Capacitor/Android config so market builds stay safe.
+
 
 ## Play Store App Bundle (AAB)
 

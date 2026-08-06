@@ -3,11 +3,11 @@
   "name": "Reliquary",
   "width": 7,
   "height": 7,
-  "moves": 20,
+  "moves": 26,
   "objectives": [
     {
       "kind": "collect",
-      "target": 5
+      "target": 4
     }
   ],
   "stars": [

@@ -1,0 +1,54 @@
+{
+  "id": 75,
+  "name": "Core of Cores",
+  "width": 8,
+  "height": 7,
+  "moves": 23,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 17
+    },
+    {
+      "kind": "defuse",
+      "target": 3
+    },
+    {
+      "kind": "collect",
+      "target": 3
+    },
+    {
+      "kind": "contain",
+      "target": 10
+    },
+    {
+      "kind": "score",
+      "target": 5700
+    }
+  ],
+  "stars": [
+    4800,
+    7400,
+    11000
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#B.....#",
+    "...11...",
+    "..1221B.",
+    ".123321.",
+    "..1221..",
+    "...1B...",
+    "#......#"
+  ],
+  "shadowPeriod": 2,
+  "bombFuse": 4,
+  "boss": true
+}

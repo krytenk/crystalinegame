@@ -14,29 +14,18 @@
       "target": 12
     }
   ],
-  "stars": [
-    4320,
-    6696,
-    9936
-  ],
-  "colors": [
-    "ember",
-    "aurum",
-    "solar",
-    "verdant",
-    "tidal",
-    "void"
-  ],
+  "stars": [4500, 7000, 10200],
+  "colors": ["ember", "aurum", "solar", "verdant", "tidal", "void"],
   "layout": [
-    "#B....#",
-    ".......",
-    ".......",
-    "....B..",
-    ".......",
-    ".......",
-    "#.....#"
+    "#B..1.#",
+    "..1#1..",
+    ".1...1.",
+    "1..#..1",
+    ".1...1.",
+    "..1#1B.",
+    "#.1..1#"
   ],
   "boss": false,
-  "bombFuse": 4,
-  "shadowPeriod": 3
+  "bombFuse": 5,
+  "shadowPeriod": 2
 }

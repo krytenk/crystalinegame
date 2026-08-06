@@ -7,29 +7,22 @@
   "objectives": [
     {
       "kind": "crust",
-      "target": 24
+      "target": 20
+    },
+    {
+      "kind": "score",
+      "target": 3200
     }
   ],
-  "stars": [
-    2400,
-    3800,
-    5400
-  ],
-  "colors": [
-    "ember",
-    "aurum",
-    "solar",
-    "verdant",
-    "tidal",
-    "void"
-  ],
+  "stars": [2800, 4200, 6000],
+  "colors": ["ember", "aurum", "solar", "verdant", "tidal", "void"],
   "layout": [
     "###1###",
-    "#..11.#",
     "#11111#",
-    ".112211",
-    "#11221#",
-    "#1111.#",
+    "#1...1#",
+    ".11.11.",
+    "#1...1#",
+    "#11111#",
     "###1###"
   ],
   "boss": true

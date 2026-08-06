@@ -3,11 +3,11 @@
   "name": "Creeping Walls",
   "width": 7,
   "height": 7,
-  "moves": 18,
+  "moves": 16,
   "objectives": [
     {
       "kind": "contain",
-      "target": 12
+      "target": 14
     },
     {
       "kind": "crust",

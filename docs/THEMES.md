@@ -6,8 +6,8 @@ This repo runs **one pure-TS match-3 engine** with **product skins** (theme pack
 |----------|---------|-------|--------|
 | `crystalline` | Crystalline | `index.html` | Shipped (default) |
 | `harbor` | Lantern Harbor | `harbor.html` or `?game=harbor` | Shipped sibling |
-| `bakery` | Hearth Bakery | *(planned)* | Roadmap |
-| `library` | Moonlit Library | *(planned)* | Roadmap |
+| `bakery` | Hearth & Crumb | *(planned)* | Spec: `docs/verticals/bakery/SPEC.md` |
+| `library` | Moonlit Stacks | *(planned)* | Spec: `docs/verticals/library/SPEC.md` |
 
 ## Contract
 
@@ -64,21 +64,13 @@ installMetaTheme / installAlbumTheme / installEventTheme / installPowerCopy / in
 5. Vite MPA input for the new HTML entry
 6. Fill `event`, `powerNames`, `comboLabels`, `placeCeremony`
 
-### Hearth Bakery (later)
+### Bakery / Library
 
-- Pieces: pastries / ingredients  
-- Meta: storefront restoration  
-- Soft currency: **Warmth** or **Crumbs**  
-- Conveyor: kitchen pass belt  
-- Event: **Oven Rush** · powers: dough line / oven burst  
+Full product specs (differentiation doctrine, not paint-only reskins):
 
-### Moonlit Library (later)
-
-- Pieces: book spines / seals / ink  
-- Meta: reading nook floors  
-- Soft currency: **Ink** or **Quiet Hours**  
-- Conveyor: returns cart  
-- Event: **Quiet Hours** · powers: chapter line / seal burst  
+- [`docs/verticals/README.md`](./verticals/README.md) — family + “not a reskin” checklist  
+- [`docs/verticals/bakery/SPEC.md`](./verticals/bakery/SPEC.md) — **Hearth & Crumb**  
+- [`docs/verticals/library/SPEC.md`](./verticals/library/SPEC.md) — **Moonlit Stacks**  
 
 ## Leftovers / next content (not blocking)
 
@@ -86,8 +78,8 @@ installMetaTheme / installAlbumTheme / installEventTheme / installPowerCopy / in
 |------|--------|
 | Harbor placement reel video | Optional — still uses stage still (no mine reel) |
 | CSS class names `.cavern-*` | Cosmetic; rename later if desired |
-| Bakery / Library skins | Roadmap only |
-| Harbor-specific placement whoosh SFX | Shared whoosh bank is fine | 
+| Bakery / Library implementation | After launch path; see verticals specs |
+| Harbor-specific placement whoosh SFX | Shared whoosh bank is fine |
 
 ## Asset bake
 

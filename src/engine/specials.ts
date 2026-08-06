@@ -138,6 +138,82 @@ export const footprintBoard = (grid: Grid2D<Cell>): Coord[] => {
   return sortCoords(out);
 };
 
+/**
+ * Super Chest / Kraken: 8 tentacle rays + body, then "pull" a colour (shells)
+ * from anywhere on the board and eat them.
+ *
+ * Directions include diagonals so tentacles read as branching arms.
+ */
+export const footprintTentacles = (
+  grid: Grid2D<Cell>,
+  at: Coord,
+  length = 5,
+): Coord[] => {
+  const out: Coord[] = [];
+  const seen = new Set<number>();
+  // Body — octopus sits on a 3×3
+  for (const c of footprintRadius(grid, at, 1)) pushUnique(out, seen, grid, c);
+  const dirs: readonly (readonly [number, number])[] = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+    [1, 1],
+    [1, -1],
+    [-1, 1],
+    [-1, -1],
+  ];
+  for (const [dx, dy] of dirs) {
+    for (let i = 1; i <= length; i++) {
+      pushUnique(out, seen, grid, { x: at.x + dx * i, y: at.y + dy * i });
+    }
+  }
+  return sortCoords(out);
+};
+
+/**
+ * Octopus Super Chest clear: tentacles + every piece of the "meal" colour.
+ * Prefer partner colour (swapped shell); else tidal shells; else largest colour group.
+ */
+export const footprintKraken = (
+  grid: Grid2D<Cell>,
+  at: Coord,
+  mealColor: CrystalColor | null,
+): Coord[] => {
+  const out: Coord[] = [];
+  const seen = new Set<number>();
+  for (const c of footprintTentacles(grid, at, 5)) pushUnique(out, seen, grid, c);
+
+  let color = mealColor;
+  if (!color) {
+    // Prefer shells (tidal) when present — Harbor "pull the shells in"
+    let tidalCount = 0;
+    const counts = new Map<CrystalColor, number>();
+    grid.forEach((cell) => {
+      const col = cell.piece?.color;
+      if (!col || !cell.playable) return;
+      counts.set(col, (counts.get(col) ?? 0) + 1);
+      if (col === 'tidal') tidalCount++;
+    });
+    if (tidalCount > 0) color = 'tidal';
+    else {
+      let best: CrystalColor | null = null;
+      let bestN = 0;
+      for (const [c, n] of counts) {
+        if (n > bestN) {
+          best = c;
+          bestN = n;
+        }
+      }
+      color = best;
+    }
+  }
+  if (color) {
+    for (const c of footprintColor(grid, color, at)) pushUnique(out, seen, grid, c);
+  }
+  return sortCoords(out);
+};
+
 export const footprintSolo = (
   grid: Grid2D<Cell>,
   at: Coord,
@@ -151,8 +227,8 @@ export const footprintSolo = (
     return sortCoords([at]);
   }
   if (piece.kind === 'supernova') {
-    // Solo supernova: large 7×7 blast (radius 3) — combos escalate to full board.
-    return footprintRadius(grid, at, 3);
+    // Super Chest: tentacles branch out, pull meal colour, eat them.
+    return footprintKraken(grid, at, partnerColor);
   }
   if (piece.kind === 'core') {
     return footprintRadius(grid, at, 1);
@@ -177,6 +253,35 @@ const merge = (grid: Grid2D<Cell>, lists: readonly (readonly Coord[])[]): Coord[
 };
 
 /**
+ * True when a power may fire on this swap.
+ * - Power + power → always (combo).
+ * - Prism + coloured crystal → always (prism paints that colour).
+ * - Line / burst / coloured power + crystal → **same colour only**.
+ * - Supernova (no colour) + crystal → always (peak wipe still needs a partner gem).
+ */
+export const powerSwapActivates = (aPiece: Piece, bPiece: Piece): boolean => {
+  const aPow = isPowerCrystal(aPiece);
+  const bPow = isPowerCrystal(bPiece);
+  if (!aPow && !bPow) return false;
+  if (aPow && bPow) return true;
+
+  const power = aPow ? aPiece : bPiece;
+  const other = aPow ? bPiece : aPiece;
+
+  if (power.kind === 'prism') {
+    // Prism must swap into a coloured gem (or power already handled above).
+    return other.color !== null || other.kind === 'crystal';
+  }
+  if (power.kind === 'supernova') {
+    // Peak special has no colour — partner any clearable gem.
+    return other.kind === 'crystal' || other.color !== null || isPowerCrystal(other);
+  }
+  // Line / burst: require same colour as the power gem.
+  if (power.color && other.color) return power.color === other.color;
+  return false;
+};
+
+/**
  * Plan the outcome of a swap that involves at least one power crystal.
  * Pieces are the post-swap occupants of `a` / `b`.
  */
@@ -191,6 +296,7 @@ export const planPowerSwap = (
   const aPow = isPowerCrystal(aPiece);
   const bPow = isPowerCrystal(bPiece);
   if (!aPow && !bPow) return null;
+  if (!powerSwapActivates(aPiece, bPiece)) return null;
 
   if (aPow && bPow) {
     const ka = aPiece.kind as PowerKind;

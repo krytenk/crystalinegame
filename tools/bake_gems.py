@@ -226,14 +226,72 @@ def procedural(kind: str, size: int) -> Image.Image:
             outline=(80, 50, 10, 255),
         )
     elif kind.startswith("crust"):
+        # Frosted ice block — high-contrast goal tile (matches runtime paintCrust).
         n = int(kind[-1])
-        alpha = 80 + n * 40
+        body_a = min(255, 180 + n * 22)
         d.rounded_rectangle(
-            [size * 0.05, size * 0.05, size * 0.95, size * 0.95],
-            radius=size * 0.1,
-            fill=(200, 220, 240, alpha),
-            outline=(230, 245, 255, 200),
+            [size * 0.08, size * 0.1, size * 0.96, size * 0.98],
+            radius=size * 0.12,
+            fill=(8, 6, 20, 120),
         )
+        fill = (180 + n * 18, 220 + n * 8, 245, body_a) if n >= 2 else (140, 190, 220, 170)
+        d.rounded_rectangle(
+            [size * 0.04, size * 0.04, size * 0.94, size * 0.94],
+            radius=size * 0.11,
+            fill=fill,
+            outline=(12, 22, 40, 235),
+            width=max(2, size // 40),
+        )
+        d.rounded_rectangle(
+            [size * 0.07, size * 0.07, size * 0.91, size * 0.91],
+            radius=size * 0.09,
+            outline=(230, 250, 255, 230),
+            width=max(2, size // 50),
+        )
+        for i in range(-2, 3):
+            y = size * (0.3 + i * 0.12)
+            d.line(
+                [(size * 0.12, y), (size * 0.88, y + size * 0.04 * (i % 2))],
+                fill=(255, 255, 255, 90),
+                width=1,
+            )
+        cracks = 4 - n
+        for i in range(cracks):
+            y0 = size * (0.25 + (i + 1) / (cracks + 1) * 0.5)
+            d.line(
+                [
+                    (size * 0.15, y0),
+                    (size * 0.4, y0 + size * 0.06),
+                    (size * 0.55, y0 - size * 0.04),
+                    (size * 0.85, y0 + size * 0.03),
+                ],
+                fill=(20, 40, 70, 140 + cracks * 20),
+                width=max(2, size // 60),
+            )
+        stud_r = max(3, size // 18)
+        inset = size * 0.14
+        for sx, sy in (
+            (inset, inset),
+            (size - inset, inset),
+            (inset, size - inset),
+            (size - inset, size - inset),
+        ):
+            d.ellipse(
+                [sx - stud_r, sy - stud_r, sx + stud_r, sy + stud_r],
+                fill=(255, 193, 74, 255),
+                outline=(80, 40, 0, 200),
+            )
+        pip_r = max(2, size // 28)
+        gap = size * 0.1
+        start = size * 0.5 - ((n - 1) * gap) / 2
+        py = size * 0.82
+        for i in range(n):
+            px = start + i * gap
+            d.ellipse(
+                [px - pip_r, py - pip_r, px + pip_r, py + pip_r],
+                fill=(255, 248, 224, 255),
+                outline=(30, 50, 80, 200),
+            )
     elif kind.startswith("shadow"):
         n = int(kind[-1])
         alpha = 100 + n * 60

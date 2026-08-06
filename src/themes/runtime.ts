@@ -57,4 +57,17 @@ export function themedAsset(path: string): string {
   return `${root.replace(/\/?$/, '/')}${clean}`;
 }
 
+/**
+ * UI chrome under public/ui or public/themes/<id>/ui.
+ * Prefer themed file when assetRoot is set (Harbor).
+ */
+export function themeUi(path: string): string {
+  const clean = path.replace(/^\.\//, '');
+  // Already themed absolute-ish path
+  if (clean.startsWith('themes/')) return clean;
+  // Strip leading ui/ then re-prefix with themed ui/
+  const rel = clean.startsWith('ui/') ? clean : `ui/${clean}`;
+  return themedAsset(rel);
+}
+
 export { THEMES };

@@ -1,0 +1,40 @@
+{
+  "id": 224,
+  "name": "Cargo Reach 224",
+  "width": 7,
+  "height": 7,
+  "moves": 22,
+  "objectives": [
+    {
+      "kind": "collect",
+      "target": 2
+    },
+    {
+      "kind": "contain",
+      "target": 10
+    }
+  ],
+  "stars": [
+    2990,
+    4635,
+    7027
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#.....#",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    "#.....#"
+  ],
+  "shadowPeriod": 3
+}

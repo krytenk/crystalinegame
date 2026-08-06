@@ -1,0 +1,54 @@
+{
+  "id": 60,
+  "name": "Chapter Warden",
+  "width": 8,
+  "height": 7,
+  "moves": 24,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 17
+    },
+    {
+      "kind": "defuse",
+      "target": 3
+    },
+    {
+      "kind": "collect",
+      "target": 3
+    },
+    {
+      "kind": "contain",
+      "target": 10
+    },
+    {
+      "kind": "score",
+      "target": 5100
+    }
+  ],
+  "stars": [
+    4300,
+    6700,
+    9900
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#B....##",
+    "...11...",
+    "..1221B.",
+    ".123321.",
+    "..1221..",
+    "...1B...",
+    "#......#"
+  ],
+  "shadowPeriod": 3,
+  "bombFuse": 5,
+  "boss": true
+}

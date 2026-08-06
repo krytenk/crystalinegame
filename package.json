@@ -1,6 +1,6 @@
 {
   "name": "crystalline",
-  "version": "0.1.0",
+  "version": "1.0.1",
   "private": true,
   "type": "module",
   "description": "Crystalline - a match-3 research build. All monetization is simulated; no real currency, no ad SDKs, no network calls.",
@@ -13,12 +13,19 @@
     "test:watch": "vitest",
     "assets": "python3 tools/build_assets.py",
     "assets:harbor": "python3 tools/bake_harbor.py",
-    "cap:sync": "npm run build && npx cap sync android",
-    "android:apk": "npm run cap:sync && node tools/build-android-apk.mjs",
+    "font:tidepop": "python3 tools/build_tidepop_font.py",
+    "cap:sync": "npm run build && npx cap sync",
+    "cap:sync:android": "npm run build && npx cap sync android",
+    "cap:sync:ios": "npm run build && npx cap sync ios",
+    "android:apk": "npm run cap:sync:android && node tools/build-android-apk.mjs",
+    "android:apk:harbor": "node tools/build-android-harbor-apk.mjs",
     "android:keystore": "node tools/generate-upload-keystore.mjs",
-    "android:bundle": "npm run cap:sync && node tools/build-android-release.mjs",
+    "android:bundle": "npm run cap:sync:android && node tools/build-android-release.mjs",
     "android:release": "npm run android:bundle",
-    "android:open": "npx cap open android"
+    "android:open": "npx cap open android",
+    "ios:sync": "npm run cap:sync:ios",
+    "ios:open": "npx cap open ios",
+    "ios:prepare": "node tools/prepare-ios.mjs"
   },
   "devDependencies": {
     "typescript": "^5.7.2",
@@ -31,6 +38,7 @@
     "@capacitor/cli": "^8.5.0",
     "@capacitor/core": "^8.5.0",
     "@capacitor/haptics": "^8.0.2",
+    "@capacitor/ios": "^8.5.0",
     "@capacitor/splash-screen": "^8.0.2"
   }
 }

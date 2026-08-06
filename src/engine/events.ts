@@ -94,6 +94,8 @@ export type GameEvent =
   | { readonly t: 'shadowCleared'; readonly cells: readonly Coord[] }
   | { readonly t: 'bombTick'; readonly at: Coord; readonly fuse: number }
   | { readonly t: 'bombExploded'; readonly at: Coord }
+  /** Bomb neutralised by match adjacency, blast, or pickaxe (counts for defuse). */
+  | { readonly t: 'bombDefused'; readonly at: Coord; readonly total: number }
   | { readonly t: 'relicCollected'; readonly at: Coord; readonly total: number }
 
   // -- board motion -------------------------------------------------------

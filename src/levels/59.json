@@ -1,0 +1,35 @@
+{
+  "id": 59,
+  "name": "Treasure Drop \u03b3",
+  "width": 7,
+  "height": 7,
+  "moves": 20,
+  "objectives": [
+    {
+      "kind": "collect",
+      "target": 3
+    }
+  ],
+  "stars": [
+    1800,
+    2800,
+    4100
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    "......."
+  ]
+}

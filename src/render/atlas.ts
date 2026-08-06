@@ -101,6 +101,11 @@ export class Atlas {
     size: number,
     dprBucket: 1 | 2 | 4 = 2,
   ): void {
+    // Ice-block crust: skip flat atlas greys / rope pads — use procedural ice shell.
+    if (typeof key === 'string' && key.startsWith('crust')) {
+      this.placeholder.draw(ctx, key, cx, cy, size);
+      return;
+    }
     const baked = this.pages.get(dprBucket) ?? this.pages.get(2) ?? this.pages.values().next().value;
     if (baked) {
       const frame: AtlasFrame | undefined = baked.page.frames[key];

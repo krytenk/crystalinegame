@@ -30,25 +30,28 @@ export type HapticKind =
   | 'softFail'
   | 'relic';
 
-/** Vibration API patterns (ms). Kept short for snappy mobile feel. */
+/**
+ * Vibration API patterns (ms). Tuned for modern Android phones:
+ * slightly longer than desktop-only demos so low-power motors still register.
+ */
 const PATTERNS: Readonly<Record<HapticKind, number | number[]>> = {
-  tap: 8,
-  reject: 14,
-  clear: 16,
-  clear3: [12, 18, 16],
-  clear4: [14, 20, 18, 24, 22],
-  clear5: [16, 22, 18, 28, 22, 32],
-  clear6: [18, 24, 20, 32, 24, 38, 28],
-  clearBig: [18, 28, 22, 34],
-  cascade: [10, 22, 12, 26, 14, 30],
-  cascadeBig: [12, 26, 16, 32, 18, 38, 22],
-  special: [16, 28, 22, 36],
-  specialBig: [20, 32, 24, 42, 28, 48],
-  explode: [24, 36, 28, 48, 32, 56, 36],
-  forge: [14, 22, 28, 18],
-  win: [16, 30, 16, 30, 22, 36],
-  softFail: [12, 40, 18],
-  relic: [10, 16, 22],
+  tap: 12,
+  reject: [18, 30, 22],
+  clear: 20,
+  clear3: [16, 22, 20],
+  clear4: [16, 24, 20, 28, 24],
+  clear5: [18, 26, 22, 32, 26, 36],
+  clear6: [20, 28, 24, 36, 28, 42, 32],
+  clearBig: [22, 32, 26, 40],
+  cascade: [12, 26, 14, 30, 16, 34],
+  cascadeBig: [14, 30, 18, 36, 20, 42, 24],
+  special: [18, 32, 24, 40],
+  specialBig: [22, 36, 28, 46, 32, 52],
+  explode: [28, 40, 32, 52, 36, 60, 40],
+  forge: [16, 26, 32, 20],
+  win: [18, 34, 18, 34, 26, 42],
+  softFail: [14, 48, 22],
+  relic: [12, 20, 26],
 };
 
 type NativeTier = 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error';

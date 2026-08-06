@@ -3,7 +3,7 @@
   "name": "Salvage Under Fire",
   "width": 7,
   "height": 7,
-  "moves": 20,
+  "moves": 24,
   "objectives": [
     {
       "kind": "defuse",
@@ -11,7 +11,7 @@
     },
     {
       "kind": "collect",
-      "target": 3
+      "target": 2
     }
   ],
   "stars": [
@@ -28,14 +28,14 @@
     "void"
   ],
   "layout": [
-    "B#..##.",
-    ".#..##.",
-    ".#..##.",
-    ".......",
-    "..B....",
-    ".......",
-    "......."
+    "###B###",
+    "##...##",
+    "#..B..#",
+    "#.....#",
+    "##...##",
+    "###.###",
+    "###.###"
   ],
   "boss": false,
-  "bombFuse": 5
+  "bombFuse": 6
 }

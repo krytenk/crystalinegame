@@ -1,0 +1,54 @@
+{
+  "id": 170,
+  "name": "Fog Choir",
+  "width": 8,
+  "height": 7,
+  "moves": 27,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 18
+    },
+    {
+      "kind": "defuse",
+      "target": 3
+    },
+    {
+      "kind": "collect",
+      "target": 3
+    },
+    {
+      "kind": "contain",
+      "target": 11
+    },
+    {
+      "kind": "score",
+      "target": 5329
+    }
+  ],
+  "stars": [
+    4815,
+    7463,
+    11315
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#......#",
+    ".B.11.B.",
+    "..1221..",
+    ".123321.",
+    "..1221..",
+    ".B.11...",
+    "#......#"
+  ],
+  "shadowPeriod": 4,
+  "bombFuse": 7,
+  "boss": true
+}

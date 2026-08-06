@@ -1,0 +1,35 @@
+{
+  "id": 89,
+  "name": "Prism Path α",
+  "width": 7,
+  "height": 7,
+  "moves": 16,
+  "objectives": [
+    {
+      "kind": "score",
+      "target": 7200
+    }
+  ],
+  "stars": [
+    6100,
+    9500,
+    14000
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    ".......",
+    ".#...#.",
+    ".......",
+    ".......",
+    ".......",
+    ".#...#.",
+    "......."
+  ]
+}

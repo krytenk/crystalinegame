@@ -9,9 +9,9 @@ import {
 } from '../../src/levels/index';
 
 describe('level catalogue', () => {
-  it('loads and validates all 40 levels', () => {
-    expect(LEVEL_COUNT).toBe(40);
-    expect(LEVELS).toHaveLength(40);
+  it('loads and validates all 300 Act I launch levels', () => {
+    expect(LEVEL_COUNT).toBe(300);
+    expect(LEVELS).toHaveLength(300);
   });
 
   it('has contiguous ids and non-empty names', () => {
@@ -33,9 +33,21 @@ describe('level catalogue', () => {
     expect(midBoss.objectives).toHaveLength(4);
     expect(midBoss.colors).toHaveLength(6);
 
-    const last = getLevel(40);
+    const midCentury = getLevel(100);
+    expect(midCentury.objectives.length).toBeGreaterThanOrEqual(3);
+    expect(midCentury.colors).toHaveLength(6);
+    expect(midCentury.boss).toBe(true);
+
+    const apex = getLevel(150);
+    expect(apex.objectives.length).toBeGreaterThanOrEqual(3);
+    expect(apex.colors).toHaveLength(6);
+    expect(apex.boss).toBe(true);
+
+    // Act I-C finale (Outer Channels / Under-Crown close)
+    const last = getLevel(300);
     expect(last.objectives.length).toBeGreaterThanOrEqual(3);
     expect(last.colors).toHaveLength(6);
+    expect(last.boss).toBe(true);
   });
 
   it('introduces each blocker type across the curve', () => {
@@ -89,8 +101,8 @@ describe('level catalogue', () => {
       expect(isBossLevel(id)).toBe(true);
       expect(getLevel(id).boss).toBe(true);
     }
-    // Late bosses get the slightly larger stage
-    for (const id of [20, 25, 30, 35, 40]) {
+    // Late bosses get the slightly larger stage (8×7)
+    for (const id of [20, 25, 30, 35, 40, 50, 75, 100]) {
       const b = getLevel(id);
       expect(b.width * b.height).toBeGreaterThanOrEqual(7 * 7);
       expect(b.width).toBe(8);

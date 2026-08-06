@@ -29,15 +29,7 @@ export const initObjectives = (
 
 /** Recompute progress after score / counters / board change. */
 export const refreshObjectives = (session: SessionState): ObjectiveProgress[] => {
-  const { level, counters, score, grid } = session;
-
-  // Live contain count: cells still under shadow.
-  let shadowed = 0;
-  if (level.objectives.some((o) => o.kind === 'contain')) {
-    grid.forEach((cell) => {
-      if (cell.playable && cell.shadow > 0) shadowed++;
-    });
-  }
+  const { level, counters, score } = session;
 
   return level.objectives.map((o) => {
     let current = 0;
@@ -54,15 +46,12 @@ export const refreshObjectives = (session: SessionState): ObjectiveProgress[] =>
       case 'defuse':
         current = counters.bombsDefused;
         break;
-      case 'contain': {
-        // Target is the number of shadowed cells to clear (initial), progress is
-        // how many have been cleared: initial - remaining.
-        const initial = Math.max(o.target, counters.shadowSeen);
-        current = Math.max(0, initial - shadowed);
-        // If no shadow remains, fully done.
-        if (shadowed === 0) current = o.target;
+      case 'contain':
+        // Cumulative clears only. Never treat "no shadow on board" as done when
+        // nothing has been purged yet — pure-contain levels used to auto-win on
+        // the first swap because shadow starts at 0 and only spreads on a period.
+        current = counters.shadowCleared;
         break;
-      }
       default:
         current = 0;
     }

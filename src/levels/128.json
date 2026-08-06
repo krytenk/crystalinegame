@@ -1,0 +1,40 @@
+{
+  "id": 128,
+  "name": "Sealed Bomb 128",
+  "width": 7,
+  "height": 7,
+  "moves": 23,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 7
+    },
+    {
+      "kind": "defuse",
+      "target": 2
+    }
+  ],
+  "stars": [
+    2870,
+    4449,
+    6601
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#.....#",
+    ".......",
+    "..B11..",
+    "..111..",
+    "..11B..",
+    ".......",
+    "#.....#"
+  ],
+  "bombFuse": 6
+}

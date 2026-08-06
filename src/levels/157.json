@@ -1,0 +1,40 @@
+{
+  "id": 157,
+  "name": "Ice Fuse 157",
+  "width": 7,
+  "height": 7,
+  "moves": 25,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 7
+    },
+    {
+      "kind": "defuse",
+      "target": 2
+    }
+  ],
+  "stars": [
+    3275,
+    5076,
+    7696
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#.....#",
+    ".......",
+    "..B22..",
+    "..222..",
+    "..22B..",
+    ".......",
+    "#.....#"
+  ],
+  "bombFuse": 7
+}

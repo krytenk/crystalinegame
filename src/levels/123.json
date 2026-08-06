@@ -1,0 +1,35 @@
+{
+  "id": 123,
+  "name": "Frost Plate 123",
+  "width": 7,
+  "height": 7,
+  "moves": 23,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 16
+    }
+  ],
+  "stars": [
+    2470,
+    3829,
+    5681
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#.....#",
+    ".11111.",
+    ".1...1.",
+    ".1...1.",
+    ".1...1.",
+    ".11111.",
+    "#.....#"
+  ]
+}

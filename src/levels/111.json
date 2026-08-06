@@ -1,0 +1,35 @@
+{
+  "id": 111,
+  "name": "Pack Ice 111",
+  "width": 7,
+  "height": 7,
+  "moves": 25,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 16
+    }
+  ],
+  "stars": [
+    2650,
+    4108,
+    6095
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#.....#",
+    ".11111.",
+    ".1...1.",
+    ".1...1.",
+    ".1...1.",
+    ".11111.",
+    "#.....#"
+  ]
+}

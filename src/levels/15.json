@@ -3,34 +3,28 @@
   "name": "The Long Drop",
   "width": 7,
   "height": 7,
-  "moves": 20,
+  "moves": 22,
   "objectives": [
     {
       "kind": "collect",
-      "target": 4
+      "target": 3
+    },
+    {
+      "kind": "defuse",
+      "target": 2
     }
   ],
-  "stars": [
-    1700,
-    2600,
-    3800
-  ],
-  "colors": [
-    "ember",
-    "aurum",
-    "solar",
-    "verdant",
-    "tidal",
-    "void"
-  ],
+  "stars": [2200, 3400, 4800],
+  "colors": ["ember", "aurum", "solar", "verdant", "tidal", "void"],
   "layout": [
-    "###....",
+    "###B...",
     "###....",
     "##.....",
-    "......#",
+    ".......",
     ".....##",
-    "....###",
+    "....B##",
     "...####"
   ],
-  "boss": true
+  "boss": true,
+  "bombFuse": 5
 }

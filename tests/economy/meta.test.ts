@@ -13,7 +13,7 @@ describe('meta progression', () => {
   });
 
   it('locks later stages until the previous is fully furnished', () => {
-    const m = new MetaModel({ essence: 10_000, owned: [], totalSpent: 0 });
+    const m = new MetaModel({ essence: 100_000, owned: [], totalSpent: 0 });
     expect(m.stageUnlocked(1)).toBe(true);
     expect(m.stageUnlocked(2)).toBe(false);
 
@@ -23,6 +23,26 @@ describe('meta progression', () => {
     }
     expect(m.stageComplete(1)).toBe(true);
     expect(m.stageUnlocked(2)).toBe(true);
+  });
+
+  it('exposes eight cavern stages for the 300-level Act I sink', () => {
+    const maxStage = Math.max(...META_UPGRADES.map((u) => u.stage));
+    expect(maxStage).toBe(8);
+    for (let s = 1; s <= 8; s++) {
+      const props = META_UPGRADES.filter((u) => u.stage === s);
+      expect(props.length).toBeGreaterThanOrEqual(3);
+    }
+    // Full furnish unlocks through stage 8
+    const m = new MetaModel({ essence: 500_000, owned: [], totalSpent: 0 });
+    for (let s = 1; s <= 8; s++) {
+      expect(m.stageUnlocked(s as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8)).toBe(true);
+      for (const u of META_UPGRADES.filter((x) => x.stage === s)) {
+        expect(m.buy(u.id).ok).toBe(true);
+      }
+      expect(m.stageComplete(s as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8)).toBe(true);
+    }
+    expect(m.snapshot().stagesComplete).toBe(8);
+    expect(m.snapshot().totalCount).toBe(META_UPGRADES.length);
   });
 
   it('rejects buys when broke or already owned', () => {

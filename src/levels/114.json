@@ -1,0 +1,35 @@
+{
+  "id": 114,
+  "name": "Hard Pan 114",
+  "width": 7,
+  "height": 7,
+  "moves": 24,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 12
+    }
+  ],
+  "stars": [
+    2560,
+    3968,
+    5888
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#.....#",
+    ".......",
+    ".1111..",
+    ".1111..",
+    ".1111..",
+    ".......",
+    "#.....#"
+  ]
+}

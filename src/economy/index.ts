@@ -459,6 +459,33 @@ export class Economy {
     return this.meta.snapshot().essence;
   }
 
+  /**
+   * Material wordmark scoop easter egg (sand / ore hero only).
+   * Hard daily cap — never out-earns a level clear.
+   * @returns essence granted this scoop (0 if capped)
+   */
+  claimMaterialScoop(): { granted: number; remainingToday: number } {
+    const MAX_PER_DAY = 3;
+    const PER_SCOOP = 2;
+    const today = dayKey(this.now());
+    let count = this.aux.materialScoopCount ?? 0;
+    if (this.aux.materialScoopDay !== today) count = 0;
+    if (count >= MAX_PER_DAY) {
+      return { granted: 0, remainingToday: 0 };
+    }
+    this.meta.grantEssence(PER_SCOOP);
+    this.lastEssenceGain = PER_SCOOP;
+    this.syncMetaAux();
+    this.aux = {
+      ...this.aux,
+      materialScoopDay: today,
+      materialScoopCount: count + 1,
+    };
+    this.persist();
+    this.emit();
+    return { granted: PER_SCOOP, remainingToday: MAX_PER_DAY - count - 1 };
+  }
+
   private syncMetaAux(): void {
     const m = this.meta.serialized;
     this.aux = {

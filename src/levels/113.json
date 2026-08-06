@@ -1,0 +1,40 @@
+{
+  "id": 113,
+  "name": "Sealed Bomb 113",
+  "width": 7,
+  "height": 7,
+  "moves": 25,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 7
+    },
+    {
+      "kind": "defuse",
+      "target": 2
+    }
+  ],
+  "stars": [
+    3050,
+    4728,
+    7015
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#.....#",
+    ".......",
+    "..B11..",
+    "..111..",
+    "..11B..",
+    ".......",
+    "#.....#"
+  ],
+  "bombFuse": 7
+}

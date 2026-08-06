@@ -1,0 +1,54 @@
+{
+  "id": 140,
+  "name": "Night Regent",
+  "width": 8,
+  "height": 7,
+  "moves": 25,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 16
+    },
+    {
+      "kind": "defuse",
+      "target": 3
+    },
+    {
+      "kind": "collect",
+      "target": 4
+    },
+    {
+      "kind": "contain",
+      "target": 13
+    },
+    {
+      "kind": "score",
+      "target": 7480
+    }
+  ],
+  "stars": [
+    4250,
+    6588,
+    9775
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#......#",
+    "...11...",
+    ".B1221..",
+    ".12332B.",
+    "..1221..",
+    "...1B...",
+    "#......#"
+  ],
+  "shadowPeriod": 3,
+  "bombFuse": 5,
+  "boss": true
+}

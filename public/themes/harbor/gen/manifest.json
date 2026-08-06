@@ -397,6 +397,16 @@
             0.5,
             0.5
           ]
+        },
+        "supernova": {
+          "x": 896,
+          "y": 512,
+          "w": 128,
+          "h": 128,
+          "anchor": [
+            0.5,
+            0.5
+          ]
         }
       }
     },
@@ -795,6 +805,16 @@
             0.5,
             0.5
           ]
+        },
+        "supernova": {
+          "x": 1792,
+          "y": 1024,
+          "w": 256,
+          "h": 256,
+          "anchor": [
+            0.5,
+            0.5
+          ]
         }
       }
     }
@@ -802,7 +822,7 @@
   "vfx": [
     {
       "tier": 3,
-      "composite": "alpha",
+      "composite": "screen",
       "sheet": {
         "src": "vfx_match3.webp",
         "frameWidth": 320,
@@ -815,7 +835,7 @@
     },
     {
       "tier": 4,
-      "composite": "alpha",
+      "composite": "screen",
       "sheet": {
         "src": "vfx_match4.webp",
         "frameWidth": 384,

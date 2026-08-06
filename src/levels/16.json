@@ -3,7 +3,7 @@
   "name": "Ice and Iron",
   "width": 7,
   "height": 7,
-  "moves": 22,
+  "moves": 28,
   "objectives": [
     {
       "kind": "crust",
@@ -11,7 +11,7 @@
     },
     {
       "kind": "collect",
-      "target": 3
+      "target": 2
     }
   ],
   "stars": [

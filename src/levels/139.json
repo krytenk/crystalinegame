@@ -1,0 +1,36 @@
+{
+  "id": 139,
+  "name": "Shutter 139",
+  "width": 7,
+  "height": 7,
+  "moves": 21,
+  "objectives": [
+    {
+      "kind": "contain",
+      "target": 11
+    }
+  ],
+  "stars": [
+    2290,
+    3550,
+    5267
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#.....#",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    "#.....#"
+  ],
+  "shadowPeriod": 3
+}

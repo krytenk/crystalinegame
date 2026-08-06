@@ -42,8 +42,9 @@ See `docs/LEGAL.md` and `docs/ECONOMY.md`.
 
 ## Content scale
 
-- **40** data-driven levels (Mouth → Prism → Deep Geode → Core Spire)  
-- 4 cavern stages + placement art  
+- **150** data-driven levels shipping now (Mouth → Regent Peak); **launch target 300** (Act I complete)  
+- **Phase 2 story** planned **301–600** (see `docs/CAMPAIGN_ARC.md`)  
+- 4 cavern stages + placement art (stages 5–6 with Act I-C)  
 - Album + event cycles without content cliffs  
 
 ## Ask (portfolio framing)

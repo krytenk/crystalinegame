@@ -1,0 +1,45 @@
+{
+  "id": 63,
+  "name": "Stacked Odds η",
+  "width": 7,
+  "height": 7,
+  "moves": 18,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 12
+    },
+    {
+      "kind": "defuse",
+      "target": 3
+    },
+    {
+      "kind": "contain",
+      "target": 10
+    }
+  ],
+  "stars": [
+    2500,
+    3900,
+    5800
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#B....#",
+    "...1...",
+    "..121B.",
+    ".12321.",
+    "..121..",
+    "...B...",
+    "#.....#"
+  ],
+  "shadowPeriod": 3,
+  "bombFuse": 5
+}

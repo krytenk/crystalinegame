@@ -1,17 +1,21 @@
-# Custom fonts (FontBundles)
+# Custom fonts
 
-Commercial use covered by a **FontBundles** subscription (user-owned licence).
+See also **[docs/FONT_ASSESSMENT.md](../../docs/FONT_ASSESSMENT.md)** for genre fit and Tidepop notes.
 
 ## Active stack (wired in `src/ui/styles.ts`)
 
 | Role | Face | Files | Used for |
 |------|------|-------|----------|
-| **Title** | **DragonBlaze** | `DragonBlaze.woff2`, `DragonBlaze/*` | Logo, panel `h1`, cascade banners, win chrome |
+| **Title (Crystalline)** | **DragonBlaze** | `DragonBlaze.woff2`, `DragonBlaze/*` | Logo, panel `h1`, cascade banners |
+| **Title / Display (Harbor)** | **Tidepop** | `Tidepop/Tidepop-Bold.ttf` | Harbor wordmark + CTAs (OFL original) |
 | **Title fallback** | Dragon Warrior | `DragonWarrior.ttf` | If Blaze fails to load |
-| **Display** | **Screen Techno** | `ScreenTechno.ttf` | Buttons, CTAs, HUD labels, chapter tags |
+| **Display (Crystalline)** | **Screen Techno** | `ScreenTechno.ttf` | Buttons, CTAs, HUD labels |
 | **Display fallback** | Diamond Shape | `display.woff2` | Crystal-punch backup |
-| **Accent (available)** | Bjorn Knight / Heroic Dragon | `BjornKnight.ttf`, `HeroicDragon.ttf` | `--font-accent` (optional special callouts) |
+| **Accent (available)** | Bjorn Knight / Heroic Dragon | `BjornKnight.ttf`, `HeroicDragon.ttf` | `--font-accent` |
 | **Body** | Nunito (Google) or `body.woff2` | — | Paragraphs, tips, long copy |
+
+FontBundles faces (DragonBlaze etc.): commercial use covered by **user-owned FontBundles** subscription.  
+**Tidepop:** SIL OFL 1.1 — original geometric face, **not** a Bon Bons Crush Legend clone.
 
 ## Catalogue on disk
 

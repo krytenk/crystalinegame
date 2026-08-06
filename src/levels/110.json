@@ -1,0 +1,54 @@
+{
+  "id": 110,
+  "name": "Deep Warden",
+  "width": 8,
+  "height": 7,
+  "moves": 27,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 16
+    },
+    {
+      "kind": "defuse",
+      "target": 3
+    },
+    {
+      "kind": "collect",
+      "target": 3
+    },
+    {
+      "kind": "contain",
+      "target": 10
+    },
+    {
+      "kind": "score",
+      "target": 4418
+    }
+  ],
+  "stars": [
+    4430,
+    6867,
+    10189
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#......#",
+    "...11...",
+    ".B1221..",
+    ".12332B.",
+    "..1221..",
+    "...1B...",
+    "#......#"
+  ],
+  "shadowPeriod": 4,
+  "bombFuse": 7,
+  "boss": true
+}

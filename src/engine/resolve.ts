@@ -62,6 +62,10 @@ const clearCells = (
     if (cell.crust > 0) continue;
     // Relics are never destroyed by matches/blasts — only collected at the bottom.
     if (cell.piece?.kind === 'relic') continue;
+    // Bombs must go through defuseBombsNear so defuse objectives stay honest.
+    // (clearCells used to null bombs silently → objective stall that felt "glitchy".)
+    if (cell.piece?.kind === 'bomb') continue;
+    if (cell.piece?.kind === 'stone') continue;
     if (cell.piece !== null) {
       cell.piece = null;
       actually.push(c);
@@ -232,10 +236,17 @@ export const resolveCascades = (
 
   while (steps < MAX_CASCADE_STEPS) {
     steps++;
-    const groups: MatchGroup[] = firstWave
-      ? findMatchesAt(grid, origins)
-      : findAllMatches(grid);
+    // First wave may smart-scan around the swap; every later wave (after gravity
+    // drops) always full-board scans so natural 3s/4s auto-clear.
+    let groups: MatchGroup[] =
+      firstWave && origins.length > 0
+        ? findMatchesAt(grid, origins)
+        : findAllMatches(grid);
     firstWave = false;
+    // If smart scan missed a match elsewhere (shouldn't), fall back to full board.
+    if (groups.length === 0 && hasAnyMatch(grid)) {
+      groups = findAllMatches(grid);
+    }
     if (groups.length === 0) break;
 
     const allMatched: Coord[] = [];
@@ -285,8 +296,8 @@ export const resolveCascades = (
       wavePoints += crust.points;
       events.push({ t: 'scoreChanged', score: session.score, delta: crust.points });
     }
-    events.push(...clearShadowOn(grid, expanded.cells));
-    defuseBombsNear(grid, expanded.cells, session.counters);
+    events.push(...clearShadowOn(grid, expanded.cells, session.counters));
+    events.push(...defuseBombsNear(grid, expanded.cells, session.counters));
 
     const extra = expanded.cells.length - allMatched.length;
     if (extra > 0) {
@@ -407,8 +418,8 @@ export const triggerPowerSwap = (
     session.score += crust.points;
     events.push({ t: 'scoreChanged', score: session.score, delta: crust.points });
   }
-  events.push(...clearShadowOn(session.grid, expanded.cells));
-  defuseBombsNear(session.grid, expanded.cells, session.counters);
+  events.push(...clearShadowOn(session.grid, expanded.cells, session.counters));
+  events.push(...defuseBombsNear(session.grid, expanded.cells, session.counters));
 
   const cause: ClearCause =
     plan.kind === 'supernova'

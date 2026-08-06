@@ -1,0 +1,35 @@
+{
+  "id": 67,
+  "name": "Treasure Drop γ",
+  "width": 7,
+  "height": 7,
+  "moves": 17,
+  "objectives": [
+    {
+      "kind": "collect",
+      "target": 4
+    }
+  ],
+  "stars": [
+    1800,
+    2800,
+    4100
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    "......."
+  ]
+}

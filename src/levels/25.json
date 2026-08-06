@@ -3,21 +3,21 @@
   "name": "Nightfall Gate",
   "width": 8,
   "height": 7,
-  "moves": 22,
+  "moves": 24,
   "objectives": [
     {
       "kind": "contain",
       "target": 12
     },
     {
-      "kind": "score",
-      "target": 4000
+      "kind": "crust",
+      "target": 10
     }
   ],
   "stars": [
-    3400,
-    4000,
-    5800
+    3600,
+    5200,
+    7400
   ],
   "colors": [
     "ember",
@@ -28,13 +28,13 @@
     "void"
   ],
   "layout": [
-    "#......#",
+    "#1....1#",
+    "1......1",
     "........",
+    "...11...",
     "........",
-    "........",
-    "........",
-    "........",
-    "#......#"
+    "1......1",
+    "#1....1#"
   ],
   "boss": true,
   "shadowPeriod": 3

@@ -1,0 +1,54 @@
+{
+  "id": 280,
+  "name": "Apex Approach",
+  "width": 8,
+  "height": 7,
+  "moves": 28,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 18
+    },
+    {
+      "kind": "defuse",
+      "target": 3
+    },
+    {
+      "kind": "collect",
+      "target": 4
+    },
+    {
+      "kind": "contain",
+      "target": 14
+    },
+    {
+      "kind": "score",
+      "target": 9318
+    }
+  ],
+  "stars": [
+    4910,
+    7611,
+    11539
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#......#",
+    ".B.11.B.",
+    "..1221..",
+    ".123321.",
+    "..1221..",
+    ".B.11...",
+    "#......#"
+  ],
+  "shadowPeriod": 3,
+  "bombFuse": 5,
+  "boss": true
+}

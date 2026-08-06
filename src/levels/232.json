@@ -1,0 +1,39 @@
+{
+  "id": 232,
+  "name": "Bottom Ledger 232",
+  "width": 7,
+  "height": 7,
+  "moves": 21,
+  "objectives": [
+    {
+      "kind": "collect",
+      "target": 3
+    },
+    {
+      "kind": "score",
+      "target": 6034
+    }
+  ],
+  "stars": [
+    2895,
+    4487,
+    6803
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#.....#",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    "#.....#"
+  ]
+}

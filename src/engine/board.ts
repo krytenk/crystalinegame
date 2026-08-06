@@ -32,7 +32,7 @@ import {
   pickConveyorRow,
 } from './conveyor';
 import { buildSpawnTable, fillEmptyCells } from './spawn';
-import { isLivingCore, isPowerCrystal } from './specials';
+import { isLivingCore, isPowerCrystal, powerSwapActivates } from './specials';
 import { newCounters, type SessionState } from './state';
 import {
   createIdAllocator,
@@ -248,6 +248,69 @@ const fillOpening = (s: SessionState): void => {
   if (hasAnyMatch(grid) || !hasLegalMove(grid)) reshuffleBoard(grid, rng);
 };
 
+/** After relics/shadow seed, force a legal first move (ship gate). */
+const ensureOpeningPlayable = (s: SessionState): void => {
+  if (hasLegalMove(s.grid)) return;
+  // Prefer reshuffling plain crystals first (keeps bombs/relics/crust).
+  if (reshuffleBoard(s.grid, s.rng, 60)) return;
+  // Last resort: full crystal refill without auto-matches.
+  for (let attempt = 0; attempt < 30; attempt++) {
+    s.grid.forEach((cell) => {
+      if (cell.piece?.kind === 'crystal') cell.piece = null;
+    });
+    fillEmptyCells(s.grid, s.rng, s.table, s.ids);
+    if (!hasAnyMatch(s.grid) && hasLegalMove(s.grid)) return;
+    if (hasLegalMove(s.grid)) {
+      // Accept rare opening match rather than a dead board.
+      return;
+    }
+    reshuffleBoard(s.grid, s.rng, 20);
+    if (hasLegalMove(s.grid)) return;
+  }
+};
+
+/**
+ * Contain levels need shadow on the board from the first move so the goal is
+ * visible and progress can begin. Without this, darkness only appears after
+ * `shadowPeriod` moves and early swaps cannot advance contain.
+ */
+const seedOpeningShadow = (s: SessionState): void => {
+  const target = s.level.objectives
+    .filter((o) => o.kind === 'contain')
+    .reduce((sum, o) => sum + o.target, 0);
+  if (target <= 0 || s.level.shadowPeriod === undefined) return;
+  if (countShadowed(s.grid) > 0) return;
+
+  // Seed a small cluster so darkness is visible without pre-clearing the quota.
+  // Cap at 3 (was 4) so dual-objective boards can't dump half a contain goal
+  // on the first big cascade.
+  const want = Math.min(3, Math.max(2, Math.ceil(target / 4)));
+  const free: { x: number; y: number }[] = [];
+  s.grid.forEach((cell, coord) => {
+    if (cell.playable && cell.shadow <= 0) free.push(coord);
+  });
+  if (free.length === 0) return;
+
+  // Prefer a connected cluster from a deterministic mid-board seed.
+  const start = free[Math.floor(free.length / 2)]!;
+  const placed: { x: number; y: number }[] = [start];
+  s.grid.at(start.x, start.y).shadow = 1;
+
+  while (placed.length < want) {
+    const frontier: { x: number; y: number }[] = [];
+    for (const p of placed) {
+      for (const n of s.grid.neighbors4(p.x, p.y)) {
+        const cell = s.grid.at(n.x, n.y);
+        if (cell.playable && cell.shadow <= 0) frontier.push(n);
+      }
+    }
+    const next = frontier[0] ?? free.find((c) => s.grid.at(c.x, c.y).shadow <= 0);
+    if (!next) break;
+    s.grid.at(next.x, next.y).shadow = 1;
+    placed.push(next);
+  }
+};
+
 /**
  * Collect levels previously had no relic spawns — boards were unwinnable.
  * Seed a visible starter set, then gravity refill injects the rest.
@@ -262,11 +325,15 @@ const seedCollectRelics = (s: SessionState): void => {
   s.grid.forEach((cell) => {
     if (cell.piece?.kind === 'relic') onBoard += 1;
   });
-  // Seed about half the goal (at least 1, at most target) as gold artifacts near the top.
-  const want = Math.min(target, Math.max(1, Math.ceil(target * 0.5)));
+  // Seed a minority of the collect goal so dual boards aren't free dump-and-done.
+  // Pure collect: ~half. Multi-objective: only 1 starter relic.
+  const multiObj = s.level.objectives.length > 1;
+  const want = multiObj
+    ? Math.min(target, 1)
+    : Math.min(target, Math.max(1, Math.ceil(target * 0.5)));
   if (onBoard >= want) return;
 
-  // Prefer upper playable cells so the player sees them fall.
+  const hasCrustGoal = s.level.objectives.some((o) => o.kind === 'crust');
   const slots: { x: number; y: number }[] = [];
   for (let y = 0; y < s.grid.height; y++) {
     for (let x = 0; x < s.grid.width; x++) {
@@ -276,8 +343,16 @@ const seedCollectRelics = (s: SessionState): void => {
       slots.push({ x, y });
     }
   }
-  // Upper rows first
-  slots.sort((a, b) => a.y - b.y || a.x - b.x);
+  if (slots.length === 0) return;
+
+  // Pure collect: upper rows so the player watches them fall.
+  // Dual crust+collect: plant at least one in the lower half so heavy ice
+  // doesn't starve the collect goal for the whole move budget.
+  if (hasCrustGoal) {
+    slots.sort((a, b) => b.y - a.y || a.x - b.x); // bottom-first
+  } else {
+    slots.sort((a, b) => a.y - b.y || a.x - b.x); // top-first
+  }
 
   let need = want - onBoard;
   for (const slot of slots) {
@@ -319,6 +394,9 @@ export const createSession = (level: LevelDef, seed: number, ddaScalar = 0): Ses
 
   fillOpening(state);
   seedCollectRelics(state);
+  seedOpeningShadow(state);
+  // Relics/shadow seeding can destroy the only legal opening swap — re-guarantee.
+  ensureOpeningPlayable(state);
   counters.shadowSeen = countShadowed(grid);
   state.objectives = initObjectives(level, counters);
 
@@ -365,15 +443,20 @@ export const createSession = (level: LevelDef, seed: number, ddaScalar = 0): Ses
         return events;
       }
 
-      const powerInvolved = isPowerCrystal(pieceA) || isPowerCrystal(pieceB);
-
       swapPieces(grid, a, b);
 
       // After swap: original A is at b, original B is at a.
       const atA = grid.at(a.x, a.y).piece;
       const atB = grid.at(b.x, b.y).piece;
 
-      if (powerInvolved && atA && atB && (isPowerCrystal(atA) || isPowerCrystal(atB))) {
+      // Powers only fire with valid partners (same colour for line/burst).
+      // Wrong-colour power swaps fall through to normal match detection.
+      if (
+        atA &&
+        atB &&
+        (isPowerCrystal(atA) || isPowerCrystal(atB)) &&
+        powerSwapActivates(atA, atB)
+      ) {
         events.push({ t: 'swap', a, b });
         commitMove(state, events);
         events.push(...triggerPowerSwap(state, a, atA, b, atB));
@@ -441,8 +524,20 @@ export const createSession = (level: LevelDef, seed: number, ddaScalar = 0): Ses
       if (!cell.playable || cell.piece === null) return events;
       if (cell.piece.kind === 'stone') return events;
       if (cell.piece.kind === 'relic') return events; // never smash collect artifacts
-      cell.piece = null;
-      events.push({ t: 'clear', cells: [at], cause: 'match', cascadeStep: 0 });
+      // Pickaxe on a bomb counts as a defuse (was: destroy without progress → soft lock feel).
+      if (cell.piece.kind === 'bomb') {
+        cell.piece = null;
+        state.counters.bombsDefused += 1;
+        events.push({
+          t: 'bombDefused',
+          at,
+          total: state.counters.bombsDefused,
+        });
+        events.push({ t: 'clear', cells: [at], cause: 'match', cascadeStep: 0 });
+      } else {
+        cell.piece = null;
+        events.push({ t: 'clear', cells: [at], cause: 'match', cascadeStep: 0 });
+      }
       const collectTarget = level.objectives
         .filter((o) => o.kind === 'collect')
         .reduce((sum, o) => sum + o.target, 0);

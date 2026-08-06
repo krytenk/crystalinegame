@@ -1,41 +1,34 @@
 {
   "id": 28,
-  "name": "Lightless",
+  "name": "Lightless Galleries",
   "width": 7,
   "height": 7,
-  "moves": 18,
+  "moves": 16,
   "objectives": [
     {
-      "kind": "collect",
-      "target": 3
+      "kind": "crust",
+      "target": 14
     },
     {
       "kind": "contain",
       "target": 14
+    },
+    {
+      "kind": "collect",
+      "target": 3
     }
   ],
-  "stars": [
-    4240,
-    6572,
-    9752
-  ],
-  "colors": [
-    "ember",
-    "aurum",
-    "solar",
-    "verdant",
-    "tidal",
-    "void"
-  ],
+  "stars": [4600, 7200, 10500],
+  "colors": ["ember", "aurum", "solar", "verdant", "tidal", "void"],
   "layout": [
-    ".#..##.",
-    ".#..##.",
-    ".#..##.",
-    ".......",
-    ".......",
-    ".......",
-    "......."
+    "##1.1##",
+    "#1...1#",
+    "1..#..1",
+    ".1.#.1.",
+    "1..#..1",
+    "#1...1#",
+    "##1.1##"
   ],
   "boss": false,
-  "shadowPeriod": 3
+  "shadowPeriod": 2
 }

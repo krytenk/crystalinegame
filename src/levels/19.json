@@ -3,7 +3,7 @@
   "name": "Slow Fuse",
   "width": 7,
   "height": 7,
-  "moves": 20,
+  "moves": 22,
   "objectives": [
     {
       "kind": "defuse",
@@ -32,5 +32,5 @@
     "#.....#"
   ],
   "boss": false,
-  "bombFuse": 5
+  "bombFuse": 8
 }

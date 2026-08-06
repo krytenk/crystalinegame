@@ -1,0 +1,36 @@
+{
+  "id": 106,
+  "name": "Creeping Dark 106",
+  "width": 7,
+  "height": 7,
+  "moves": 25,
+  "objectives": [
+    {
+      "kind": "contain",
+      "target": 8
+    }
+  ],
+  "stars": [
+    2650,
+    4108,
+    6095
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#.....#",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    "#.....#"
+  ],
+  "shadowPeriod": 4
+}

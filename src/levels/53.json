@@ -1,0 +1,36 @@
+{
+  "id": 53,
+  "name": "Umbral Gate ε",
+  "width": 7,
+  "height": 7,
+  "moves": 18,
+  "objectives": [
+    {
+      "kind": "contain",
+      "target": 8
+    }
+  ],
+  "stars": [
+    1800,
+    2800,
+    4100
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    ".......",
+    ".#...#.",
+    ".......",
+    ".......",
+    ".......",
+    ".#...#.",
+    "......."
+  ],
+  "shadowPeriod": 3
+}

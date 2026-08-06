@@ -1,0 +1,36 @@
+{
+  "id": 56,
+  "name": "Live Wire \u03b8",
+  "width": 7,
+  "height": 7,
+  "moves": 20,
+  "objectives": [
+    {
+      "kind": "defuse",
+      "target": 3
+    }
+  ],
+  "stars": [
+    1800,
+    2800,
+    4100
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#B....#",
+    ".......",
+    ".....B.",
+    "...B...",
+    ".......",
+    ".......",
+    "#.....#"
+  ],
+  "bombFuse": 5
+}

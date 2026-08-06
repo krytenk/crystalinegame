@@ -1,0 +1,40 @@
+{
+  "id": 238,
+  "name": "Deep Salvage 238",
+  "width": 7,
+  "height": 7,
+  "moves": 21,
+  "objectives": [
+    {
+      "kind": "collect",
+      "target": 3
+    },
+    {
+      "kind": "contain",
+      "target": 10
+    }
+  ],
+  "stars": [
+    2895,
+    4487,
+    6803
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#.....#",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    "#.....#"
+  ],
+  "shadowPeriod": 3
+}

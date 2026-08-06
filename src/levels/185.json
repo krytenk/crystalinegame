@@ -1,0 +1,54 @@
+{
+  "id": 185,
+  "name": "Twin Tide",
+  "width": 8,
+  "height": 7,
+  "moves": 27,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 15
+    },
+    {
+      "kind": "defuse",
+      "target": 3
+    },
+    {
+      "kind": "collect",
+      "target": 3
+    },
+    {
+      "kind": "contain",
+      "target": 12
+    },
+    {
+      "kind": "score",
+      "target": 5983
+    }
+  ],
+  "stars": [
+    4815,
+    7463,
+    11315
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#......#",
+    "...11...",
+    "..B221..",
+    ".1233B1.",
+    "..1221..",
+    "...1B...",
+    "#......#"
+  ],
+  "shadowPeriod": 4,
+  "bombFuse": 7,
+  "boss": true
+}

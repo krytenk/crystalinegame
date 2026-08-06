@@ -1,0 +1,40 @@
+{
+  "id": 293,
+  "name": "Sealed Buoy 293",
+  "width": 7,
+  "height": 7,
+  "moves": 21,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 7
+    },
+    {
+      "kind": "defuse",
+      "target": 2
+    }
+  ],
+  "stars": [
+    2895,
+    4487,
+    6803
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#.....#",
+    ".......",
+    "..B22..",
+    "..222..",
+    "..22B..",
+    ".......",
+    "#.....#"
+  ],
+  "bombFuse": 5
+}

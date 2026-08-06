@@ -32,7 +32,7 @@ export const NEUTRAL = {
   stone: '#7c8399',
   bomb: '#39405a',
   relic: '#ffd679',
-  crust: '#cfe4f5',
+  crust: '#b8e4ff',
   shadow: '#150a24',
 } as const;
 
@@ -339,6 +339,11 @@ export class PlaceholderAtlas {
       this.paintPrism(ctx);
       return canvas;
     }
+    if (key === 'supernova') {
+      // Mine peak special: living geode / supernova core (not Harbor octopus)
+      this.paintSupernova(ctx);
+      return canvas;
+    }
     if (key === 'stone') {
       this.paintStone(ctx);
       return canvas;
@@ -457,6 +462,40 @@ export class PlaceholderAtlas {
       ctx.stroke();
     }
     ctx.restore();
+  }
+
+  /** 6+ match peak piece — faceted star-core for the crystal mine. */
+  private paintSupernova(ctx: CanvasRenderingContext2D): void {
+    const core = new Path2D();
+    for (let i = 0; i < 8; i++) {
+      const a = -Math.PI / 2 + (i / 8) * Math.PI * 2;
+      const r = i % 2 === 0 ? 0.46 : 0.22;
+      const x = 0.5 + Math.cos(a) * r;
+      const y = 0.5 + Math.sin(a) * r;
+      if (i === 0) core.moveTo(x, y);
+      else core.lineTo(x, y);
+    }
+    core.closePath();
+    const g = ctx.createRadialGradient(0.42, 0.4, 0.04, 0.5, 0.5, 0.48);
+    g.addColorStop(0, '#ffffff');
+    g.addColorStop(0.25, '#ffe56a');
+    g.addColorStop(0.55, '#e0a0ff');
+    g.addColorStop(1, '#5a3080');
+    ctx.fillStyle = g;
+    ctx.fill(core);
+    ctx.lineWidth = 0.04;
+    ctx.strokeStyle = 'rgba(255, 230, 140, 0.95)';
+    ctx.stroke(core);
+    // Facet spokes
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineWidth = 0.02;
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 - Math.PI / 2;
+      ctx.beginPath();
+      ctx.moveTo(0.5, 0.5);
+      ctx.lineTo(0.5 + Math.cos(a) * 0.38, 0.5 + Math.sin(a) * 0.38);
+      ctx.stroke();
+    }
   }
 
   private paintPrism(ctx: CanvasRenderingContext2D): void {
@@ -701,35 +740,150 @@ export class PlaceholderAtlas {
     ctx.stroke(body);
   }
 
+  /**
+   * Crust = breakable ice block over a gem. Reads as a GOAL tile: solid frost
+   * body, dark silhouette, amber corner studs, layer pips, cracks as layers drop.
+   */
   private paintCrust(ctx: CanvasRenderingContext2D, layers: number): void {
-    const alpha = 0.34 + layers * 0.16;
+    const n = Math.min(3, Math.max(1, layers));
+    const half = 0.46 + n * 0.01;
+    const bodyA = 0.72 + n * 0.08;
     const p = new Path2D();
-    roundRectPath(p, 0.48, 0.09);
-    const g = ctx.createLinearGradient(-0.4, -0.48, 0.4, 0.48);
-    g.addColorStop(0, rgba(NEUTRAL.crust, alpha));
-    g.addColorStop(1, rgba('#7fa8c9', alpha));
+    roundRectPath(p, half, 0.1);
+
+    // Lift off the floor pad
+    ctx.save();
+    ctx.translate(0.02, 0.035);
+    ctx.fillStyle = 'rgba(8, 6, 20, 0.55)';
+    ctx.fill(p);
+    ctx.restore();
+
+    // Icy cyan slab — opaque enough to own the cell
+    const g = ctx.createLinearGradient(-0.42, -0.48, 0.38, 0.5);
+    if (n >= 3) {
+      g.addColorStop(0, rgba('#eef9ff', bodyA));
+      g.addColorStop(0.35, rgba('#9fd4f5', bodyA));
+      g.addColorStop(0.7, rgba('#5aa8d8', bodyA * 0.95));
+      g.addColorStop(1, rgba('#3a7aaa', bodyA * 0.9));
+    } else if (n === 2) {
+      g.addColorStop(0, rgba('#e8f6ff', bodyA * 0.92));
+      g.addColorStop(0.4, rgba('#8ec4e8', bodyA * 0.88));
+      g.addColorStop(1, rgba('#4a88b8', bodyA * 0.85));
+    } else {
+      g.addColorStop(0, rgba('#d8eefc', bodyA * 0.72));
+      g.addColorStop(0.45, rgba('#7ab0d4', bodyA * 0.62));
+      g.addColorStop(1, rgba('#3d6f96', bodyA * 0.58));
+    }
     ctx.fillStyle = g;
     ctx.fill(p);
 
+    // Ice facets + damage cracks
     ctx.save();
     ctx.clip(p);
-    ctx.strokeStyle = `rgba(255,255,255,${0.35 + layers * 0.1})`;
-    ctx.lineWidth = 0.024;
-    // Fewer cracks at 3 layers, more as it breaks down — legible damage state.
-    const cracks = 4 - layers;
-    for (let i = 0; i <= cracks; i++) {
-      const o = -0.4 + (i / (cracks + 1)) * 0.9;
+    ctx.globalAlpha = 0.45 + n * 0.08;
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = 0.018;
+    for (let i = -2; i <= 2; i++) {
       ctx.beginPath();
-      ctx.moveTo(-0.5, o);
-      ctx.lineTo(-0.1, o + 0.12);
-      ctx.lineTo(0.16, o - 0.08);
-      ctx.lineTo(0.5, o + 0.05);
+      ctx.moveTo(-0.5, i * 0.18);
+      ctx.lineTo(i * 0.18, -0.5);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0.5, i * 0.18);
+      ctx.lineTo(i * 0.18, 0.5);
       ctx.stroke();
     }
+    const sheen = ctx.createLinearGradient(-0.3, -0.45, 0.1, -0.05);
+    sheen.addColorStop(0, 'rgba(255,255,255,0.55)');
+    sheen.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = sheen;
+    ctx.beginPath();
+    ctx.ellipse(-0.08, -0.22, 0.28, 0.12, -0.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    const crackCount = 4 - n;
+    ctx.strokeStyle = `rgba(20, 40, 70, ${0.35 + crackCount * 0.15})`;
+    ctx.lineWidth = 0.028;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < crackCount; i++) {
+      const t = (i + 1) / (crackCount + 1);
+      const y0 = -0.38 + t * 0.76;
+      ctx.beginPath();
+      ctx.moveTo(-0.4, y0);
+      ctx.lineTo(-0.12 + (i % 2) * 0.08, y0 + 0.1);
+      ctx.lineTo(0.08, y0 - 0.06);
+      ctx.lineTo(0.22, y0 + 0.14);
+      ctx.lineTo(0.42, y0 + 0.02);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0.08, y0 - 0.06);
+      ctx.lineTo(0.18, y0 - 0.2);
+      ctx.stroke();
+    }
+    if (crackCount > 0) {
+      ctx.strokeStyle = `rgba(255,255,255,${0.4 + crackCount * 0.1})`;
+      ctx.lineWidth = 0.012;
+      for (let i = 0; i < crackCount; i++) {
+        const t = (i + 1) / (crackCount + 1);
+        const y0 = -0.38 + t * 0.76;
+        ctx.beginPath();
+        ctx.moveTo(-0.38, y0 - 0.01);
+        ctx.lineTo(-0.1, y0 + 0.09);
+        ctx.lineTo(0.1, y0 - 0.05);
+        ctx.stroke();
+      }
+    }
     ctx.restore();
-    ctx.lineWidth = 0.04;
-    ctx.strokeStyle = 'rgba(226,244,255,0.75)';
+
+    // Silhouette + frost rim
+    ctx.lineWidth = 0.055;
+    ctx.strokeStyle = 'rgba(12, 22, 40, 0.92)';
     ctx.stroke(p);
+    ctx.lineWidth = 0.028;
+    ctx.strokeStyle = n >= 2 ? 'rgba(230, 250, 255, 0.95)' : 'rgba(200, 230, 255, 0.75)';
+    ctx.stroke(p);
+    const inner = new Path2D();
+    roundRectPath(inner, half - 0.045, 0.08);
+    ctx.lineWidth = 0.016;
+    ctx.strokeStyle = `rgba(80, 200, 255, ${0.55 + n * 0.1})`;
+    ctx.stroke(inner);
+
+    // Amber goal studs (four corners)
+    const studR = 0.055;
+    const inset = half - 0.07;
+    for (const [sx, sy] of [
+      [-inset, -inset],
+      [inset, -inset],
+      [-inset, inset],
+      [inset, inset],
+    ] as const) {
+      ctx.beginPath();
+      ctx.arc(sx, sy, studR, 0, Math.PI * 2);
+      ctx.fillStyle = n >= 2 ? '#ffc14a' : '#e0a838';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(80, 40, 0, 0.75)';
+      ctx.lineWidth = 0.012;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(sx - 0.015, sy - 0.015, studR * 0.35, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.fill();
+    }
+
+    // Layer pips (hits remaining)
+    const pipY = half - 0.1;
+    const pipGap = 0.09;
+    const pipStart = -((n - 1) * pipGap) / 2;
+    for (let i = 0; i < n; i++) {
+      const px = pipStart + i * pipGap;
+      ctx.beginPath();
+      ctx.arc(px, pipY, 0.028, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff8e0';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(30, 50, 80, 0.7)';
+      ctx.lineWidth = 0.01;
+      ctx.stroke();
+    }
   }
 
   private paintShadow(ctx: CanvasRenderingContext2D, level: number): void {

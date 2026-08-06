@@ -47,8 +47,12 @@ export const damageCrustNear = (
   return { events, points: layersHit * SCORE.crustLayer };
 };
 
-/** Clear shadow on matched cells. */
-export const clearShadowOn = (grid: Grid2D<Cell>, cells: readonly Coord[]): GameEvent[] => {
+/** Clear shadow on matched cells. Tallies `shadowCleared` for contain objectives. */
+export const clearShadowOn = (
+  grid: Grid2D<Cell>,
+  cells: readonly Coord[],
+  counters?: { shadowCleared: number },
+): GameEvent[] => {
   const cleared: Coord[] = [];
   for (const c of cells) {
     const cell = grid.get(c.x, c.y);
@@ -57,6 +61,7 @@ export const clearShadowOn = (grid: Grid2D<Cell>, cells: readonly Coord[]): Game
     cleared.push(c);
   }
   if (cleared.length === 0) return [];
+  if (counters) counters.shadowCleared += cleared.length;
   return [{ t: 'shadowCleared', cells: sortCoords([...cleared]) }];
 };
 
@@ -72,7 +77,9 @@ export const spreadShadow = (
   if (level.shadowPeriod === undefined) return [];
 
   const rate = ddaModulation(ddaScalar).shadowRate;
-  const baseCount = 1;
+  // Two cells per tick at neutral DDA so contain targets (~8–12) are reachable
+  // across a typical mid-band move budget (period 3 × ~20 moves ≈ 6–7 ticks).
+  const baseCount = 2;
   const count = Math.max(1, Math.round(baseCount * rate));
 
   // Seed: cells already shadowed.
@@ -154,8 +161,9 @@ export const tickBombs = (session: SessionState): GameEvent[] => {
 };
 
 /**
- * Defuse bombs adjacent to a clear (or on a cleared cell if somehow matchable).
- * Bombs are not matchable; adjacency is the only path.
+ * Defuse bombs on cleared cells and adjacent to them.
+ * Bombs are not matchable; adjacency or being inside a blast footprint is the path.
+ * Always emits `bombDefused` so the UI/audio can feedback (silent defuse felt glitchy).
  */
 export const defuseBombsNear = (
   grid: Grid2D<Cell>,
@@ -165,22 +173,24 @@ export const defuseBombsNear = (
   const events: GameEvent[] = [];
   const seen = new Set<number>();
 
+  const tryDefuse = (x: number, y: number): void => {
+    if (!grid.inBounds(x, y)) return;
+    const idx = grid.toIndex(x, y);
+    if (seen.has(idx)) return;
+    seen.add(idx);
+    const cell = grid.at(x, y);
+    if (cell.piece?.kind !== 'bomb') return;
+    cell.piece = null;
+    counters.bombsDefused += 1;
+    events.push({ t: 'bombDefused', at: { x, y }, total: counters.bombsDefused });
+  };
+
   for (const c of cleared) {
+    // Bomb sitting in the blast / match footprint (specials, board wipes).
+    tryDefuse(c.x, c.y);
+    // Classic path: match next to a bomb.
     for (const n of grid.neighbors4(c.x, c.y)) {
-      const idx = grid.toIndex(n.x, n.y);
-      if (seen.has(idx)) continue;
-      seen.add(idx);
-      const cell = grid.at(n.x, n.y);
-      if (cell.piece?.kind === 'bomb') {
-        cell.piece = null;
-        counters.bombsDefused += 1;
-        // Represent defuse as a clear-style bomb removal via crust? Use bombExploded
-        // is wrong. We'll emit specialTriggered-like via clear — use bombTick fuse 0
-        // is wrong too. Emit as clear cause bomb handled elsewhere.
-        // Use a bombExploded only for expiry. For defuse, just remove silently and
-        // rely on objectives refresh. Emit crustDamaged-like? Better: clear event
-        // is handled by caller. Just remove the piece.
-      }
+      tryDefuse(n.x, n.y);
     }
   }
   return events;

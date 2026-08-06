@@ -143,6 +143,12 @@ export interface EconomyAux {
   readonly comfortOwned: boolean;
   /** Soft daily clears goal + win streak. */
   readonly dailyGoals: unknown;
+  /**
+   * Material wordmark scoop easter egg (sand/ore hero only).
+   * Capped soft currency — never out-earns clears.
+   */
+  readonly materialScoopDay: string | null;
+  readonly materialScoopCount: number;
 }
 
 export interface PersistedSave extends SaveData {
@@ -200,6 +206,8 @@ export function freshAux(now: number): EconomyAux {
     adsFreeUntil: null,
     comfortOwned: false,
     dailyGoals: emptyDailyGoalsBlob(now),
+    materialScoopDay: null,
+    materialScoopCount: 0,
   };
 }
 
@@ -231,7 +239,8 @@ export function freshSave(now: number): PersistedSave {
     ownedSkus: [],
     progress: { highestUnlocked: 1, stars: {} },
     metrics: freshMetrics(now),
-    settings: { glyphs: false, reducedMotion: false, sfx: true, music: true },
+    // Glyphs default ON for colour-blind dual-coding (shape + hue).
+    settings: { glyphs: true, highContrast: false, reducedMotion: false, sfx: true, music: true },
     dda: { scalar: 0, failStreak: 0, history: [] },
     lastSeenDay: dayKey(now),
     aux: freshAux(now),
@@ -340,7 +349,9 @@ export function repair(raw: unknown, now: number): PersistedSave {
       ddaScalar: num(metrics['ddaScalar'], 0),
     },
     settings: {
-      glyphs: bool(settings['glyphs'], base.settings.glyphs),
+      // Missing key → default true (ship accessibility); only explicit false disables.
+      glyphs: settings['glyphs'] === undefined ? true : bool(settings['glyphs'], true),
+      highContrast: bool(settings['highContrast'], base.settings.highContrast),
       reducedMotion: bool(settings['reducedMotion'], base.settings.reducedMotion),
       sfx: bool(settings['sfx'], base.settings.sfx),
       music: bool(settings['music'], base.settings.music),
@@ -372,6 +383,9 @@ export function repair(raw: unknown, now: number): PersistedSave {
       adsFreeUntil: nullableNum(aux['adsFreeUntil']),
       comfortOwned: bool(aux['comfortOwned'], false),
       dailyGoals: aux['dailyGoals'] ?? base.aux.dailyGoals,
+      materialScoopDay:
+        typeof aux['materialScoopDay'] === 'string' ? aux['materialScoopDay'] : null,
+      materialScoopCount: safeCount(aux['materialScoopCount'], 0),
     },
   };
 }

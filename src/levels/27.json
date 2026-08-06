@@ -3,7 +3,7 @@
   "name": "Shuttered Depths",
   "width": 7,
   "height": 7,
-  "moves": 20,
+  "moves": 16,
   "objectives": [
     {
       "kind": "crust",
@@ -14,19 +14,8 @@
       "target": 12
     }
   ],
-  "stars": [
-    4160,
-    6448,
-    9568
-  ],
-  "colors": [
-    "ember",
-    "aurum",
-    "solar",
-    "verdant",
-    "tidal",
-    "void"
-  ],
+  "stars": [4300, 6700, 9900],
+  "colors": ["ember", "aurum", "solar", "verdant", "tidal", "void"],
   "layout": [
     "#..2..#",
     "...2...",
@@ -37,5 +26,5 @@
     "#.....#"
   ],
   "boss": false,
-  "shadowPeriod": 3
+  "shadowPeriod": 2
 }

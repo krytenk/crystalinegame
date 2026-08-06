@@ -25,7 +25,9 @@ export class BoardView {
     height: 8,
   };
 
-  glyphs = false;
+  glyphs = true;
+  /** Larger glyphs + thick white/black rims on crystals for colour-blind play. */
+  highContrast = false;
   /** Active conveyor row highlight (set by play loop from engine events). */
   conveyor: {
     row: number;
@@ -41,37 +43,60 @@ export class BoardView {
   chamberTint: string | null = null;
   private press: Coord | null = null;
   private hover: Coord | null = null;
+  /** Logical pointer down position — enables direction-based swipe on mobile. */
+  private pressPx: { x: number; y: number } | null = null;
+  /**
+   * Fraction of cell size that counts as a swipe (lower = more sensitive).
+   * ~0.22 works well on dense phone boards; desktop still uses cell adjacency.
+   */
+  swipeThreshold = 0.22;
 
   /**
    * Fit board into the play area of the logical canvas.
    * Free-floating top HUD + bottom tool buttons must never cover playable cells.
+   *
+   * Soft-max is intentionally conservative on phones: 7×7/8×7 boards with softMax
+   * 90+ filled most of the stage and felt “physically unplayable” (L23 report).
    */
   relayout(cols: number, rows: number): void {
-    // Tighter side pad on small boards so gems fill the phone stage
-    const padX = cols <= 6 ? 14 : cols <= 7 ? 16 : 20;
-    // Match HTML floating tools (~76px) + safe gap + bezel bleed
-    const PLAY_HUD_TOP = 150;
-    const PLAY_TOOL_RESERVE = 148;
-    const BEZEL_BLEED = 28;
+    // Side pad scales with board width so 8×7 still clears edges
+    const padX = cols <= 6 ? 20 : cols <= 7 ? 24 : 28;
+    // Fixed top shelf — denser lives/goals optical scale, same gem budget
+    // (icon ~52 @ y≈38 + counter ≈ 172 band; do not raise without measuring cell size)
+    const PLAY_HUD_TOP = 172;
+    // Tool float buttons (~68–80px) + shadow + home-indicator safe band
+    const PLAY_TOOL_RESERVE = 176;
+    // Gold shaped bezel outerPad ≈ 0.22*cell + stroke/shadow — keep headroom
+    const BEZEL_BLEED = 40;
     const top = PLAY_HUD_TOP;
     const bottom = LOGICAL_HEIGHT - PLAY_TOOL_RESERVE;
     const availW = LOGICAL_WIDTH - padX * 2;
     const availH = Math.max(1, bottom - top);
-    // Prefer large cells; floor but never smaller than 1
+
+    // Prefer larger gems; still clamp so HUD/tools never cover the board.
+    // (Soft-max was overly conservative after L23 — raise for readability.)
+    const softMax =
+      cols * rows <= 36 ? 96 : cols * rows <= 49 ? 86 : cols * rows <= 56 ? 78 : 72;
+
     let cell = Math.max(1, Math.floor(Math.min(availW / cols, availH / rows)));
-    // Soft cap so early boards stay big but still clear the tool zone
-    const softMax = cols * rows <= 36 ? 100 : cols * rows <= 49 ? 90 : 84;
     cell = Math.min(cell, softMax);
-    // Ensure full board + bezel fits in [top, bottom]
+    // Fit full board + bezel into the play band
     const maxCellByH = Math.floor((availH - BEZEL_BLEED) / rows);
     const maxCellByW = Math.floor(availW / cols);
     cell = Math.max(1, Math.min(cell, maxCellByH, maxCellByW));
 
+    // Second pass: if bezel outerPad at this cell would clip tools, shrink once more
+    const outerPad = Math.max(12, Math.floor(cell * 0.22));
+    const needBleed = outerPad + 12;
+    if (cell * rows + needBleed > availH) {
+      cell = Math.max(1, Math.floor((availH - needBleed) / rows));
+    }
+
     const boardW = cell * cols;
     const boardH = cell * rows;
-    // Center in the play band, then clamp so bottom edge clears the tool buttons
-    let originY = top + Math.floor((availH - boardH) * 0.28);
-    const maxOriginY = bottom - boardH - BEZEL_BLEED;
+    // Prefer slightly high centering so tools never collide
+    let originY = top + Math.floor((availH - boardH) * 0.22);
+    const maxOriginY = bottom - boardH - Math.max(BEZEL_BLEED, needBleed);
     originY = Math.max(top, Math.min(originY, maxOriginY));
 
     this.layout = {
@@ -93,6 +118,7 @@ export class BoardView {
 
   onPress(lx: number, ly: number): void {
     this.press = this.screenToCell(lx, ly);
+    this.pressPx = { x: lx, y: ly };
   }
 
   onMove(lx: number, ly: number): Coord | null {
@@ -104,21 +130,53 @@ export class BoardView {
     if (dx + dy !== 1) return null;
     const a = this.press;
     this.press = null;
+    this.pressPx = null;
     return a; // caller also needs b — use completeSwap
   }
 
-  completeSwap(lx: number, ly: number): { a: Coord; b: Coord } | null {
+  /**
+   * Peek a swap without consuming press (for mid-drag commits on mobile).
+   */
+  peekSwap(lx: number, ly: number): { a: Coord; b: Coord } | null {
     if (!this.press) return null;
-    const b = this.screenToCell(lx, ly);
     const a = this.press;
-    this.press = null;
-    if (!b) return null;
-    if (Math.abs(a.x - b.x) + Math.abs(a.y - b.y) !== 1) return null;
-    return { a, b };
+    const bCell = this.screenToCell(lx, ly);
+    if (bCell && Math.abs(a.x - bCell.x) + Math.abs(a.y - bCell.y) === 1) {
+      return { a, b: bCell };
+    }
+    if (this.pressPx) {
+      const { cell, width, height } = this.layout;
+      const dx = lx - this.pressPx.x;
+      const dy = ly - this.pressPx.y;
+      const need = Math.max(8, cell * this.swipeThreshold);
+      if (Math.abs(dx) < need && Math.abs(dy) < need) return null;
+      let bx = a.x;
+      let by = a.y;
+      if (Math.abs(dx) >= Math.abs(dy)) bx = a.x + (dx > 0 ? 1 : -1);
+      else by = a.y + (dy > 0 ? 1 : -1);
+      if (bx < 0 || by < 0 || bx >= width || by >= height) return null;
+      return { a, b: { x: bx, y: by } };
+    }
+    return null;
+  }
+
+  /**
+   * Resolve a swap from press → release / drag.
+   * Mobile-friendly: short flicks use swipe *direction* with a low threshold.
+   */
+  completeSwap(lx: number, ly: number): { a: Coord; b: Coord } | null {
+    const swap = this.peekSwap(lx, ly);
+    this.cancelPress();
+    return swap;
   }
 
   cancelPress(): void {
     this.press = null;
+    this.pressPx = null;
+  }
+
+  get hasPress(): boolean {
+    return this.press != null;
   }
 
   draw(
@@ -191,7 +249,19 @@ export class BoardView {
         // When not animating, draw pieces in-cell. During animation the
         // animator owns all piece drawing (including stones/bombs).
         if (!useAnim && cellData.piece) {
-          drawPiece(ctx, atlas, cellData.piece, cx, cy, cell, dprBucket, pulse, this.glyphs);
+          drawPiece(
+            ctx,
+            atlas,
+            cellData.piece,
+            cx,
+            cy,
+            cell,
+            dprBucket,
+            pulse,
+            this.glyphs,
+            undefined,
+            this.highContrast,
+          );
           // Chain shimmer wash over gems — bright pulse through the whole board
           if (this.shimmer && this.shimmer.alpha > 0.02) {
             ctx.save();
@@ -221,7 +291,9 @@ export class BoardView {
 
         if (cellData.crust > 0) {
           const layers = Math.min(3, Math.max(1, cellData.crust)) as 1 | 2 | 3;
-          atlas.draw(ctx, frameKey.crust(layers), cx, cy, cell * 0.95, dprBucket);
+          // Full-cell ice block so crust owns the pad (not a faint floor tint).
+          atlas.draw(ctx, frameKey.crust(layers), cx, cy, cell * 1.02, dprBucket);
+          drawIceBlockChrome(ctx, cx, cy, cell, layers);
         }
 
         if (this.press && this.press.x === x && this.press.y === y) {
@@ -280,7 +352,19 @@ export class BoardView {
           ctx.fill();
         }
         const size = cell * (0.88 * ap.vis.scale);
-        drawPiece(ctx, atlas, ap.piece, cx, cy, cell, dprBucket, pulse, this.glyphs, size);
+        drawPiece(
+          ctx,
+          atlas,
+          ap.piece,
+          cx,
+          cy,
+          cell,
+          dprBucket,
+          pulse,
+          this.glyphs,
+          size,
+          this.highContrast,
+        );
         ctx.restore();
       }
       ctx.restore();
@@ -299,6 +383,7 @@ function drawPiece(
   pulse: number,
   glyphs: boolean,
   forcedSize?: number,
+  highContrast = false,
 ): void {
   const isPower =
     piece.kind === 'line' ||
@@ -503,13 +588,14 @@ function drawPiece(
   }
 
   const key = pieceFrame(piece);
+  // Fill more of the cell so gems read larger on phone.
   const scale = isCore
-    ? 1.02 + pulse * 0.1
+    ? 1.08 + pulse * 0.1
     : isPower
-      ? 0.98 + pulse * 0.08
+      ? 1.04 + pulse * 0.08
       : isRelic
-        ? 0.98 + pulse * 0.06
-        : 0.9;
+        ? 1.02 + pulse * 0.06
+        : 0.97;
   const size = forcedSize ?? cell * scale;
 
   // Soft contact shadow under gem (depth)
@@ -546,6 +632,60 @@ function drawPiece(
     ctx.fill();
   }
 
+  // Power-kind badges — readable at a glance (what this special does)
+  if (piece.kind === 'line' || piece.kind === 'burst' || piece.kind === 'prism') {
+    ctx.save();
+    const badge = piece.kind === 'line' ? (piece.orientation === 'v' ? '│' : '─') : piece.kind === 'burst' ? '✦' : '◇';
+    const label =
+      piece.kind === 'line'
+        ? piece.orientation === 'v'
+          ? 'COL'
+          : 'ROW'
+        : piece.kind === 'burst'
+          ? 'AOE'
+          : 'ALL';
+    // Dark pill behind badge
+    const bw = cell * 0.42;
+    const bh = cell * 0.2;
+    ctx.fillStyle = 'rgba(8, 10, 24, 0.72)';
+    ctx.beginPath();
+    const bx = cx - bw / 2;
+    const by = cy + size * 0.22;
+    const rr = bh / 2;
+    ctx.moveTo(bx + rr, by);
+    ctx.arcTo(bx + bw, by, bx + bw, by + bh, rr);
+    ctx.arcTo(bx + bw, by + bh, bx, by + bh, rr);
+    ctx.arcTo(bx, by + bh, bx, by, rr);
+    ctx.arcTo(bx, by, bx + bw, by, rr);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle =
+      piece.kind === 'line' ? '#7ed0ff' : piece.kind === 'burst' ? '#ffc060' : '#e0a0ff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = '#fff6e8';
+    ctx.font = `800 ${Math.max(9, Math.floor(cell * 0.14))}px "ScreenTechno","Nunito",sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, cx, by + bh / 2 + 0.5);
+    // Keep glyph mark for shape dual-coding
+    void badge;
+    ctx.restore();
+  }
+  if (piece.kind === 'supernova') {
+    ctx.save();
+    ctx.fillStyle = 'rgba(8, 10, 24, 0.75)';
+    ctx.beginPath();
+    ctx.arc(cx, cy + size * 0.28, cell * 0.16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffe56a';
+    ctx.font = `800 ${Math.max(8, Math.floor(cell * 0.12))}px "ScreenTechno","Nunito",sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('NOVA', cx, cy + size * 0.28);
+    ctx.restore();
+  }
+
   if (piece.kind === 'bomb' && piece.fuse !== undefined) {
     // Fuse countdown on the bomb body — hot when low
     const hot = piece.fuse <= 2;
@@ -562,12 +702,38 @@ function drawPiece(
     ctx.shadowBlur = 0;
   }
   if (glyphs && piece.color) {
-    atlas.draw(ctx, frameKey.glyph(piece.color), cx, cy, cell * 0.35, dprBucket);
+    const gSize = highContrast ? cell * 0.48 : cell * 0.4;
+    // Dark plate under glyph for contrast on bright facets
+    if (highContrast) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(8, 10, 20, 0.55)';
+      ctx.beginPath();
+      ctx.arc(cx, cy, gSize * 0.55, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    atlas.draw(ctx, frameKey.glyph(piece.color), cx, cy, gSize, dprBucket);
+  }
+  // High-contrast outer rim so silhouettes separate under colour blindness
+  if (highContrast && (piece.kind === 'crystal' || piece.kind === 'line' || piece.kind === 'burst')) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+    ctx.lineWidth = Math.max(2, cell * 0.04);
+    ctx.beginPath();
+    ctx.arc(cx, cy, size * 0.42, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+    ctx.lineWidth = Math.max(1.5, cell * 0.025);
+    ctx.beginPath();
+    ctx.arc(cx, cy, size * 0.46, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
   }
 }
 
 function pieceFrame(p: Piece): string {
-  if (p.kind === 'prism' || p.kind === 'supernova') return 'prism';
+  if (p.kind === 'supernova') return 'supernova';
+  if (p.kind === 'prism') return 'prism';
   if (p.kind === 'core') return 'prism';
   if (p.kind === 'stone') return 'stone';
   if (p.kind === 'bomb') return 'bomb';
@@ -686,10 +852,23 @@ function drawConveyorBelt(
   ctx.font = `800 ${Math.floor(cell * 0.2)}px "Nunito",sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const mark = direction === 'left' ? '◀' : '▶';
+  // Belt direction chevrons drawn as geometry (no Unicode arrows)
   for (let i = 0; i < cols; i++) {
     const cx = x0 + i * cell + cell / 2 + scroll * dir * 0.35;
-    ctx.fillText(mark, cx, y0 + 10);
+    const cy = y0 + 10;
+    const s = Math.max(4, cell * 0.08);
+    ctx.beginPath();
+    if (direction === 'right') {
+      ctx.moveTo(cx - s, cy - s);
+      ctx.lineTo(cx + s, cy);
+      ctx.lineTo(cx - s, cy + s);
+    } else {
+      ctx.moveTo(cx + s, cy - s);
+      ctx.lineTo(cx - s, cy);
+      ctx.lineTo(cx + s, cy + s);
+    }
+    ctx.closePath();
+    ctx.fill();
   }
   // Row frame glow
   ctx.strokeStyle = `rgba(94, 200, 212, ${0.45 + 0.4 * life})`;
@@ -853,6 +1032,74 @@ function pathPlayableCells(
       ctx.arcTo(px, py, px + pw, py, rr);
       ctx.closePath();
     }
+  }
+}
+
+/** Soft amber pulse + frost rim so ice-block crust reads as a breakable goal. */
+function drawIceBlockChrome(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  cell: number,
+  layers: 1 | 2 | 3,
+): void {
+  const half = cell * 0.48;
+  const r = cell * 0.12;
+  const pulse = 0.55 + 0.45 * Math.sin(performance.now() * 0.0045);
+
+  ctx.save();
+  ctx.shadowColor = `rgba(255, 193, 74, ${0.35 + pulse * 0.35})`;
+  ctx.shadowBlur = 10 + pulse * 8;
+  ctx.strokeStyle = `rgba(255, 200, 90, ${0.45 + pulse * 0.35})`;
+  ctx.lineWidth = 2.2;
+  roundRect(ctx, cx - half, cy - half, half * 2, half * 2, r);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.strokeStyle = 'rgba(8, 14, 28, 0.75)';
+  ctx.lineWidth = 2.5;
+  roundRect(ctx, cx - half - 1, cy - half - 1, half * 2 + 2, half * 2 + 2, r + 1);
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(210, 240, 255, 0.85)';
+  ctx.lineWidth = 1.6;
+  roundRect(ctx, cx - half + 2, cy - half + 2, half * 2 - 4, half * 2 - 4, r - 1);
+  ctx.stroke();
+
+  // Layer pips
+  const pipR = Math.max(2.5, cell * 0.045);
+  const gap = cell * 0.12;
+  const startX = cx - ((layers - 1) * gap) / 2;
+  const pipY = cy + half - cell * 0.12;
+  for (let i = 0; i < layers; i++) {
+    const px = startX + i * gap;
+    ctx.beginPath();
+    ctx.arc(px, pipY, pipR, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff4c8';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(20, 40, 70, 0.8)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  }
+
+  if (layers === 1) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(20, 40, 70, 0.55)';
+    ctx.lineWidth = 1.8;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(cx - half * 0.7, cy - half * 0.2);
+    ctx.lineTo(cx - half * 0.1, cy + half * 0.15);
+    ctx.lineTo(cx + half * 0.35, cy - half * 0.1);
+    ctx.lineTo(cx + half * 0.65, cy + half * 0.25);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cx - half * 0.68, cy - half * 0.22);
+    ctx.lineTo(cx - half * 0.08, cy + half * 0.13);
+    ctx.stroke();
+    ctx.restore();
   }
 }
 

@@ -3,15 +3,15 @@
   "name": "Bomb Garden",
   "width": 7,
   "height": 7,
-  "moves": 18,
+  "moves": 24,
   "objectives": [
     {
       "kind": "defuse",
-      "target": 5
+      "target": 4
     },
     {
       "kind": "collect",
-      "target": 3
+      "target": 2
     }
   ],
   "stars": [
@@ -32,10 +32,10 @@
     ".....B.",
     ".......",
     ".B.....",
-    ".B.....",
+    ".......",
     "....B..",
     "#.....#"
   ],
   "boss": false,
-  "bombFuse": 3
+  "bombFuse": 5
 }

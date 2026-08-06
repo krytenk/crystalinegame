@@ -1,0 +1,35 @@
+{
+  "id": 196,
+  "name": "Relic Channel 196",
+  "width": 7,
+  "height": 7,
+  "moves": 23,
+  "objectives": [
+    {
+      "kind": "collect",
+      "target": 2
+    }
+  ],
+  "stars": [
+    2635,
+    4084,
+    6192
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#.....#",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    "#.....#"
+  ]
+}

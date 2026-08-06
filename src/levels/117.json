@@ -1,0 +1,35 @@
+{
+  "id": 117,
+  "name": "Stone Shelf 117",
+  "width": 7,
+  "height": 7,
+  "moves": 24,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 16
+    }
+  ],
+  "stars": [
+    2560,
+    3968,
+    5888
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#.....#",
+    ".11111.",
+    ".1...1.",
+    ".1...1.",
+    ".1...1.",
+    ".11111.",
+    "#.....#"
+  ]
+}

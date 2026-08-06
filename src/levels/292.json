@@ -1,0 +1,39 @@
+{
+  "id": 292,
+  "name": "Bottom Ledger 292",
+  "width": 7,
+  "height": 7,
+  "moves": 18,
+  "objectives": [
+    {
+      "kind": "collect",
+      "target": 3
+    },
+    {
+      "kind": "score",
+      "target": 8651
+    }
+  ],
+  "stars": [
+    2610,
+    4046,
+    6134
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#.....#",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    "#.....#"
+  ]
+}

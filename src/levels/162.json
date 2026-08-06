@@ -1,0 +1,35 @@
+{
+  "id": 162,
+  "name": "Bottom Ledger 162",
+  "width": 7,
+  "height": 7,
+  "moves": 24,
+  "objectives": [
+    {
+      "kind": "collect",
+      "target": 2
+    }
+  ],
+  "stars": [
+    2730,
+    4232,
+    6416
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#.....#",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    "#.....#"
+  ]
+}

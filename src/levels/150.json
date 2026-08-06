@@ -1,0 +1,54 @@
+{
+  "id": 150,
+  "name": "Harbor Apex",
+  "width": 8,
+  "height": 7,
+  "moves": 24,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 16
+    },
+    {
+      "kind": "defuse",
+      "target": 3
+    },
+    {
+      "kind": "collect",
+      "target": 5
+    },
+    {
+      "kind": "contain",
+      "target": 14
+    },
+    {
+      "kind": "score",
+      "target": 8500
+    }
+  ],
+  "stars": [
+    4160,
+    6448,
+    9568
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#......#",
+    "...11...",
+    ".B1221..",
+    ".12332B.",
+    "..1221..",
+    "...1B...",
+    "#......#"
+  ],
+  "shadowPeriod": 3,
+  "bombFuse": 5,
+  "boss": true
+}

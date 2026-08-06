@@ -1,0 +1,39 @@
+{
+  "id": 274,
+  "name": "Cargo Reach 274",
+  "width": 7,
+  "height": 7,
+  "moves": 19,
+  "objectives": [
+    {
+      "kind": "collect",
+      "target": 3
+    },
+    {
+      "kind": "score",
+      "target": 7866
+    }
+  ],
+  "stars": [
+    2705,
+    4193,
+    6357
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#.....#",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    "#.....#"
+  ]
+}

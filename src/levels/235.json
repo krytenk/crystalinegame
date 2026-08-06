@@ -1,0 +1,54 @@
+{
+  "id": 235,
+  "name": "Channel Mouth",
+  "width": 8,
+  "height": 7,
+  "moves": 26,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 15
+    },
+    {
+      "kind": "defuse",
+      "target": 3
+    },
+    {
+      "kind": "collect",
+      "target": 4
+    },
+    {
+      "kind": "contain",
+      "target": 13
+    },
+    {
+      "kind": "score",
+      "target": 8164
+    }
+  ],
+  "stars": [
+    4720,
+    7316,
+    11092
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#......#",
+    "...11...",
+    "..B221..",
+    ".1233B1.",
+    "..1221..",
+    "...1B...",
+    "#......#"
+  ],
+  "shadowPeriod": 3,
+  "bombFuse": 6,
+  "boss": true
+}

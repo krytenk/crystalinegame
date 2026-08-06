@@ -1,0 +1,40 @@
+{
+  "id": 189,
+  "name": "Cold Charge 189",
+  "width": 7,
+  "height": 7,
+  "moves": 23,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 7
+    },
+    {
+      "kind": "defuse",
+      "target": 2
+    }
+  ],
+  "stars": [
+    3085,
+    4782,
+    7250
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#.....#",
+    ".......",
+    "..B22..",
+    "..222..",
+    "..22B..",
+    ".......",
+    "#.....#"
+  ],
+  "bombFuse": 6
+}

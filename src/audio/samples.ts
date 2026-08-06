@@ -1,11 +1,8 @@
 /**
- * CRYSTALLINE — one-shot sample bank (trimmed free SFX).
+ * CRYSTALLINE — one-shot sample bank + ambient loops.
  *
- * Sources (see public/sfx/README.md):
- *  - Freesound community glass break (trimmed)
- *  - Dragon Studio whooshes (trimmed)
- *
- * Falls back silently if decode fails — Synth still carries the bed.
+ * See public/sfx/README.md and docs/AUDIO.md.
+ * Decode failures are silent — Synth still carries pitch/chimes.
  */
 
 export type SfxId =
@@ -16,7 +13,19 @@ export type SfxId =
   | 'whooshMotion'
   | 'whooshHeavy'
   | 'whooshCinematic'
-  | 'whooshTitle';
+  | 'whooshTitle'
+  | 'chime'
+  | 'chimeCute'
+  | 'chimeSoft'
+  | 'ding'
+  | 'treasure'
+  | 'glitter'
+  | 'bombTick'
+  | 'thud'
+  | 'thudHeavy'
+  | 'winSting'
+  | 'ambientMine'
+  | 'ambientHarbor';
 
 const MANIFEST: Readonly<Record<SfxId, string>> = {
   glass: './sfx/glass.ogg',
@@ -27,12 +36,26 @@ const MANIFEST: Readonly<Record<SfxId, string>> = {
   whooshHeavy: './sfx/whoosh-heavy.ogg',
   whooshCinematic: './sfx/whoosh-cinematic.ogg',
   whooshTitle: './sfx/whoosh-title.ogg',
+  chime: './sfx/chime.ogg',
+  chimeCute: './sfx/chime-cute.ogg',
+  chimeSoft: './sfx/chime-soft.ogg',
+  ding: './sfx/ding.ogg',
+  treasure: './sfx/treasure.ogg',
+  glitter: './sfx/glitter.ogg',
+  bombTick: './sfx/bomb-tick.ogg',
+  thud: './sfx/thud.ogg',
+  thudHeavy: './sfx/thud-heavy.ogg',
+  winSting: './sfx/win-sting.ogg',
+  ambientMine: './sfx/ambient-mine.ogg',
+  ambientHarbor: './sfx/ambient-harbor.ogg',
 };
+
+export type AmbientId = 'ambientMine' | 'ambientHarbor';
 
 export interface PlayOpts {
   /** Linear gain 0..1 (default 0.35). */
   gain?: number;
-  /** Playback rate (default 1). Randomize slightly for variety. */
+  /** Playback rate (default 1). */
   rate?: number;
   /** Stereo pan -1..1. */
   pan?: number;
@@ -46,16 +69,23 @@ export class SampleBank {
   private readonly buffers = new Map<SfxId, AudioBuffer>();
   private loadPromise: Promise<void> | null = null;
   private active = 0;
-  private readonly maxVoices = 8;
+  private readonly maxVoices = 10;
   enabled = true;
 
-  /** Attach to the shared WebAudio graph (call once after Synth.ensure). */
+  /** Ambient loop graph */
+  private ambSrc: AudioBufferSourceNode | null = null;
+  private ambGain: GainNode | null = null;
+  private ambId: AmbientId | null = null;
+  private ambDesired = false;
+  /** Base ambient gain when not ducked */
+  private ambBaseGain = 0.085;
+  private ambDucked = false;
+
   attach(ctx: AudioContext, dest: AudioNode): void {
     this.ctx = ctx;
     this.dest = dest;
   }
 
-  /** Prefetch all clips. Safe to call repeatedly. */
   preload(): Promise<void> {
     if (!this.ctx) return Promise.resolve();
     if (this.loadPromise) return this.loadPromise;
@@ -88,7 +118,6 @@ export class SampleBank {
     if (!this.enabled || !this.ctx || !this.dest) return;
     const buf = this.buffers.get(id);
     if (!buf) {
-      // Kick a load if first play raced preload
       void this.preload();
       return;
     }
@@ -112,6 +141,8 @@ export class SampleBank {
     panner.connect(this.dest);
 
     this.active += 1;
+    // Brief duck of ambient under one-shots
+    this.duckAmbient(0.35);
     src.onended = () => {
       this.active = Math.max(0, this.active - 1);
       try {
@@ -129,7 +160,121 @@ export class SampleBank {
     }
   }
 
-  /** Convenience: glass + soft whoosh for a match hit. */
+  // ---------------------------------------------------------------------------
+  // Ambient loops (theme beds)
+  // ---------------------------------------------------------------------------
+
+  /** Start or switch ambient bed. Crossfades when changing id. */
+  startAmbient(id: AmbientId, gain = this.ambBaseGain): void {
+    this.ambDesired = true;
+    this.ambBaseGain = gain;
+    if (!this.enabled || !this.ctx || !this.dest) {
+      void this.preload().then(() => {
+        if (this.ambDesired) this.startAmbient(id, gain);
+      });
+      return;
+    }
+    void this.preload().then(() => {
+      if (!this.ambDesired || !this.ctx || !this.dest) return;
+      if (this.ambId === id && this.ambSrc && this.ambGain) {
+        this.setAmbientGain(this.ambDucked ? gain * 0.28 : gain, 0.4);
+        return;
+      }
+      this.stopAmbientInternal(0.6);
+      const buf = this.buffers.get(id);
+      if (!buf) return;
+
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      const g = this.ctx.createGain();
+      const now = this.ctx.currentTime;
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.exponentialRampToValueAtTime(Math.max(0.0001, gain), now + 1.2);
+      src.connect(g);
+      g.connect(this.dest);
+      try {
+        src.start(0);
+      } catch {
+        return;
+      }
+      this.ambSrc = src;
+      this.ambGain = g;
+      this.ambId = id;
+      this.ambDucked = false;
+    });
+  }
+
+  stopAmbient(fadeSec = 0.8): void {
+    this.ambDesired = false;
+    this.stopAmbientInternal(fadeSec);
+  }
+
+  private stopAmbientInternal(fadeSec: number): void {
+    const g = this.ambGain;
+    const src = this.ambSrc;
+    const ctx = this.ctx;
+    this.ambSrc = null;
+    this.ambGain = null;
+    this.ambId = null;
+    if (!g || !src || !ctx) return;
+    const now = ctx.currentTime;
+    try {
+      const cur = Math.max(0.0001, g.gain.value);
+      g.gain.cancelScheduledValues(now);
+      g.gain.setValueAtTime(cur, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + Math.max(0.05, fadeSec));
+    } catch {
+      /* */
+    }
+    window.setTimeout(
+      () => {
+        try {
+          src.stop();
+        } catch {
+          /* */
+        }
+        try {
+          src.disconnect();
+          g.disconnect();
+        } catch {
+          /* */
+        }
+      },
+      Math.ceil(fadeSec * 1000) + 40,
+    );
+  }
+
+  private setAmbientGain(value: number, fadeSec: number): void {
+    if (!this.ctx || !this.ambGain) return;
+    const now = this.ctx.currentTime;
+    const cur = Math.max(0.0001, this.ambGain.gain.value);
+    const target = Math.max(0.0001, value);
+    try {
+      this.ambGain.gain.cancelScheduledValues(now);
+      this.ambGain.gain.setValueAtTime(cur, now);
+      this.ambGain.gain.exponentialRampToValueAtTime(target, now + Math.max(0.05, fadeSec));
+    } catch {
+      /* */
+    }
+  }
+
+  /** Duck ambient under active SFX; auto-recover. */
+  duckAmbient(forSec = 0.4): void {
+    if (!this.ambGain || !this.ambDesired) return;
+    this.ambDucked = true;
+    this.setAmbientGain(this.ambBaseGain * 0.28, 0.08);
+    window.setTimeout(() => {
+      if (!this.ambDesired) return;
+      this.ambDucked = false;
+      this.setAmbientGain(this.ambBaseGain, 0.55);
+    }, Math.ceil(forSec * 1000));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Convenience recipes
+  // ---------------------------------------------------------------------------
+
   matchHit(cascadeStep: number, size: number): void {
     const step = Math.max(0, Math.min(10, cascadeStep));
     const n = Math.max(3, Math.min(8, size));
@@ -185,6 +330,21 @@ export class SampleBank {
     }
   }
 
+  /**
+   * Super Chest / kraken peak — layered grab: cinematic open, wet glass, pull, treasure.
+   * Longer than a normal specialWhoosh so limbs can own the frame.
+   */
+  superChestSting(): void {
+    this.play('whooshCinematic', { gain: 0.4, rate: 0.86, pan: 0 });
+    this.play('whooshMotion', { gain: 0.24, rate: 1.08, pan: 0.35, when: 0.05 });
+    this.play('glass', { gain: 0.3, rate: 0.88, pan: -0.15, when: 0.04 });
+    this.play('whooshHeavy', { gain: 0.22, rate: 0.82, pan: -0.25, when: 0.1 });
+    this.play('whooshSlice', { gain: 0.14, rate: 0.95, pan: 0.4, when: 0.16 });
+    this.play('glitter', { gain: 0.2, rate: 1.05, pan: 0.1, when: 0.22 });
+    this.play('treasure', { gain: 0.14, rate: 0.92, pan: 0, when: 0.38 });
+    this.play('whooshSoft', { gain: 0.12, rate: 0.9, pan: -0.3, when: 0.45 });
+  }
+
   crust(): void {
     this.play('glassTick', {
       gain: 0.2,
@@ -196,5 +356,54 @@ export class SampleBank {
   title(): void {
     this.play('whooshTitle', { gain: 0.28, rate: 1, pan: 0 });
     this.play('whooshMotion', { gain: 0.16, rate: 0.95, pan: 0.25, when: 0.12 });
+  }
+
+  bombTickSfx(fuse: number): void {
+    // Hotter / faster as fuse drops
+    const hot = fuse <= 2;
+    this.play('bombTick', {
+      gain: hot ? 0.28 : 0.16,
+      rate: hot ? 1.15 : 0.95 + (3 - Math.min(3, fuse)) * 0.04,
+      pan: (Math.random() * 2 - 1) * 0.25,
+    });
+  }
+
+  bombDefuseSfx(): void {
+    this.play('chimeSoft', { gain: 0.28, rate: 1.05 });
+    this.play('whooshSoft', { gain: 0.14, rate: 1.1, when: 0.02 });
+  }
+
+  relicSfx(): void {
+    this.play('treasure', { gain: 0.32, rate: 1 });
+    this.play('chimeCute', { gain: 0.14, rate: 1.08, when: 0.05 });
+  }
+
+  albumRareSfx(): void {
+    this.play('glitter', { gain: 0.3, rate: 1 });
+    this.play('treasure', { gain: 0.18, rate: 1.05, when: 0.08 });
+  }
+
+  starSfx(index: number): void {
+    this.play('ding', {
+      gain: 0.22 + index * 0.04,
+      rate: 0.96 + index * 0.06,
+    });
+  }
+
+  winSfx(): void {
+    this.play('winSting', { gain: 0.34, rate: 1 });
+    this.play('whooshCinematic', { gain: 0.18, rate: 1.02, when: 0.1 });
+  }
+
+  failSfx(): void {
+    this.play('thud', { gain: 0.32, rate: 0.92 });
+  }
+
+  lifeSpentSfx(): void {
+    this.play('thudHeavy', { gain: 0.3, rate: 0.88 });
+  }
+
+  uiSfx(): void {
+    this.play('chime', { gain: 0.12, rate: 1.15 + Math.random() * 0.08 });
   }
 }

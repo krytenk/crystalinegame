@@ -23,6 +23,7 @@ export interface AnimPiece {
 /**
  * Research-aligned juice timing (see docs/COGNITIVE_UX.md):
  *  0–100ms squeeze, 50–150ms fade, ~200ms gravity, ~300ms spawns.
+ * Victory flourish uses slower “spectacle” timings so leftover-move chains put on a show.
  */
 const CLEAR_SQUEEZE_MS = 100;
 const CLEAR_FADE_MS = 150;
@@ -39,6 +40,21 @@ const SHUFFLE_OUT_MS = 520;
 const SHUFFLE_HOLD_MS = 180;
 const SHUFFLE_IN_MS = 640;
 const SHUFFLE_STAGGER = 28;
+
+/** Post-win sugar-crush: slower clears, falls, and staged power detonations. */
+const SPECTACLE = {
+  clearHold: 300,
+  postClearGap: 90,
+  fallBase: 160,
+  fallPerRow: 95,
+  maxFall: 560,
+  spawnStagger: 36,
+  spawnSpecial: 220,
+  /** Super Chest limbs need a longer beat so the pull reads before cascade UI. */
+  specialTriggered: 560,
+  flourishBeat: 420,
+  waveGap: 70,
+} as const;
 
 export class BoardAnimator {
   private readonly tweens = new Tweener();
@@ -78,6 +94,14 @@ export class BoardAnimator {
     let t = now;
     let anyMotion = false;
     let maxRowsInWave = 0;
+    // Once winFlourish fires, the rest of the stream is victory spectacle.
+    let spectacle = false;
+
+    const fallBase = () => (spectacle ? SPECTACLE.fallBase : FALL_BASE_MS);
+    const fallPerRow = () => (spectacle ? SPECTACLE.fallPerRow : FALL_MS_PER_ROW);
+    const maxFall = () => (spectacle ? SPECTACLE.maxFall : MAX_FALL_MS);
+    const clearHold = () =>
+      spectacle ? SPECTACLE.clearHold + SPECTACLE.postClearGap : CLEAR_HOLD_MS + POST_CLEAR_FALL_GAP_MS;
 
     for (const ev of events) {
       switch (ev.t) {
@@ -93,34 +117,46 @@ export class BoardAnimator {
           anyMotion = true;
           break;
         }
+        case 'winFlourish': {
+          spectacle = true;
+          // Beat so the banner / BONUS line lands before free specials pop in.
+          t += SPECTACLE.flourishBeat;
+          anyMotion = true;
+          break;
+        }
         case 'clear': {
-          this.applyClear(ev.cells, t);
-          t += CLEAR_HOLD_MS + POST_CLEAR_FALL_GAP_MS;
+          this.applyClear(ev.cells, t, spectacle);
+          t += clearHold();
           anyMotion = true;
           break;
         }
         case 'fall': {
-          maxRowsInWave = Math.max(maxRowsInWave, this.applyFalls(ev.moves, t));
+          maxRowsInWave = Math.max(
+            maxRowsInWave,
+            this.applyFalls(ev.moves, t, spectacle),
+          );
           break;
         }
         case 'spawn': {
-          const above = this.applySpawns(ev.spawns, t);
+          const above = this.applySpawns(ev.spawns, t, spectacle);
           maxRowsInWave = Math.max(maxRowsInWave, above);
           // One gravity wave: fall + spawn share the same time window.
-          const dur = Math.min(MAX_FALL_MS, FALL_BASE_MS + maxRowsInWave * FALL_MS_PER_ROW);
-          t += dur + 30;
+          const dur = Math.min(maxFall(), fallBase() + maxRowsInWave * fallPerRow());
+          t += dur + (spectacle ? SPECTACLE.waveGap : 30);
           maxRowsInWave = 0;
           anyMotion = true;
           break;
         }
         case 'spawnSpecial': {
-          this.applySpawnSpecial(ev.piece, ev.at, t);
-          t += 90;
+          this.applySpawnSpecial(ev.piece, ev.at, t, spectacle);
+          t += spectacle ? SPECTACLE.spawnSpecial : 90;
           anyMotion = true;
           break;
         }
         case 'specialTriggered': {
-          t += 40;
+          // Stage each auto-detonation so the flourish reads as a chain, not a blur.
+          t += spectacle ? SPECTACLE.specialTriggered : 40;
+          anyMotion = true;
           break;
         }
         case 'reshuffle': {
@@ -136,12 +172,12 @@ export class BoardAnimator {
 
     // If we had falls without a following spawn in the stream, advance time.
     if (maxRowsInWave > 0) {
-      t += Math.min(MAX_FALL_MS, FALL_BASE_MS + maxRowsInWave * FALL_MS_PER_ROW);
+      t += Math.min(maxFall(), fallBase() + maxRowsInWave * fallPerRow());
       anyMotion = true;
     }
 
     if (anyMotion) {
-      this.animUntil = t + 30;
+      this.animUntil = t + (spectacle ? 120 : 30);
       this.pendingSnap = snapAfter;
       this.pendingSnapAt = this.animUntil;
     } else {
@@ -324,7 +360,9 @@ export class BoardAnimator {
     this.tweens.to(pb.vis, 'y', b.y, { start: t + 70, dur: 170, ease: easeOutCubic });
   }
 
-  private applyClear(cells: readonly Coord[], t: number): void {
+  private applyClear(cells: readonly Coord[], t: number, spectacle = false): void {
+    const squeeze = spectacle ? CLEAR_SQUEEZE_MS * 1.45 : CLEAR_SQUEEZE_MS;
+    const fade = spectacle ? CLEAR_FADE_MS * 1.5 : CLEAR_FADE_MS;
     for (const c of cells) {
       const id = this.idAt(c);
       if (id === null) continue;
@@ -337,19 +375,19 @@ export class BoardAnimator {
       // Squeeze (ease-in) then vanish — tactile “crush” before gravity.
       this.tweens.to(ap.vis, 'scale', 0.72, {
         start: t,
-        dur: CLEAR_SQUEEZE_MS * 0.45,
+        dur: squeeze * 0.45,
         ease: easeInQuad,
         from: fromScale,
       });
       this.tweens.to(ap.vis, 'scale', 0.08, {
-        start: t + CLEAR_SQUEEZE_MS * 0.45,
-        dur: CLEAR_SQUEEZE_MS * 0.55,
+        start: t + squeeze * 0.45,
+        dur: squeeze * 0.55,
         ease: easeOutQuad,
         from: 0.72,
       });
       this.tweens.to(ap.vis, 'alpha', 0, {
-        start: t + 40,
-        dur: CLEAR_FADE_MS,
+        start: t + (spectacle ? 60 : 40),
+        dur: fade,
         ease: easeOutQuad,
         from: 1,
       });
@@ -359,14 +397,18 @@ export class BoardAnimator {
   private applyFalls(
     moves: readonly { pieceId: number; from: Coord; to: Coord }[],
     t: number,
+    spectacle = false,
   ): number {
+    const fallBase = spectacle ? SPECTACLE.fallBase : FALL_BASE_MS;
+    const fallPerRow = spectacle ? SPECTACLE.fallPerRow : FALL_MS_PER_ROW;
+    const maxFall = spectacle ? SPECTACLE.maxFall : MAX_FALL_MS;
     let maxRows = 0;
     for (const m of moves) {
       const ap = this.pieces.get(m.pieceId);
       if (!ap || ap.dying) continue;
       const rows = Math.abs(m.to.y - m.from.y);
       maxRows = Math.max(maxRows, rows);
-      const dur = Math.min(MAX_FALL_MS, FALL_BASE_MS + rows * FALL_MS_PER_ROW);
+      const dur = Math.min(maxFall, fallBase + rows * fallPerRow);
 
       this.logic.set(m.pieceId, { x: m.to.x, y: m.to.y });
       this.tweens.cancel(ap.vis, 'x');
@@ -388,17 +430,22 @@ export class BoardAnimator {
   private applySpawns(
     spawns: readonly { piece: Piece; to: Coord; fromAbove: number }[],
     t: number,
+    spectacle = false,
   ): number {
+    const fallBase = spectacle ? SPECTACLE.fallBase : FALL_BASE_MS;
+    const fallPerRow = spectacle ? SPECTACLE.fallPerRow : FALL_MS_PER_ROW;
+    const maxFall = spectacle ? SPECTACLE.maxFall : MAX_FALL_MS;
+    const stagger = spectacle ? SPECTACLE.spawnStagger : SPAWN_STAGGER_MS;
     let maxAbove = 0;
     const colCount = new Map<number, number>();
     for (const s of spawns) {
       maxAbove = Math.max(maxAbove, s.fromAbove);
       const n = colCount.get(s.to.x) ?? 0;
       colCount.set(s.to.x, n + 1);
-      const delay = n * SPAWN_STAGGER_MS;
+      const delay = n * stagger;
       const fromY = s.to.y - Math.max(1, s.fromAbove);
       const rows = Math.max(1, s.fromAbove);
-      const dur = Math.min(MAX_FALL_MS, FALL_BASE_MS + rows * FALL_MS_PER_ROW);
+      const dur = Math.min(maxFall, fallBase + rows * fallPerRow);
 
       const vis = newVis(s.to.x, fromY);
       this.pieces.set(s.piece.id, { piece: s.piece, vis, dying: false });
@@ -413,7 +460,7 @@ export class BoardAnimator {
     return maxAbove;
   }
 
-  private applySpawnSpecial(piece: Piece, at: Coord, t: number): void {
+  private applySpawnSpecial(piece: Piece, at: Coord, t: number, spectacle = false): void {
     // Clear logical occupant of this cell if any.
     const old = this.idAt(at);
     if (old !== null) {
@@ -429,7 +476,7 @@ export class BoardAnimator {
     this.logic.set(piece.id, { x: at.x, y: at.y });
     this.tweens.to(vis, 'scale', 1, {
       start: t,
-      dur: 200,
+      dur: spectacle ? 340 : 200,
       ease: easeOutCubic,
       from: 0.15,
     });

@@ -1,0 +1,35 @@
+{
+  "id": 154,
+  "name": "Cargo Reach 154",
+  "width": 7,
+  "height": 7,
+  "moves": 25,
+  "objectives": [
+    {
+      "kind": "collect",
+      "target": 2
+    }
+  ],
+  "stars": [
+    2825,
+    4379,
+    6639
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#.....#",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    "#.....#"
+  ]
+}

@@ -6,6 +6,8 @@ import {
   isPowerCrystal,
   installPowerCopy,
   powerDisplayName,
+  footprintKraken,
+  powerSwapActivates,
 } from '../../src/engine/specials';
 import { Grid2D } from '../../src/engine/grid';
 import {
@@ -15,6 +17,7 @@ import {
   makeCrystal,
   makeLine,
   makePrism,
+  makeSupernova,
 } from '../../src/engine/tile';
 import type { Cell, LevelDef } from '../../src/engine/types';
 
@@ -30,6 +33,22 @@ const level = (): LevelDef => ({
 });
 
 describe('power crystal combos', () => {
+  it('line/burst only activate with same colour (not any gem)', () => {
+    const ids = createIdAllocator(1);
+    const line = makeLine(ids, 'ember', 'h');
+    const same = makeCrystal(ids, 'ember');
+    const other = makeCrystal(ids, 'tidal');
+    expect(powerSwapActivates(line, same)).toBe(true);
+    expect(powerSwapActivates(line, other)).toBe(false);
+    const burst = makeBurst(ids, 'aurum');
+    expect(powerSwapActivates(burst, makeCrystal(ids, 'aurum'))).toBe(true);
+    expect(powerSwapActivates(burst, makeCrystal(ids, 'void'))).toBe(false);
+    // Dual powers always combo
+    expect(powerSwapActivates(line, burst)).toBe(true);
+    // Prism paints partner colour
+    expect(powerSwapActivates(makePrism(ids), makeCrystal(ids, 'solar'))).toBe(true);
+  });
+
   it('names mix-and-match pairings', () => {
     expect(comboLabel('line', 'line')).toBe('Twin Fault');
     expect(comboLabel('line', 'burst')).toBe('Rift Bloom');
@@ -131,5 +150,28 @@ describe('power crystal combos', () => {
     expect(isPowerCrystal(makeLine(createIdAllocator(1), 'ember', 'h'))).toBe(true);
     expect(isPowerCrystal(makePrism(createIdAllocator(1)))).toBe(true);
     expect(isPowerCrystal(makeCrystal(createIdAllocator(1), 'ember'))).toBe(false);
+  });
+});
+
+describe('Super Chest (kraken) footprint', () => {
+  it('tentacles + pulls meal colour (tidal shells)', () => {
+    const ids = createIdAllocator(1);
+    const grid = new Grid2D<Cell>(7, 7, () => makeCell(true));
+    grid.forEach((cell, c) => {
+      cell.piece = makeCrystal(ids, (c.x + c.y) % 2 === 0 ? 'ember' : 'aurum');
+    });
+    // scatter shells
+    grid.at(0, 0).piece = makeCrystal(ids, 'tidal');
+    grid.at(6, 6).piece = makeCrystal(ids, 'tidal');
+    grid.at(6, 0).piece = makeCrystal(ids, 'tidal');
+    const at = { x: 3, y: 3 };
+    grid.at(at.x, at.y).piece = makeSupernova(ids);
+    const fp = footprintKraken(grid, at, null);
+    // includes all tidal
+    expect(fp.some((c) => c.x === 0 && c.y === 0)).toBe(true);
+    expect(fp.some((c) => c.x === 6 && c.y === 6)).toBe(true);
+    // includes tentacle far cell
+    expect(fp.some((c) => c.x === 3 && c.y === 0)).toBe(true);
+    expect(fp.length).toBeGreaterThan(20);
   });
 });

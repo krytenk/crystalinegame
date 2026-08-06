@@ -12,7 +12,7 @@ graphics that need a device capture.
 | App name | Crystalline |
 | Portrait lock | Yes (`AndroidManifest`) |
 | Min / target / compile SDK | 24 / 36 / 36 |
-| Version | `versionName 1.0.0` · `versionCode 2` |
+| Version | `versionName 1.0.1` · `versionCode 3` (bump each upload) |
 | Launcher icons (adaptive + legacy) | Generated gem icon |
 | High-res icon 512 | `store/icons/ic_launcher_512.png` |
 | Feature graphic 1024×500 | `store/feature_graphic.png` |
@@ -117,11 +117,21 @@ Before every Play upload that replaces a previous artifact:
 2. Optionally bump `versionName` (`1.0.1`, `1.1.0`, …)
 3. Rebuild AAB
 
+## Ship readiness (test-to-ship build)
+
+| Item | Status |
+|------|--------|
+| Catalogue | **300** levels (1…300), map chapters I–XXX |
+| Colour-blind | Shape glyphs **default ON**; Settings → High contrast |
+| Open deadlock gate | Automated smoke seeds all levels |
+| Privacy URL | Hosted (see Console) |
+| Simulated shop | Listing + in-app “no real money” copy must stay until Billing |
+
 ## Not done yet (next store milestones)
 
-- [ ] Device screenshots (phone portrait) committed under `store/screenshots/`
-- [ ] Privacy URL live on production domain
+- [ ] Device screenshots (phone portrait) under `store/screenshots/` — see README there
 - [ ] Play Console listing filled + internal test live
+- [ ] Upload **fresh** AAB from current tree (`npm run android:bundle`)
 - [ ] Real Play Billing **or** permanently demo-only shop wording approved
 - [ ] Optional: Firebase Crashlytics / Play pre-launch report fixes
 - [ ] Optional: remove or gate simulated IAP UI behind a build flag for stricter review

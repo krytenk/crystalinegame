@@ -3,7 +3,7 @@
   "name": "The Powder Seam",
   "width": 7,
   "height": 7,
-  "moves": 18,
+  "moves": 20,
   "objectives": [
     {
       "kind": "defuse",
@@ -33,5 +33,5 @@
     "##...##"
   ],
   "boss": false,
-  "bombFuse": 4
+  "bombFuse": 5
 }

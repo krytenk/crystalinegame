@@ -1,0 +1,45 @@
+{
+  "id": 231,
+  "name": "Cold Charge 231",
+  "width": 7,
+  "height": 7,
+  "moves": 21,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 7
+    },
+    {
+      "kind": "defuse",
+      "target": 2
+    },
+    {
+      "kind": "contain",
+      "target": 10
+    }
+  ],
+  "stars": [
+    3345,
+    5185,
+    7861
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#.....#",
+    ".......",
+    "..B22..",
+    "..222..",
+    "..22B..",
+    ".......",
+    "#.....#"
+  ],
+  "shadowPeriod": 3,
+  "bombFuse": 6
+}

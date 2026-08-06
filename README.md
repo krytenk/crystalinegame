@@ -64,6 +64,11 @@ npm run android:apk  # Capacitor → debug APK in release/
 
 Sideload build (Capacitor WebView shell). See **[docs/ANDROID.md](docs/ANDROID.md)**.
 
+### iOS (Xcode / TestFlight)
+
+Native project under `ios/` (Capacitor). Prepare anytime with `npm run ios:prepare`.  
+**Signed IPA requires macOS + Xcode** (or Mac CI). See **[docs/IOS.md](docs/IOS.md)**.
+
 ```bash
 npm run android:apk
 # → release/crystalline-debug.apk
@@ -81,7 +86,7 @@ Crystal art lives under `public/gen/`; Harbor art under `public/themes/harbor/`.
 - Baked **crystal atlas** + match VFX sheets
 - Procedural synth + **glass / whoosh** samples
 - Simulated lives, store, boosters, DDA, telemetry dashboard
-- **40** data-driven levels (four map chapters through Core Spire)
+- **100** data-driven levels (ten map chapters through Apex Crystal)
 - Research-driven **cognitive UX** (juice timing, cascade pitch, near-miss continue, hidden DDA) — see `docs/COGNITIVE_UX.md`
 - **Meta dual loop** — Crystalline: Crystal Cavern + essence · Harbor: Harbor Docks + Tideglass  
 - Live-ops: endless album, hybrid events, daily goal, cozy idle drip  

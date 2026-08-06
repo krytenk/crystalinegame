@@ -21,7 +21,7 @@ import {
   getAlbumCards,
   getAlbumSheet,
   createBrowserStorage,
-  levelHasConveyor,
+  type BoosterId,
   type MetaUpgrade,
 } from '@economy/index';
 import {
@@ -40,6 +40,7 @@ import { BoardAnimator } from '@render/boardAnimator';
 import { BoardView, setCoreSheetPath } from '@render/boardView';
 import { assetUrl } from '@render/assetUrl';
 import { JuiceSystem } from '@render/juice';
+import { SandWordmark } from '@render/sandWordmark';
 import { tierFromMatch, VfxPlayer } from '@render/vfx';
 import { findLegalHint } from '@engine/deadlock';
 import {
@@ -58,7 +59,7 @@ import {
 } from './narrative/companion';
 import { applyThemeCssVars, injectStyles } from './ui/styles';
 import { btn, clear, el, setUiTapHook } from './ui/dom';
-import { resolveThemeId, setTheme, theme } from './themes';
+import { resolveThemeId, setTheme, theme, themeUi } from './themes';
 
 // --- Theme boot (must run before Economy / save load) ---
 const activeTheme = setTheme(resolveThemeId());
@@ -132,6 +133,24 @@ interface AppState {
   comfortReshuffleUsed: boolean;
   /** Last cavern prop id placed — pulse on vista after ceremony. */
   lastPlacedId: string | null;
+  /**
+   * Boot plate phase: studio brand wipe → product load.
+   * Departure Bay Digital identity without drowning the title screen.
+   */
+  bootPhase: 'studio' | 'product';
+  /** Wins this session — used for occasional soft studio watermark. */
+  sessionWins: number;
+  /** Soft brand toast already shown this session. */
+  brandNudgeShown: boolean;
+  /**
+   * Levels map: null = harbor/place overview (retention home).
+   * number = index into theme().mapChapters (inside a pier / place walk).
+   */
+  mapChapterIndex: number | null;
+  /** Fire Outer Channels / Under-Crown unlock ceremony once after L150. */
+  pendingActIcCeremony: boolean;
+  /** Peak specials fired this level (Super Chest / Supernova) — win recap. */
+  levelPeakSpecials: number;
 }
 
 const AHA_KEY = activeTheme.ahaKey;
@@ -160,7 +179,22 @@ const app: AppState = {
   lastInputAt: 0,
   comfortReshuffleUsed: false,
   lastPlacedId: null,
+  bootPhase: 'studio',
+  sessionWins: 0,
+  brandNudgeShown: false,
+  mapChapterIndex: null,
+  pendingActIcCeremony: false,
+  levelPeakSpecials: 0,
 };
+
+/** Studio identity — commercial product, not a freebie clone. */
+const STUDIO = {
+  name: 'Departure Bay Digital',
+  short: 'DBD',
+  url: 'https://departurebaydigital.ca',
+  tagline: 'A Departure Bay Digital title',
+  license: 'Licensed product · © Departure Bay Digital',
+} as const;
 
 const L = (key: string, fallback = ''): string => theme().labels[key] ?? fallback;
 
@@ -194,6 +228,8 @@ let shakeMs = 0;
 let shakeMag = 0;
 let lastFrame = performance.now();
 let titleFxAt = 0;
+/** Harbor sand wordmark instance (title only; dispose on leave). */
+let titleSand: SandWordmark | null = null;
 /** In-play HUD score pulse when points land (Pass 8). */
 let hudScoreShown = 0;
 let hudScorePulseUntil = 0;
@@ -216,32 +252,22 @@ const OBJECTIVE_LABEL: Record<ObjectiveKind, string> = {
   contain: 'Clear shadow',
 };
 
-/** Short how-to shown under each goal (prelevel + HUD). */
-const OBJECTIVE_HOWTO: Record<ObjectiveKind, string> = {
-  score: 'Match gems to rack up points before moves run out.',
-  crust: 'Match next to crusted stone to crack and clear it.',
-  collect: 'Gold artifacts fall in from the top — clear a path so they drop to the bottom row.',
-  defuse: 'Match next to bombs (or blast them) before the fuse hits zero.',
-  contain: 'Clear gems under creeping shadow so it cannot smother the board.',
-};
+/** Goal icons — always via themeUi so Harbor never loads mine art. */
+function objectiveIconPath(kind: ObjectiveKind): string {
+  return themeUi(`ui/goals/${kind}.webp`);
+}
 
-const OBJECTIVE_ICON: Record<ObjectiveKind, string> = {
-  score: 'ui/goals/score.webp',
-  crust: 'ui/goals/crust.webp',
-  collect: 'ui/goals/collect.webp',
-  defuse: 'ui/goals/defuse.webp',
-  contain: 'ui/goals/contain.webp',
-};
-
-const goalHudImgs: Partial<Record<ObjectiveKind, HTMLImageElement>> = {};
+const goalHudImgs: Partial<Record<string, HTMLImageElement>> = {};
 
 function ensureGoalHudImg(kind: ObjectiveKind): HTMLImageElement {
-  let img = goalHudImgs[kind];
+  const path = objectiveIconPath(kind);
+  const key = `${theme().id}:${kind}`;
+  let img = goalHudImgs[key];
   if (img) return img;
   img = new Image();
   img.decoding = 'async';
-  img.src = assetUrl(OBJECTIVE_ICON[kind]);
-  goalHudImgs[kind] = img;
+  img.src = assetUrl(path);
+  goalHudImgs[key] = img;
   return img;
 }
 
@@ -320,14 +346,15 @@ function ensureEssHudImg(): HTMLImageElement {
 
 function mount(): void {
   injectStyles();
-  applyThemeCssVars(theme().cssVars);
   setCoreSheetPath(assetUrl(theme().livingCorePath));
   loadBackground(theme().bgPath);
   const appEl = document.getElementById('app');
   if (!appEl) throw new Error('#app missing');
   clear(appEl);
-  // Re-apply shell tint after #app is ensured
-  applyThemeCssVars(theme().cssVars);
+  // Shell backdrop: Harbor docks art (never mine cavern on Harbor)
+  applyThemeCssVars(theme().cssVars, {
+    bgImage: theme().id === 'harbor' ? theme().bgPath : undefined,
+  });
 
   root = el('div', { id: 'game-root' });
   canvas = el('canvas') as HTMLCanvasElement;
@@ -340,17 +367,31 @@ function mount(): void {
   economy.startSession();
   economy.ensureStarterBoosters();
   const bootSettings = economy.getSnapshot().settings;
+  audio.setTheme(theme().id);
   audio.setEnabled(bootSettings.sfx);
-  if (!bootSettings.music) audio.stopPad();
+  audio.setMusic(bootSettings.music && bootSettings.sfx);
   boardView.glyphs = bootSettings.glyphs;
+  boardView.highContrast = bootSettings.highContrast;
 
-  setUiTapHook(() => audio.uiTap());
+  setUiTapHook(() => {
+    audio.uiTap();
+    haptic('tap');
+  });
   // Prefetch living-geode icon for HUD chips + DOM essence figures
   ensureEssHudImg();
 
-  // Boot splash while atlas loads
+  // Boot: studio plate wipe → product load while atlas loads
   app.screen = 'boot';
+  app.bootPhase = 'studio';
   renderOverlay();
+
+  // Studio identity wipe (~1.1s), then product splash
+  window.setTimeout(() => {
+    if (app.screen !== 'boot') return;
+    app.bootPhase = 'product';
+    audio.panelWhoosh();
+    renderOverlay();
+  }, 1100);
 
   void atlas.load(theme().genManifestPath).then(async () => {
     try {
@@ -358,14 +399,20 @@ function mount(): void {
     } catch {
       // Procedural fallback bursts still work.
     }
-    // Brief branded hold so splash reads as intentional
-    window.setTimeout(() => {
+    // Hold product splash so brand + load bar read as intentional
+    const minProductMs = 900;
+    const started = performance.now();
+    const goTitle = () => {
       app.screen = 'title';
       app.titleBorn = performance.now();
       titleFxAt = app.titleBorn + 400;
       audio.panelWhoosh();
       renderOverlay();
-    }, 480);
+    };
+    const wait = Math.max(0, minProductMs - (performance.now() - started));
+    // Don't cut the studio plate short if atlas is instant
+    const afterStudio = Math.max(wait, app.bootPhase === 'studio' ? 400 : 0);
+    window.setTimeout(goTitle, afterStudio);
   });
 
   loop();
@@ -666,15 +713,23 @@ function drawAhaHint(ctx: CanvasRenderingContext2D, now: number): void {
 
 function drawChrome(ctx: CanvasRenderingContext2D, now: number): void {
   const snap = economy.getSnapshot();
-  const title = '"DragonBlaze", "DragonWarrior", "GalacticKnights", "Cinzel", serif';
-  const body = '"Nunito", "Segoe UI", system-ui, sans-serif';
+  const isHarbor = theme().id === 'harbor';
+  const title = isHarbor
+    ? '"Tidepop", "Fredoka", "ScreenTechno", system-ui, sans-serif'
+    : '"DragonBlaze", "DragonWarrior", "GalacticKnights", "Cinzel", serif';
+  // Numbers MUST use a full digit face — never Tidepop alone (crude glyphs / missing marks).
+  const body = isHarbor
+    ? '"Fredoka", "ScreenTechno", "Segoe UI", system-ui, sans-serif'
+    : '"Nunito", "Segoe UI", system-ui, sans-serif';
   const reduceMotion = snap.settings.reducedMotion;
   const hudWord = theme().productName.toUpperCase();
 
   if (app.screen === 'play' && app.session) {
-    // Free-floating play HUD — no top panel box
+    // In-dive HUD: only what changes the next tap (moves, goals, score, lives).
+    // No product wordmark, no Tideglass/shards frames — those live on map / docks.
     const s = app.session.snapshot();
     const movesHot = s.movesLeft <= 5;
+    const bossDive = isBossLevel(app.levelId);
     if (s.movesLeft !== hudLastMoves) {
       if (s.movesLeft < hudLastMoves && movesHot) hudMovesPulseUntil = now + 520;
       hudLastMoves = s.movesLeft;
@@ -684,45 +739,63 @@ function drawChrome(ctx: CanvasRenderingContext2D, now: number): void {
       hudScoreShown = s.score;
     }
 
-    // Center title — large
+    // Dense top band: optical scale for lives/goals without growing PLAY_HUD_TOP
+    const uiFace = '"ScreenTechno", "Fredoka", "Segoe UI", system-ui, sans-serif';
     ctx.save();
-    ctx.font = `700 38px ${title}`;
     ctx.textAlign = 'center';
-    ctx.lineWidth = 6;
-    ctx.strokeStyle = 'rgba(20, 10, 40, 0.92)';
-    ctx.strokeText(hudWord, 360, 42);
-    ctx.fillStyle = '#fff6e8';
-    ctx.shadowColor = 'rgba(255, 210, 120, 0.45)';
-    ctx.shadowBlur = 14;
-    ctx.fillText(hudWord, 360, 42);
+    ctx.font = `700 14px ${uiFace}`;
+    ctx.fillStyle = 'rgba(255,246,232,0.55)';
+    ctx.fillText(`Lv ${app.levelId}`, 360, 22);
+    if (bossDive) {
+      const bw = 54;
+      const bx = 360 - bw / 2;
+      const by = 28;
+      ctx.fillStyle = 'rgba(180, 30, 55, 0.92)';
+      roundPill(ctx, bx, by, bw, 17);
+      ctx.strokeStyle = 'rgba(255, 160, 140, 0.75)';
+      ctx.lineWidth = 1.5;
+      roundPill(ctx, bx, by, bw, 17);
+      ctx.stroke();
+      ctx.font = `700 11px ${uiFace}`;
+      ctx.fillStyle = '#fff6e8';
+      ctx.fillText('BOSS', 360, by + 12);
+    }
     ctx.restore();
 
-    // Lives (left) + essence (right) — free chips
-    drawIconChip(ctx, 20, 58, 'ui/icon_lives.webp', String(snap.lives.count), '#ff7a8a', body, 100);
-    drawEssChip(ctx, 596, 58, snap.meta.essence, '#ffd24a', body, 104);
+    // Lives — slightly larger (optical), same band
+    drawFreeIconValue(
+      ctx,
+      16,
+      16,
+      themeUi('ui/icon_lives.webp'),
+      String(snap.lives.count),
+      '#ff7a8a',
+      body,
+      { icon: 28, fontPx: 18 },
+    );
 
-    // Moves left under lives · Score right under essence
+    // Moves (critical) · Score — compact so goals can sit lower in the same shelf
     const movesPulse = !reduceMotion && now < hudMovesPulseUntil;
     const scorePulse = !reduceMotion && now < hudScorePulseUntil;
     drawFloatStat(
       ctx,
-      28,
-      100,
-      movesHot ? 'MOVES' : 'MOVES',
+      16,
+      52,
+      'MOVES',
       String(s.movesLeft),
       movesHot ? '#ff6a7a' : '#7ed0ff',
       body,
-      movesPulse ? 1.08 : 1,
+      movesPulse ? 1.1 : 1,
     );
     drawFloatStat(
       ctx,
       560,
-      100,
+      52,
       'SCORE',
-      s.score.toLocaleString(),
+      s.score.toLocaleString('en-US'),
       '#ffd24a',
       body,
-      scorePulse ? 1.1 : 1,
+      scorePulse ? 1.08 : 1,
       true,
     );
 
@@ -730,22 +803,22 @@ function drawChrome(ctx: CanvasRenderingContext2D, now: number): void {
       const pulse = 0.2 + 0.15 * (0.5 + 0.5 * Math.sin(now * 0.012));
       ctx.save();
       ctx.strokeStyle = `rgba(255, 80, 100, ${pulse})`;
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
-      ctx.arc(78, 118, 28 + pulse * 6, 0, Math.PI * 2);
+      ctx.arc(56, 72, 24 + pulse * 5, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     }
 
     if (app.pickaxeMode) {
       ctx.fillStyle = '#ffd679';
-      ctx.font = `800 15px ${body}`;
+      ctx.font = `700 14px ${body}`;
       ctx.textAlign = 'center';
-      ctx.fillText('TAP A GEM TO SMASH', 360, 148);
+      ctx.fillText('Tap a gem', 360, 112);
       ctx.textAlign = 'left';
     } else {
-      // Goals centered under title — large free icons
-      drawObjectiveHud(ctx, s.objectives, 160, 52, body, now, reduceMotion);
+      // Goals — ~52px optical (auto-shrinks when many goals); y packed under boss row
+      drawObjectiveHud(ctx, s.objectives, 160, 38, body, now, reduceMotion);
     }
   } else {
     // Meta screens: compact wallet bar (still a light panel for non-play)
@@ -765,12 +838,16 @@ function drawChrome(ctx: CanvasRenderingContext2D, now: number): void {
     ctx.fillStyle = '#fff6e8';
     ctx.fillText(hudWord, 32, 46);
 
-    drawIconChip(ctx, 32, 62, 'ui/icon_lives.webp', String(snap.lives.count), '#ff7a8a', body, 96);
-    drawIconChip(ctx, 140, 62, 'ui/icon_shards.webp', String(snap.wallet.shards), '#7ecbff', body, 108);
+    drawIconChip(ctx, 32, 62, themeUi('ui/icon_lives.webp'), String(snap.lives.count), '#ff7a8a', body, 96);
+    drawIconChip(ctx, 140, 62, themeUi('ui/icon_shards.webp'), String(snap.wallet.shards), '#7ecbff', body, 108);
     drawEssChip(ctx, 260, 62, snap.meta.essence, '#ffd24a', body, 124);
     ctx.fillStyle = '#c4b6d8';
     ctx.font = `800 13px ${body}`;
-    ctx.fillText('Match · Forge · Cascade · Build', 400, 84);
+    ctx.fillText(
+      theme().id === 'harbor' ? 'Sort · Signal · Cascade · Restore' : 'Match · Forge · Cascade · Build',
+      400,
+      84,
+    );
     hudScoreShown = 0;
     hudLastMoves = -1;
   }
@@ -797,20 +874,48 @@ function drawFloatStat(
   }
   ctx.textAlign = rightAlign ? 'right' : 'left';
   const tx = rightAlign ? x + 100 : x;
-  ctx.fillStyle = 'rgba(255,255,255,0.5)';
-  ctx.font = `800 11px ${font}`;
+  ctx.fillStyle = 'rgba(255,255,255,0.48)';
+  ctx.font = `700 10px ${font}`;
   ctx.fillText(label, tx, y);
   ctx.fillStyle = color;
-  ctx.font = `800 22px ${font}`;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = scale > 1 ? 10 : 4;
-  ctx.fillText(value, tx, y + 24);
+  ctx.font = `700 22px ${font}`;
+  ctx.shadowColor = 'rgba(0,0,0,0.55)';
+  ctx.shadowBlur = 3;
+  ctx.fillText(value, tx, y + 22);
   ctx.shadowBlur = 0;
   ctx.restore();
 }
 
+/** Icon + value with no pill frame (play HUD). */
+function drawFreeIconValue(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  iconPath: string,
+  value: string,
+  accent: string,
+  font: string,
+  opts: { icon?: number; fontPx?: number } = {},
+): void {
+  const img = ensureHudIcon(iconPath);
+  const icon = opts.icon ?? 28;
+  const fontPx = opts.fontPx ?? 18;
+  if (img.complete && img.naturalWidth > 0) {
+    ctx.drawImage(img, x, y, icon, icon);
+  }
+  // Soft contact shadow only — reads larger without a frame
+  ctx.fillStyle = accent;
+  ctx.font = `700 ${fontPx}px ${font}`;
+  ctx.textAlign = 'left';
+  ctx.shadowColor = 'rgba(0,0,0,0.55)';
+  ctx.shadowBlur = 3;
+  ctx.fillText(value, x + icon + 6, y + Math.floor(icon * 0.68));
+  ctx.shadowBlur = 0;
+}
+
 /**
- * In-level goals as large free-floating icons under the title (no boxes).
+ * In-level goals as free-floating icons (no boxes).
+ * Optical ~52px when 1–2 goals; auto-shrinks for 3–4 so multi-boss stays clean.
  */
 function drawObjectiveHud(
   ctx: CanvasRenderingContext2D,
@@ -822,32 +927,33 @@ function drawObjectiveHud(
   reduceMotion: boolean,
 ): void {
   const n = Math.max(1, objectives.length);
-  const slot = Math.min(92, Math.floor((400) / n));
-  // Center the goal strip under the title
+  // 1–2 goals: 52px · 3: 50 · 4+: 46 — stay inside the fixed HUD shelf
+  const icon = n <= 2 ? 52 : n === 3 ? 50 : 46;
+  const slot = Math.min(88, Math.floor(400 / n));
   const totalW = slot * n;
   let x = 360 - totalW / 2;
   for (const o of objectives) {
     const done = o.current >= o.target;
     const accent = done ? '#4dde8a' : '#e8f4ff';
-    const icon = 56;
     const img = ensureGoalHudImg(o.kind);
     const ix = x + Math.floor((slot - icon) / 2);
     const iy = y0;
 
-    const pulse = done && !reduceMotion ? 0.65 + 0.2 * Math.sin(now * 0.008) : 0.5;
+    // Soft glow only — no framed goal boxes
+    const pulse = done && !reduceMotion ? 0.65 + 0.2 * Math.sin(now * 0.008) : 0.45;
     const glow = ctx.createRadialGradient(
       ix + icon / 2,
       iy + icon / 2,
       2,
       ix + icon / 2,
       iy + icon / 2,
-      icon * 0.75,
+      icon * 0.72,
     );
-    glow.addColorStop(0, done ? `rgba(80, 220, 140, ${0.4 * pulse})` : `rgba(255, 210, 100, ${0.28 * pulse})`);
+    glow.addColorStop(0, done ? `rgba(80, 220, 140, ${0.38 * pulse})` : `rgba(255, 210, 100, ${0.26 * pulse})`);
     glow.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.arc(ix + icon / 2, iy + icon / 2, icon * 0.75, 0, Math.PI * 2);
+    ctx.arc(ix + icon / 2, iy + icon / 2, icon * 0.72, 0, Math.PI * 2);
     ctx.fill();
 
     if (img.complete && img.naturalWidth > 0) {
@@ -855,15 +961,25 @@ function drawObjectiveHud(
     }
 
     ctx.textAlign = 'center';
-    ctx.font = `800 16px ${font}`;
-    ctx.lineWidth = 3.5;
-    ctx.strokeStyle = 'rgba(10, 6, 24, 0.9)';
-    const label = done ? '✓' : `${o.current}/${o.target}`;
+    ctx.font = `700 16px ${font}`;
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(10, 6, 24, 0.85)';
     const tx = x + slot / 2;
-    const ty = iy + icon + 18;
-    ctx.strokeText(label, tx, ty);
-    ctx.fillStyle = accent;
-    ctx.fillText(label, tx, ty);
+    const ty = iy + icon + 17;
+    if (done) {
+      const check = ensureHudIcon(themeUi('ui/icon_check.webp'));
+      if (check.complete && check.naturalWidth > 0) {
+        ctx.drawImage(check, tx - 11, ty - 15, 22, 22);
+      } else {
+        ctx.fillStyle = accent;
+        ctx.fillText('OK', tx, ty);
+      }
+    } else {
+      const label = `${o.current}/${o.target}`;
+      ctx.strokeText(label, tx, ty);
+      ctx.fillStyle = accent;
+      ctx.fillText(label, tx, ty);
+    }
 
     x += slot;
   }
@@ -908,6 +1024,12 @@ function drawIconChip(
   const iy = y + (32 - icon) / 2;
   if (img.complete && img.naturalWidth > 0) {
     ctx.drawImage(img, ix, iy, icon, icon);
+  } else {
+    // No unicode hearts/gems — simple letter if art still loading
+    ctx.fillStyle = accent;
+    ctx.font = `800 13px ${font}`;
+    ctx.textAlign = 'left';
+    ctx.fillText('o', ix + 4, y + 21);
   }
   ctx.fillStyle = accent;
   ctx.font = `800 15px ${font}`;
@@ -948,10 +1070,12 @@ function drawEssChip(
     ctx.drawImage(img, ix, iy, icon, icon);
     ctx.restore();
   } else {
+    // Letter fallback only (never unicode gem / emoji boxes)
+    const letter = (theme().softCurrencyName[0] ?? theme().softCurrencyGlyph ?? 'E').toUpperCase();
     ctx.fillStyle = accent;
     ctx.font = `800 14px ${font}`;
     ctx.textAlign = 'left';
-    ctx.fillText(theme().softCurrencyGlyph, ix + 2, y + 21);
+    ctx.fillText(letter, ix + 4, y + 21);
   }
 
   ctx.fillStyle = accent;
@@ -1025,26 +1149,45 @@ function notePlayInput(): void {
 
 /** Soft colour wash on board felt — rotates each level so clears feel new. */
 function chamberTintForLevel(id: number): string {
-  // Stronger tints so consecutive levels read as different chambers
-  const tints = [
-    'rgba(110, 40, 170, 0.28)', // violet
-    'rgba(25, 100, 180, 0.3)', // blue
-    'rgba(15, 130, 75, 0.28)', // green
-    'rgba(170, 90, 15, 0.28)', // amber
-    'rgba(150, 25, 80, 0.28)', // rose
-    'rgba(20, 120, 140, 0.3)', // teal
-    'rgba(120, 50, 190, 0.3)', // purple
-    'rgba(180, 120, 20, 0.28)', // gold
-    'rgba(40, 70, 160, 0.28)', // indigo
-    'rgba(160, 50, 40, 0.28)', // crimson
-    'rgba(60, 140, 100, 0.28)', // jade
-    'rgba(140, 70, 130, 0.28)', // magenta
+  // Harbor: teal / amber / navy docks palette. Crystalline: gem chambers.
+  const harbor = [
+    'rgba(20, 120, 140, 0.3)',
+    'rgba(42, 143, 154, 0.28)',
+    'rgba(170, 100, 30, 0.26)',
+    'rgba(15, 80, 120, 0.3)',
+    'rgba(200, 120, 50, 0.24)',
+    'rgba(30, 90, 110, 0.3)',
+    'rgba(80, 140, 100, 0.26)',
+    'rgba(100, 70, 140, 0.22)',
   ];
+  const mine = [
+    'rgba(110, 40, 170, 0.28)',
+    'rgba(25, 100, 180, 0.3)',
+    'rgba(15, 130, 75, 0.28)',
+    'rgba(170, 90, 15, 0.28)',
+    'rgba(150, 25, 80, 0.28)',
+    'rgba(20, 120, 140, 0.3)',
+    'rgba(120, 50, 190, 0.3)',
+    'rgba(180, 120, 20, 0.28)',
+    'rgba(40, 70, 160, 0.28)',
+    'rgba(160, 50, 40, 0.28)',
+    'rgba(60, 140, 100, 0.28)',
+    'rgba(140, 70, 130, 0.28)',
+  ];
+  const tints = theme().id === 'harbor' ? harbor : mine;
   return tints[(Math.max(1, id) - 1) % tints.length]!;
 }
 
 function chamberFlashForLevel(id: number): string {
-  const flashes = [
+  const harbor = [
+    'rgba(90, 220, 230, 0.72)',
+    'rgba(255, 180, 80, 0.75)',
+    'rgba(100, 200, 180, 0.7)',
+    'rgba(120, 190, 255, 0.72)',
+    'rgba(255, 140, 90, 0.7)',
+    'rgba(80, 200, 160, 0.7)',
+  ];
+  const mine = [
     'rgba(200, 130, 255, 0.75)',
     'rgba(100, 190, 255, 0.75)',
     'rgba(100, 240, 170, 0.7)',
@@ -1058,6 +1201,7 @@ function chamberFlashForLevel(id: number): string {
     'rgba(120, 240, 180, 0.7)',
     'rgba(255, 140, 220, 0.72)',
   ];
+  const flashes = theme().id === 'harbor' ? harbor : mine;
   return flashes[(Math.max(1, id) - 1) % flashes.length]!;
 }
 
@@ -1194,8 +1338,22 @@ function bindInput(): void {
     boardView.onPress(p.x, p.y);
   });
 
+  // Mid-swipe commit: more sensitive on phone — fire when drag clears threshold
+  canvas.addEventListener('pointermove', (e) => {
+    if (app.screen !== 'play' || app.paused || !app.session || app.pickaxeMode) return;
+    if (!boardView.hasPress) return;
+    // Mouse: require button down; touch/pen always while captured
+    if (e.pointerType === 'mouse' && e.buttons === 0) return;
+    const p = canvasView.clientToLogical(e.clientX, e.clientY);
+    const swap = boardView.peekSwap(p.x, p.y);
+    if (!swap) return;
+    boardView.cancelPress();
+    doSwap(swap.a, swap.b);
+  });
+
   canvas.addEventListener('pointerup', (e) => {
     if (app.screen !== 'play' || app.paused || !app.session || app.pickaxeMode) return;
+    if (!boardView.hasPress) return;
     const p = canvasView.clientToLogical(e.clientX, e.clientY);
     const swap = boardView.completeSwap(p.x, p.y);
     if (!swap) return;
@@ -1247,9 +1405,10 @@ function scheduleFinishAfterBoard(
   reason?: 'objectivesMet' | 'outOfMoves' | 'bombExpired',
 ): void {
   const born = performance.now();
-  // Wins with flourish need longer; losses can flip faster
-  const minWait = status === 'won' ? 700 : 350;
-  const maxWait = status === 'won' ? 9000 : 1400;
+  // Wins with flourish need longer; losses can flip faster.
+  // Spectacle timing on win flourishes can run 8–14s of staged detonations.
+  const minWait = status === 'won' ? 1600 : 350;
+  const maxWait = status === 'won' ? 18_000 : 1400;
 
   const tryFinish = (): void => {
     const age = performance.now() - born;
@@ -1260,6 +1419,51 @@ function scheduleFinishAfterBoard(
     finishLevel(status, score, stars, reason);
   };
   window.setTimeout(tryFinish, minWait);
+}
+
+/**
+ * Pick up to 8 board cells for peak-special pull FX (Super Chest arms or
+ * Supernova crystal rays). Gem ghost colors from theme palette.
+ */
+function pickKrakenPrey(
+  origin: Coord,
+  affected: readonly Coord[],
+  cellToLogical: (c: Coord) => { x: number; y: number; cell: number },
+  palette: Readonly<Record<string, string>>,
+): { x: number; y: number; color: string }[] {
+  const candidates = affected.filter(
+    (c) => !(c.x === origin.x && c.y === origin.y),
+  );
+  if (candidates.length === 0) return [];
+
+  const ranked = candidates
+    .map((c) => ({
+      c,
+      angle: Math.atan2(c.y - origin.y, c.x - origin.x),
+      dist: Math.hypot(c.x - origin.x, c.y - origin.y),
+    }))
+    .sort((a, b) => a.angle - b.angle);
+
+  const max = 8;
+  const picks: Coord[] = [];
+  if (ranked.length <= max) {
+    for (const r of ranked) picks.push(r.c);
+  } else {
+    for (let i = 0; i < max; i++) {
+      picks.push(ranked[Math.floor((i * ranked.length) / max)]!.c);
+    }
+  }
+
+  const colorCycle = ['tidal', 'ember', 'aurum', 'solar', 'verdant', 'void'] as const;
+  return picks.map((c, i) => {
+    const L = cellToLogical(c);
+    const key = colorCycle[i % colorCycle.length]!;
+    return {
+      x: L.x,
+      y: L.y,
+      color: palette[key] ?? '#7ec8ff',
+    };
+  });
 }
 
 /** Fire escalating visual rewards + juice for power crystals and combos. */
@@ -1292,19 +1496,26 @@ function playMatchVfx(events: readonly GameEvent[]): void {
       haptic('relic');
       pushToast(`Artifact secured! ${ev.total}`, '#ffd679', 1400);
     } else if (ev.t === 'winFlourish') {
-      // Sugar-crush victory banner — leftover moves become free fireworks
+      // Sugar-crush victory banner — leftover moves become free fireworks (slow show)
       juice.powerBanner(
         ev.leftoverMoves > 0
           ? `BONUS ×${ev.leftoverMoves}!`
           : 'VICTORY CASCADE!',
       );
-      juice.shimmerBoard('rgba(255, 230, 140, 1)', 0.95, 900);
-      juice.screenFlash('rgba(255, 240, 180, 0.65)', 480, 0.5);
+      juice.shimmerBoard('rgba(255, 230, 140, 1)', 1, 1400);
+      juice.screenFlash('rgba(255, 240, 180, 0.65)', 620, 0.55);
       juice.ring(
         canvasView.logicalWidth / 2,
         canvasView.logicalHeight * 0.48,
         '#ffd24a',
-        260,
+        280,
+        1200,
+      );
+      juice.ring(
+        canvasView.logicalWidth / 2,
+        canvasView.logicalHeight * 0.48,
+        '#ffffff',
+        160,
         900,
       );
       haptic('win');
@@ -1312,7 +1523,7 @@ function playMatchVfx(events: readonly GameEvent[]): void {
         pushToast(
           `${ev.specialsForged} free power${ev.specialsForged === 1 ? '' : 's'}!`,
           '#ffe9a8',
-          1800,
+          2400,
         );
       } else {
         pushToast('Victory cascade!', '#ffe9a8', 1600);
@@ -1431,26 +1642,45 @@ function playMatchVfx(events: readonly GameEvent[]): void {
           : ev.kind === 'burst'
             ? '#ffc878'
             : ev.kind === 'supernova' || ev.kind === 'core'
-              ? '#ffffff'
+              ? '#7ec8ff'
               : '#7ed0ff';
-      // Heavy explosion feedback for every power fire
-      juice.explode(p.x, p.y, powerCol, 1.2 + tier * 0.45);
-      juice.burst(p.x, p.y, '#fff0c0', 28 + tier * 12);
-      juice.burst(p.x, p.y, '#ffffff', 16 + tier * 6);
-      juice.ring(p.x, p.y, powerCol, 100 + tier * 28, 620);
-      juice.ring(p.x, p.y, '#ffffff', 60 + tier * 16, 480);
+      // Peak special: Super Chest octopus (Harbor) or Supernova geode (Crystalline)
+      if (ev.kind === 'supernova') {
+        app.levelPeakSpecials += 1;
+        const prey = pickKrakenPrey(ev.at, ev.affected, cellToLogical, atlas.palette());
+        const peakStyle = theme().id === 'harbor' ? 'kraken' : 'supernova';
+        juice.peakSpecialFeast(peakStyle, p.x, p.y, prey, {
+          cell: p.cell,
+          color: peakStyle === 'kraken' ? '#7ec8ff' : '#ffe56a',
+        });
+        juice.powerBanner(
+          (theme().id === 'harbor' ? 'SUPER CHEST' : powerLabel(ev.kind)).toUpperCase(),
+        );
+        // Soft pops only — full-board sparkle would fight the pull read
+        const sample = ev.affected.slice(0, 12);
+        for (const c of sample) {
+          const q = cellToLogical(c);
+          juice.burst(q.x, q.y, powerCol, 4);
+        }
+      } else {
+        // Heavy explosion feedback for every other power fire
+        juice.explode(p.x, p.y, powerCol, 1.2 + tier * 0.45);
+        juice.burst(p.x, p.y, '#fff0c0', 28 + tier * 12);
+        juice.burst(p.x, p.y, '#ffffff', 16 + tier * 6);
+        juice.ring(p.x, p.y, powerCol, 100 + tier * 28, 620);
+        juice.ring(p.x, p.y, '#ffffff', 60 + tier * 16, 480);
+        const sample = ev.affected.slice(0, 40);
+        for (const c of sample) {
+          const q = cellToLogical(c);
+          juice.burst(q.x, q.y, powerCol, 10 + Math.floor(tier / 2));
+          if (tier >= 5) juice.burst(q.x, q.y, '#ffffff', 4);
+        }
+      }
       juice.shimmerBoard(
         tier >= 6 ? 'rgba(255,255,255,1)' : 'rgba(255, 210, 140, 1)',
         0.85 + tier * 0.04,
         600 + tier * 50,
       );
-      // Secondary pops along ALL affected cells for board-wipe read
-      const sample = ev.affected.slice(0, 40);
-      for (const c of sample) {
-        const q = cellToLogical(c);
-        juice.burst(q.x, q.y, powerCol, 10 + Math.floor(tier / 2));
-        if (tier >= 5) juice.burst(q.x, q.y, '#ffffff', 4);
-      }
       if (tier >= 5) {
         haptic('explode');
         if (tier >= 6) haptic('specialBig');
@@ -1479,6 +1709,13 @@ function playMatchVfx(events: readonly GameEvent[]): void {
         haptic('specialBig');
       }
       if (app.ahaPhase === 'fire') completeTutorial();
+    } else if (ev.t === 'bombDefused') {
+      const p = cellToLogical(ev.at);
+      juice.explode(p.x, p.y, '#7ed0ff', 0.9);
+      juice.ring(p.x, p.y, '#a8e0ff', 70, 480);
+      juice.burst(p.x, p.y, '#ffffff', 12);
+      haptic('specialBig');
+      pushToast(`Defused! (${ev.total})`, '#a8e0ff', 1100);
     } else if (ev.t === 'levelEnded') {
       if (ev.status === 'won') haptic('win');
       else haptic('softFail');
@@ -1505,7 +1742,7 @@ function playMatchVfx(events: readonly GameEvent[]): void {
         until: performance.now() + 900,
       };
       pushToast(
-        `Conveyor ${ev.direction === 'left' ? '◀' : '▶'}`,
+        `Conveyor ${ev.direction === 'left' ? 'LEFT' : 'RIGHT'}`,
         '#a8d8ff',
         700,
       );
@@ -1625,8 +1862,34 @@ function finishLevel(
 
   const scalar = ddaScalar();
   if (status === 'won') {
+    const unlockedBefore = economy.getSnapshot().progress.highestUnlocked;
     economy.completeLevel(app.levelId, stars, scalar);
     app.pendingGeode = true;
+    app.sessionWins += 1;
+    // Act I-C gate: first time highest unlock crosses into L151+
+    const unlockedAfter = economy.getSnapshot().progress.highestUnlocked;
+    const actIcKey = `${theme().storagePrefix}.actIcUnlock`;
+    const alreadySeen =
+      typeof localStorage !== 'undefined' && localStorage.getItem(actIcKey) === '1';
+    if (!alreadySeen && unlockedBefore < 151 && unlockedAfter >= 151) {
+      app.pendingActIcCeremony = true;
+      try {
+        localStorage.setItem(actIcKey, '1');
+      } catch {
+        /* ignore quota */
+      }
+    }
+    // Soft studio reminder every few clears — commercial product, not a nag.
+    if (!app.brandNudgeShown && app.sessionWins > 0 && app.sessionWins % 5 === 0) {
+      app.brandNudgeShown = true;
+      window.setTimeout(() => {
+        pushToast(`${STUDIO.short} · ${STUDIO.name}`, '#8ec8e8', 2200);
+      }, 900);
+      // Allow another nudge later in a long session
+      window.setTimeout(() => {
+        app.brandNudgeShown = false;
+      }, 120_000);
+    }
   } else {
     economy.failLevel(scalar);
     app.pendingGeode = false;
@@ -1724,6 +1987,7 @@ function startLevel(
   app.softHint = null;
   app.lastInputAt = performance.now();
   app.comfortReshuffleUsed = false;
+  app.levelPeakSpecials = 0;
   boardView.conveyor = null;
   hudScoreShown = 0;
   hudScorePulseUntil = 0;
@@ -1807,13 +2071,18 @@ function closeAdSession(opts: { grant: boolean }): void {
 function openAd(
   placement: NonNullable<AppState['adPlacement']>,
   returnTo: Screen,
+  booster: BoosterId = 'pickaxe',
 ): void {
   app.adPlacement = placement;
   app.adReturn = returnTo;
-  const start = economy.startAd(placement);
+  const start = economy.startAd(placement, booster);
   if (!start.ok) {
     app.adVideoId = null;
     app.screen = returnTo;
+    // Daily cap or ad already running — steer to shards instead of dead end.
+    if (placement === 'rewardedBooster') {
+      pushToast('Shorts capped for today — buy with shards in Shop', '#ffd679', 2400);
+    }
     renderOverlay();
     return;
   }
@@ -1837,21 +2106,39 @@ function openAd(
 }
 
 function renderOverlay(): void {
+  // Kill sand wordmark when leaving title (canvas not in DOM after clear)
+  if (titleSand && app.screen !== 'title') {
+    titleSand.dispose();
+    titleSand = null;
+  }
   clear(overlay);
   if (app.screen === 'boot') {
     overlay.classList.remove('hidden');
-    overlay.style.background =
-      'radial-gradient(ellipse at 50% 40%, rgba(80,40,140,0.45), rgba(6,4,14,0.96))';
-    overlay.style.justifyContent = 'center';
     overlay.style.backdropFilter = 'none';
-    const splash = el('div', { class: 'boot-splash' }, [
-      el('div', { class: 'boot-logo' }, [theme().productName.toUpperCase()]),
-      el('div', { class: 'boot-sub' }, [
-        theme().id === 'harbor' ? 'Lighting the docks…' : 'Loading the mine…',
-      ]),
-      el('div', { class: 'boot-bar' }, [el('div', { class: 'boot-bar-fill' }, [])]),
-    ]);
-    overlay.append(splash);
+    overlay.style.justifyContent = 'center';
+    if (app.bootPhase === 'studio') {
+      // Departure Bay Digital plate — wipe-up commercial identity
+      overlay.style.background =
+        'radial-gradient(ellipse at 50% 45%, rgba(30, 90, 140, 0.35), rgba(4, 8, 16, 0.98))';
+      const plate = el('div', { class: 'boot-studio' }, [
+        el('div', { class: 'boot-studio-mark', 'aria-hidden': 'true' }, [STUDIO.short]),
+        el('div', { class: 'boot-studio-name' }, [STUDIO.name.toUpperCase()]),
+        el('div', { class: 'boot-studio-line' }, ['Interactive entertainment']),
+      ]);
+      overlay.append(plate);
+    } else {
+      overlay.style.background =
+        'radial-gradient(ellipse at 50% 40%, rgba(80,40,140,0.45), rgba(6,4,14,0.96))';
+      const splash = el('div', { class: 'boot-splash' }, [
+        el('div', { class: 'boot-studio-kicker' }, [STUDIO.tagline]),
+        el('div', { class: 'boot-logo' }, [theme().productName.toUpperCase()]),
+        el('div', { class: 'boot-sub' }, [
+          theme().id === 'harbor' ? 'Lighting the docks…' : 'Loading the mine…',
+        ]),
+        el('div', { class: 'boot-bar' }, [el('div', { class: 'boot-bar-fill' }, [])]),
+      ]);
+      overlay.append(splash);
+    }
     return;
   }
   if (app.screen === 'title') {
@@ -1874,7 +2161,7 @@ function renderOverlay(): void {
     const dock = el('div', { class: 'play-dock play-dock-float' }, []);
     dock.style.pointerEvents = 'auto';
     const snap = economy.getSnapshot();
-    const pauseBtn = btn('❚❚', () => {
+    const pauseBtn = btn('II', () => {
       app.paused = true;
       app.pickaxeMode = false;
       audio.uiTap();
@@ -1955,13 +2242,10 @@ function renderOverlay(): void {
         } else if (comfortFree) {
           app.comfortReshuffleUsed = true;
           runReshuffle(true);
+        } else if (snap.comfortOwned) {
+          pushToast('Comfort free reshuffle already used', '#ff9a9a');
         } else {
-          pushToast(
-            snap.comfortOwned
-              ? 'Comfort free reshuffle already used'
-              : 'No reshuffles — buy in Store',
-            '#ff9a9a',
-          );
+          offerBoosterRestock('reshuffle', 'play');
         }
       },
       { disabled: snap.boosters.reshuffle <= 0 && !comfortFree, free: comfortFree },
@@ -1978,7 +2262,7 @@ function renderOverlay(): void {
           return;
         }
         if (snap.boosters.pickaxe <= 0) {
-          pushToast('No pickaxes — buy in Store', '#ff9a9a');
+          offerBoosterRestock('pickaxe', 'play');
           return;
         }
         app.pickaxeMode = true;
@@ -2057,13 +2341,13 @@ function panel(
   actions: HTMLElement[] = [],
   opts: { className?: string; scrollTop?: boolean } = {},
 ): HTMLElement {
+  const kids: (string | Node)[] = [];
+  if (title.trim()) kids.push(el('h1', {}, [title]));
+  kids.push(...body);
+  if (actions.length) kids.push(el('div', { class: 'row' }, actions));
   const p = el('div', {
     class: opts.className ? `panel panel-enter ${opts.className}` : 'panel panel-enter',
-  }, [
-    el('h1', {}, [title]),
-    ...body,
-    el('div', { class: 'row' }, actions),
-  ]);
+  }, kids);
   overlay.append(p);
   audio.panelWhoosh();
   if (opts.scrollTop) {
@@ -2079,73 +2363,111 @@ function panel(
 function renderTitle(): void {
   overlay.classList.remove('hidden');
   overlay.style.background =
-    'linear-gradient(180deg, rgba(10,6,24,0.08) 0%, rgba(10,6,24,0.4) 38%, rgba(8,4,18,0.9) 100%)';
+    'linear-gradient(180deg, rgba(10,6,24,0.06) 0%, rgba(10,6,24,0.35) 42%, rgba(8,4,18,0.92) 100%)';
   overlay.style.backdropFilter = 'none';
   overlay.style.justifyContent = 'flex-end';
-  overlay.style.paddingBottom = '8%';
+  overlay.style.paddingBottom = '7%';
 
   const snap = economy.getSnapshot();
-  const chOpen = chapterForLevel(Math.min(LEVEL_COUNT, snap.progress.highestUnlocked));
-  const progressLine =
-    snap.progress.highestUnlocked <= 1 && !app.ahaDone
-      ? (theme().id === 'harbor' ? 'Your first sort awaits' : 'Your first dive awaits')
-      : `Lv ${snap.progress.highestUnlocked} · ${chOpen.roman} ${chOpen.title}` +
-        ` · ${theme().metaHubName.toLowerCase()} ${snap.meta.ownedCount}/${snap.meta.totalCount}` +
-        (snap.daily.winStreak > 1 ? ` · 🔥${snap.daily.winStreak}` : '');
+  const nextId = Math.min(LEVEL_COUNT, Math.max(1, snap.progress.highestUnlocked));
+  const chOpen = chapterForLevel(nextId);
+  // Finished product: one progress line, no feature-chip laundry list.
+  const progressLine = !app.ahaDone
+    ? theme().id === 'harbor'
+      ? 'Your first sort awaits'
+      : 'Your first dive awaits'
+    : `Level ${nextId} · ${chOpen.title}` +
+      (snap.daily.winStreak > 1 ? ` · Streak ${snap.daily.winStreak}` : '');
 
-  const wrap = el('div', { class: 'panel panel-title' }, []);
+  const wrap = el('div', { class: 'panel panel-title panel-title-clean' }, []);
   wrap.append(
     el('div', { class: 'title-gems', 'aria-hidden': 'true' }, [
       el('img', {
         class: 'title-gem g1',
-        src: assetUrl('ui/title/tidal.webp'),
+        src: assetUrl(themeUi('ui/title/tidal.webp')),
         alt: '',
         decoding: 'async',
         draggable: 'false',
       }),
       el('img', {
         class: 'title-gem g2',
-        src: assetUrl('ui/title/aurum.webp'),
+        src: assetUrl(themeUi('ui/title/aurum.webp')),
         alt: '',
         decoding: 'async',
         draggable: 'false',
       }),
       el('img', {
         class: 'title-gem g3',
-        src: assetUrl('ui/title/void.webp'),
+        src: assetUrl(themeUi('ui/title/void.webp')),
         alt: '',
         decoding: 'async',
         draggable: 'false',
       }),
       el('img', {
         class: 'title-gem g4',
-        src: assetUrl('ui/title/ember.webp'),
+        src: assetUrl(themeUi('ui/title/ember.webp')),
         alt: '',
         decoding: 'async',
         draggable: 'false',
       }),
     ]),
-    el('div', { class: 'title-kicker' }, [theme().id === 'harbor' ? 'COZY HARBOR MATCH-3' : 'CRYSTAL MINE MATCH-3']),
-    el('h1', {}, [theme().productName.toUpperCase()]),
-    el('p', { class: 'title-tagline' }, [theme().tagline]),
-    companionBubble(
-      !app.ahaDone ? 'titleFirst' : 'title',
-      snap.progress.highestUnlocked + snap.meta.ownedCount,
-    ),
-    el('div', { class: 'title-features' }, [
-      el('div', { class: 'title-feat' }, ['Match']),
-      el('div', { class: 'title-feat' }, ['Forge']),
-      el('div', { class: 'title-feat' }, ['Cascade']),
-      el('div', { class: 'title-feat' }, ['Furnish']),
+    el('div', { class: 'title-studio' }, [STUDIO.tagline]),
+    el('div', { class: 'title-kicker' }, [
+      theme().id === 'harbor' ? 'COZY HARBOR MATCH-3' : 'CRYSTAL MINE MATCH-3',
     ]),
+  );
+  // Studio signature: Harbor sand / Crystalline ore material wordmarks (hero only)
+  {
+    titleSand?.dispose();
+    const reduce =
+      economy.getSnapshot().settings.reducedMotion ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const host = el('div', { class: 'title-sand-host' }, []);
+    wrap.append(host);
+    const isHarbor = theme().id === 'harbor';
+    titleSand = new SandWordmark({
+      text: theme().productName.toUpperCase(),
+      width: 340,
+      height: 72,
+      profile: isHarbor ? 'sand' : 'ore',
+      reducedMotion: reduce,
+      font: isHarbor
+        ? '800 40px "Tidepop", "Fredoka", system-ui, sans-serif'
+        : '800 38px "DragonBlaze", "Fredoka", system-ui, sans-serif',
+      fill: isHarbor ? '#e8c48a' : '#d0a8ff',
+      waterTint: isHarbor ? 'rgba(90, 200, 210, 0.32)' : 'rgba(160, 120, 255, 0.38)',
+      onScoop: () => {
+        const res = economy.claimMaterialScoop();
+        if (res.granted > 0) {
+          audio.starDing(0);
+          haptic('forge');
+          pushToast(
+            isHarbor
+              ? `Sand scoop · +${res.granted} ${theme().softCurrencyName}`
+              : `Ore chip · +${res.granted} ${theme().softCurrencyName}`,
+            isHarbor ? '#7ed0ff' : '#e0c0ff',
+            1800,
+          );
+        }
+      },
+    });
+    titleSand.mount(host);
+  }
+  wrap.append(el('p', { class: 'title-tagline' }, [theme().tagline]));
+  // Guide only on first open — returning players get straight to PLAY.
+  if (!app.ahaDone) {
+    wrap.append(
+      companionBubble('titleFirst', snap.progress.highestUnlocked + snap.meta.ownedCount),
+    );
+  }
+  wrap.append(
     el('p', { class: 'hud-tip title-progress' }, [progressLine]),
-    el('div', { class: 'row title-actions' }, [
+    el('div', { class: 'row title-actions title-actions-stack' }, [
       btn(
-        app.ahaDone ? 'PLAY' : 'BEGIN',
+        app.ahaDone ? L('playCta', 'PLAY') : 'BEGIN',
         () => {
           audio.titleSting();
-          audio.stopPad();
-          // First visit: skip map, drop into Level 1 aha
+          // Ambient bed stays on (ducks under SFX) — quieter mine/dock air, not silence
           if (!app.ahaDone) {
             app.levelId = 1;
             startLevel(1, {}, true);
@@ -2156,21 +2478,11 @@ function renderTitle(): void {
         },
         'gold',
       ),
-      btn(
-        'LEVELS',
-        () => {
-          audio.resume();
-          audio.stopPad();
-          app.screen = 'map';
-          renderOverlay();
-        },
-        'secondary',
-      ),
     ]),
+    el('p', { class: 'studio-foot' }, [STUDIO.short + ' · ' + STUDIO.name]),
   );
   overlay.append(wrap);
 
-  // Daily gift modal (once) — more game-like than a toast
   const gift = snap.pendingDailyGift;
   if (gift) {
     requestAnimationFrame(() => showDailyGiftModal(gift));
@@ -2193,7 +2505,7 @@ function renderPauseMenu(): void {
     el('h2', {}, [level.name]),
     el('p', { class: 'hud-tip' }, [
       s
-        ? `Level ${app.levelId} · ${s.movesLeft} moves · ${s.score.toLocaleString()} pts`
+        ? `Level ${app.levelId} · ${s.movesLeft} moves · ${s.score.toLocaleString('en-US')} pts`
         : `Level ${app.levelId}`,
     ]),
     el('div', { class: 'pause-actions' }, [
@@ -2222,6 +2534,7 @@ function renderPauseMenu(): void {
           app.session = null;
           app.pickaxeMode = false;
           economy.failLevel(ddaScalar());
+          audio.lifeSpent();
           app.lastResult = { status: 'lost', score: 0, stars: 0 };
           app.screen = 'results';
           overlay.style.background = '';
@@ -2249,10 +2562,11 @@ function nextGoalHint(snap: ReturnType<Economy['getSnapshot']>): HTMLElement {
     const need = Math.max(0, meta.nextTarget.cost - meta.essence);
     return essLine('Next · ', need, ` for ${meta.nextTarget.name}`);
   }
-  if (meta.stagesComplete >= 4) {
+  const maxStage = getMetaStages().reduce((m, s) => Math.max(m, s.id), 1);
+  if (meta.stagesComplete >= maxStage) {
     return el('span', { class: 'ess-line' }, [
       theme().metaHubName +
-        ' complete · chase ★★★ on every ' +
+        ' complete · chase 3 stars on every ' +
         (theme().id === 'harbor' ? 'dock' : 'chamber'),
     ]);
   }
@@ -2318,8 +2632,8 @@ function geodeSlotArt(index: number, state: 'sealed' | 'cracked' | 'miss'): HTML
     draggable: 'false',
   }) as HTMLImageElement;
   img.onerror = () => {
-    // Fall back to a soft crystal glyph if art is missing (subdir deploy).
-    img.replaceWith(el('div', { class: 'geode-slot-glyph' }, [state === 'cracked' ? '❋' : '◆']));
+    // Art missing: blank pill (never crystal glyphs on Harbor)
+    img.replaceWith(el('div', { class: 'geode-slot-glyph geode-slot-glyph-empty' }, []));
   };
   stage.append(img);
   if (state === 'sealed') {
@@ -2329,7 +2643,7 @@ function geodeSlotArt(index: number, state: 'sealed' | 'cracked' | 'miss'): HTML
         el('span', {
           class: 'geode-spark',
           style: `--i:${s};--delay:${s * 0.4 + index * 0.12}s`,
-        }, ['✦']),
+        }, []),
       );
     }
     stage.append(sparks);
@@ -2528,71 +2842,239 @@ function boosterChip(
   return b;
 }
 
+/** Player-facing names for the four boosters (core tools mid-band). */
+const BOOSTER_LABEL: Record<BoosterId, string> = {
+  seedPrism: 'Prism seed',
+  extraMoves: '+5 moves',
+  pickaxe: 'Pickaxe',
+  reshuffle: 'Reshuffle',
+};
+
+const BOOSTER_COST = () => ECONOMY_CONST.cost.booster;
+
+/** Spend shards for one booster unit. */
+function tryBuyBooster(id: BoosterId, returnScreen?: Screen): boolean {
+  const res = economy.buyBooster(id, 1);
+  if (res.ok) {
+    audio.starDing(1);
+    haptic('forge');
+    pushToast(`${BOOSTER_LABEL[id]} +1 · ${res.shardsSpent} shards`, '#ffd24a', 1800);
+    if (returnScreen) {
+      app.screen = returnScreen;
+    }
+    renderOverlay();
+    return true;
+  }
+  if (res.reason === 'insufficientShards') {
+    pushToast(
+      `Need ${BOOSTER_COST()} ${theme().premiumCurrencyName.toLowerCase()} — or watch a Short`,
+      '#ff9a9a',
+      2200,
+    );
+  } else {
+    pushToast('Could not buy tool', '#ff9a9a');
+  }
+  return false;
+}
+
+/** Watch rewarded Short for +1 of a specific booster. */
+function watchForBooster(id: BoosterId, returnTo: Screen): void {
+  openAd('rewardedBooster', returnTo, id);
+}
+
+/**
+ * When inventory is empty, offer buy (shards) or earn (watch Short).
+ * Used from pre-level, play tools, and shop.
+ */
+function offerBoosterRestock(id: BoosterId, returnTo: Screen): void {
+  const cost = BOOSTER_COST();
+  const shards = economy.getSnapshot().wallet.shards;
+  const name = BOOSTER_LABEL[id];
+  // Prefer a quick buy if they can afford it; otherwise open the ad path.
+  // Always show both via toast + small choice panel when empty mid-play.
+  if (shards >= cost) {
+    // Mid-play: buy immediately is least friction.
+    if (returnTo === 'play') {
+      tryBuyBooster(id);
+      return;
+    }
+  }
+  // Pre-level / shop: show a mini choice
+  clear(overlay);
+  overlay.classList.remove('hidden');
+  overlay.style.background = 'rgba(4,8,18,0.72)';
+  overlay.style.backdropFilter = 'blur(8px)';
+  overlay.style.justifyContent = 'center';
+  overlay.style.pointerEvents = 'auto';
+  const premium = theme().premiumCurrencyName;
+  panel(
+    name,
+    [
+      el('p', { class: 'hud-tip' }, [
+        `Out of stock. Buy for ${cost} ${premium.toLowerCase()}, or watch a Short for +1 free.`,
+      ]),
+      el('p', { class: 'hud-tip' }, [`You have ${shards} ${premium.toLowerCase()}.`]),
+    ],
+    [
+      btn(
+        `BUY · ${cost}`,
+        () => {
+          if (tryBuyBooster(id, returnTo)) return;
+          // stay on restock if broke
+        },
+        shards >= cost ? 'gold' : 'secondary',
+        shards < cost,
+      ),
+      btn(`WATCH · +1`, () => watchForBooster(id, returnTo), 'primary'),
+      btn('BACK', () => {
+        app.screen = returnTo;
+        renderOverlay();
+      }, 'secondary'),
+    ],
+    { className: 'panel-booster-restock' },
+  );
+}
+
 function chapterForLevel(levelId: number) {
   const chapters = theme().mapChapters;
   return chapters.find((c) => levelId >= c.minId && levelId <= c.maxId) ?? chapters[0]!;
 }
 
-/** Smooth snake path points for a single chapter grid (5-col zigzag). */
-function chapterPathPoints(
-  count: number,
-  cols = 5,
-): { x: number; y: number }[] {
-  const rows = Math.max(1, Math.ceil(count / cols));
+function chapterIndexForLevel(levelId: number): number {
+  const chapters = theme().mapChapters;
+  const i = chapters.findIndex((c) => levelId >= c.minId && levelId <= c.maxId);
+  return i >= 0 ? i : 0;
+}
+
+/**
+ * Scenic art for a map place postcard / pier.
+ * Stages 1–4 = classic early map; Act I-C (XVI–XXX, index ≥15) maps across
+ * stages 5–8 so expanded caverns/docks match the 300-level catalogue.
+ */
+function chapterPlaceArt(chapterIndex: number): string {
+  const stages = theme().metaStages;
+  const ch = theme().mapChapters[chapterIndex];
+  const n = stages.length;
+  if (n === 0) return themeUi('ui/map_bg.webp');
+
+  // Act I-C: XVI–XXX (indices 15–29) → stages 5–8 when present
+  if (n >= 8 && chapterIndex >= 15) {
+    // 15–18→5, 19–22→6, 23–26→7, 27–29→8
+    const band = Math.min(3, Math.floor((chapterIndex - 15) / 4));
+    const si = 4 + band;
+    if (stages[si]?.art) return stages[si]!.art;
+  } else if (n >= 6 && chapterIndex >= 15) {
+    const si = chapterIndex < 23 ? 4 : 5;
+    if (stages[si]?.art) return stages[si]!.art;
+  }
+
+  // Early chapters: 1:1 with meta stages when available
+  if (stages[chapterIndex]?.art) return stages[chapterIndex]!.art;
+
+  // Mid band: cycle by depth so postcards stay varied
+  const depthToStage: Record<string, number> = {
+    shallow: 0,
+    mid: 1,
+    deep: Math.min(2, n - 1),
+    core: Math.min(3, n - 1),
+  };
+  const si = depthToStage[ch?.depth ?? 'shallow'] ?? chapterIndex % n;
+  if (stages[si]?.art) return stages[si]!.art;
+  return themeUi('ui/map_bg.webp');
+}
+
+/**
+ * Floating marker positions along a pier / place walk (percent of pier stage).
+ * Gentle S-curve so balls feel like lanterns along a dock, not a grid.
+ */
+function pierMarkerPoints(count: number): { x: number; y: number }[] {
+  if (count <= 0) return [];
   const pts: { x: number; y: number }[] = [];
   for (let i = 0; i < count; i++) {
-    const col = i % cols;
-    const row = Math.floor(i / cols);
-    const c = row % 2 === 1 ? cols - 1 - col : col;
+    const t = count === 1 ? 0.5 : i / (count - 1);
+    const x = 10 + t * 80;
+    const wave = Math.sin(t * Math.PI * 2.2) * 18;
+    const lane = i % 2 === 0 ? -10 : 12;
+    const y = 48 + wave + lane;
     pts.push({
-      x: ((c + 0.5) / cols) * 100,
-      y: ((row + 0.5) / rows) * 100,
+      x: Math.max(8, Math.min(92, x)),
+      y: Math.max(18, Math.min(82, y)),
     });
   }
   return pts;
 }
 
-/** Per-chapter trail SVG — aligns with its own grid, not the whole board. */
-function buildChapterPathSvg(
-  levelCount: number,
-  /** How many nodes in this chapter are on the gold progress trail (0..levelCount). */
+/**
+ * Smooth pier path — dim trail + progress glow + optional Act I-C lantern dots.
+ * `region`: '' early · 'channel' Outer/Under · 'treaty' Treaty/Regent
+ */
+function buildPierPathSvg(
+  points: readonly { x: number; y: number }[],
   progressCount: number,
+  region: '' | 'channel' | 'treaty' = '',
 ): SVGSVGElement {
   const pathSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  pathSvg.setAttribute('class', 'map-path');
+  pathSvg.setAttribute(
+    'class',
+    `pier-path${region ? ` pier-path-${region}` : ''}`,
+  );
   pathSvg.setAttribute('viewBox', '0 0 100 100');
   pathSvg.setAttribute('preserveAspectRatio', 'none');
-  const pts = chapterPathPoints(levelCount);
-  if (pts.length < 2) return pathSvg;
+  if (points.length < 2) return pathSvg;
 
-  const ptsAttr = (list: { x: number; y: number }[]) =>
-    list.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  // Catmull-Rom-ish smooth path via quadratic midpoints (reads as rope / water trail)
+  const smoothD = (list: readonly { x: number; y: number }[]): string => {
+    if (list.length < 2) return '';
+    let d = `M ${list[0]!.x.toFixed(1)} ${list[0]!.y.toFixed(1)}`;
+    for (let i = 1; i < list.length; i++) {
+      const prev = list[i - 1]!;
+      const cur = list[i]!;
+      const mx = (prev.x + cur.x) / 2;
+      const my = (prev.y + cur.y) / 2;
+      d += ` Q ${prev.x.toFixed(1)} ${prev.y.toFixed(1)} ${mx.toFixed(1)} ${my.toFixed(1)}`;
+      if (i === list.length - 1) {
+        d += ` T ${cur.x.toFixed(1)} ${cur.y.toFixed(1)}`;
+      }
+    }
+    return d;
+  };
 
-  const polyAll = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-  polyAll.setAttribute('points', ptsAttr(pts));
-  polyAll.setAttribute('class', 'map-path-line map-path-dim');
-  pathSvg.appendChild(polyAll);
-
-  const progN = Math.max(0, Math.min(levelCount, progressCount));
-  if (progN >= 2) {
-    const polyProg = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-    polyProg.setAttribute('points', ptsAttr(pts.slice(0, progN)));
-    polyProg.setAttribute('class', 'map-path-line map-path-progress');
-    pathSvg.appendChild(polyProg);
+  // Soft under-glow for Act I-C regions
+  if (region) {
+    const glow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    glow.setAttribute('d', smoothD(points));
+    glow.setAttribute('class', 'map-path-line map-path-glow');
+    pathSvg.appendChild(glow);
   }
-  // Milestone dots along the gold trail
-  for (let i = 0; i < progN; i++) {
-    const p = pts[i]!;
+
+  const pathAll = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  pathAll.setAttribute('d', smoothD(points));
+  pathAll.setAttribute('class', 'map-path-line map-path-dim');
+  pathSvg.appendChild(pathAll);
+
+  const progN = Math.max(0, Math.min(points.length, progressCount));
+  if (progN >= 2) {
+    const pathProg = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    pathProg.setAttribute('d', smoothD(points.slice(0, progN)));
+    pathProg.setAttribute('class', 'map-path-line map-path-progress');
+    pathSvg.appendChild(pathProg);
+  }
+
+  // Lantern / gem dots along the path (progress filled)
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i]!;
+    const lit = i < progressCount;
     const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     dot.setAttribute('cx', p.x.toFixed(1));
     dot.setAttribute('cy', p.y.toFixed(1));
-    dot.setAttribute('r', i === progN - 1 ? '2.4' : '1.4');
+    dot.setAttribute('r', region ? '1.35' : '1.1');
     dot.setAttribute(
       'class',
-      i === progN - 1 ? 'map-path-dot map-path-dot-tip' : 'map-path-dot',
+      lit ? 'map-path-dot map-path-dot-lit' : 'map-path-dot map-path-dot-dim',
     );
     pathSvg.appendChild(dot);
   }
+
   return pathSvg;
 }
 
@@ -2607,278 +3089,496 @@ function starCountForLevel(
   );
 }
 
-function renderMap(): void {
-  const snap = economy.getSnapshot();
-  const cols = 5;
-  const board = el('div', { class: 'map-board' }, [
-    el('img', {
-      class: 'map-board-bg',
-      src: assetUrl(theme().assetRoot ? theme().assetRoot + 'ui/map_bg.webp' : 'ui/map_bg.webp'),
-      alt: '',
-      decoding: 'async',
-    }),
-  ]);
+function chapterStats(ch: { minId: number; maxId: number }, snap: ReturnType<Economy['getSnapshot']>) {
+  const levels = LEVELS.filter((l) => l.id >= ch.minId && l.id <= ch.maxId);
+  let chStars = 0;
+  let chCleared = 0;
+  for (const lvl of levels) {
+    const s = starCountForLevel(snap.progress.stars, lvl.id);
+    chStars += s;
+    if (s > 0) chCleared += 1;
+  }
+  const open = levels.some((l) => l.id <= snap.progress.highestUnlocked);
+  const done =
+    levels.length > 0 && levels[levels.length - 1]!.id < snap.progress.highestUnlocked;
+  return { levels, chStars, chCleared, open, done, maxStars: levels.length * 3 };
+}
 
-  const nextPlayId = snap.progress.highestUnlocked;
-  let totalStars = 0;
+/** Compact retention badges — claimable daily / idle only shout; rest are quiet doors. */
+function mapRetentionStrip(snap: ReturnType<Economy['getSnapshot']>): HTMLElement {
+  const strip = el('div', { class: 'map-retention-strip' }, []);
+  const daily = snap.daily;
+  const idle = snap.idle;
 
-  for (const ch of theme().mapChapters) {
-    const levels = LEVELS.filter((l) => l.id >= ch.minId && l.id <= ch.maxId);
-    if (levels.length === 0) continue;
-
-    let chStars = 0;
-    let chCleared = 0;
-    for (const lvl of levels) {
-      const s = starCountForLevel(snap.progress.stars, lvl.id);
-      chStars += s;
-      if (s > 0) chCleared += 1;
+  const dailyB = el(
+    'button',
+    {
+      class: `map-ret-chip${daily.claimReady ? ' hot' : ''}`,
+      type: 'button',
+      title: 'Daily goal',
+    },
+    [
+      daily.claimReady
+        ? el('span', { class: 'map-ret-hot' }, ['CLAIM'])
+        : document.createTextNode(
+            `Daily ${Math.min(daily.clears, daily.target)}/${daily.target}`,
+          ),
+    ],
+  ) as HTMLButtonElement;
+  dailyB.addEventListener('click', () => {
+    if (daily.claimReady) {
+      const n = economy.claimDailyGoal();
+      if (n > 0) {
+        audio.starDing(2);
+        haptic('forge');
+        pushToast(
+          `Daily · +${n} ${theme().softCurrencyName.toLowerCase()}`,
+          '#ffd24a',
+          2200,
+        );
+      }
+      renderOverlay();
+      return;
     }
-    totalStars += chStars;
-    const maxStars = levels.length * 3;
-    const starPct = Math.min(100, Math.floor((chStars / Math.max(1, maxStars)) * 100));
-    const chapterOpen = levels.some((l) => l.id <= snap.progress.highestUnlocked);
-    const chapterDone = levels[levels.length - 1]!.id < snap.progress.highestUnlocked;
-
-    // Progress nodes in this chapter: unlocked through next playable
-    const progressInChapter = levels.filter((l) => l.id <= snap.progress.highestUnlocked).length;
-
-    const section = el(
-      'div',
-      {
-        class: `map-section depth-${ch.depth}${chapterOpen ? '' : ' locked'}${chapterDone ? ' done' : ''}`,
-      },
-      [],
+    pushToast(
+      daily.claimed
+        ? `Streak ${daily.winStreak} · daily claimed`
+        : `${daily.clears}/${daily.target} clears for daily`,
+      '#ffc878',
+      1800,
     );
-    section.append(
-      el('div', { class: 'map-chapter' }, [
-        el('div', { class: 'map-chapter-title' }, [
-          `${ch.roman} · ${ch.title}`,
-          chapterDone ? el('span', { class: 'map-chapter-badge' }, ['✓']) : '',
-        ].filter(Boolean) as (string | Node)[]),
-        el('div', { class: 'map-chapter-meta' }, [
-          `${chCleared}/${levels.length} cleared · ${chStars}/${maxStars}★`,
-        ]),
-        el('div', { class: 'map-chapter-track' }, [
-          el('div', {
-            class: 'map-chapter-fill',
-            style: `width:${starPct}%`,
-          }, []),
-        ]),
+  });
+
+  const idleB = el(
+    'button',
+    {
+      class: `map-ret-chip${idle.pending > 0 ? ' hot' : ''}`,
+      type: 'button',
+      title: L('idleClaim', 'Idle'),
+    },
+    idle.pending > 0
+      ? [
+          document.createTextNode('Idle '),
+          essFig(idle.pending, { sign: true, size: 'xs' }),
+        ]
+      : [document.createTextNode(theme().id === 'harbor' ? 'Docks' : 'Idle')],
+  ) as HTMLButtonElement;
+  idleB.addEventListener('click', () => {
+    if (idle.pending > 0) {
+      const n = economy.claimIdleEssence();
+      if (n > 0) {
+        audio.starDing(1);
+        pushToast(
+          `${L('idleClaim', 'Idle')} · +${n} ${theme().softCurrencyName.toLowerCase()}`,
+          '#b8f0ff',
+          2000,
+        );
+      }
+      renderOverlay();
+      return;
+    }
+    app.screen = 'cavern';
+    renderOverlay();
+  });
+
+  const moreB = el(
+    'button',
+    { class: 'map-ret-chip', type: 'button', title: 'Album & event' },
+    ['More'],
+  ) as HTMLButtonElement;
+  moreB.addEventListener('click', () => {
+    // Quick door — album first; event from album/footer elsewhere
+    app.screen = 'album';
+    renderOverlay();
+  });
+
+  strip.append(dailyB, idleB, moreB);
+  return strip;
+}
+
+function makeLevelMarkerBall(
+  lvl: (typeof LEVELS)[number],
+  snap: ReturnType<Economy['getSnapshot']>,
+  nextPlayId: number,
+  pos: { x: number; y: number },
+): HTMLButtonElement {
+  const locked = lvl.id > snap.progress.highestUnlocked;
+  const stars = starCountForLevel(snap.progress.stars, lvl.id);
+  const isNext = lvl.id === nextPlayId && !locked;
+  const boss = isBossLevel(lvl.id);
+  const starKids: (string | Node)[] = locked
+    ? []
+    : stars > 0
+      ? [0, 1, 2].slice(0, Math.min(3, stars)).map(() =>
+          el('img', {
+            class: 'level-star-img',
+            src: assetUrl(themeUi('ui/icon_star_on.webp')),
+            alt: '',
+            decoding: 'async',
+            draggable: 'false',
+          }),
+        )
+      : [];
+  const kids: (string | Node)[] = [
+    el('span', { class: 'level-num' }, [String(lvl.id)]),
+  ];
+  if (starKids.length) kids.push(el('div', { class: 'level-stars' }, starKids));
+  if (boss) kids.push(el('div', { class: 'level-boss-tag' }, ['BOSS']));
+  if (isNext) kids.push(el('div', { class: 'level-you' }, ['YOU']));
+
+  const b = el(
+    'button',
+    {
+      class: `level-node pier-ball${locked ? ' locked' : ''}${lvl.id === app.levelId ? ' current' : ''}${stars > 0 ? ' cleared' : ''}${isNext ? ' next-play' : ''}${boss ? ' boss' : ''}`,
+      type: 'button',
+      disabled: locked ? true : undefined,
+      style: `left:${pos.x}%;top:${pos.y}%`,
+      title:
+        (boss ? 'Boss · ' : '') +
+        (stars > 0 ? `${stars} star${stars === 1 ? '' : 's'}` : locked ? 'Locked' : 'Play'),
+    },
+    kids,
+  ) as HTMLButtonElement;
+  if (!locked) {
+    b.addEventListener('click', () => {
+      app.levelId = lvl.id;
+      app.screen = 'prelevel';
+      renderOverlay();
+    });
+  }
+  return b;
+}
+
+/** Retention home: places as postcards + fat PLAY → prelevel (fast session start). */
+function renderHarborOverview(): void {
+  const snap = economy.getSnapshot();
+  const nextPlayId = Math.min(LEVEL_COUNT, snap.progress.highestUnlocked);
+  const nextCh = chapterForLevel(nextPlayId);
+  const nextIdx = chapterIndexForLevel(nextPlayId);
+  const placeList = el('div', { class: 'place-list' }, []);
+  const chapters = theme().mapChapters;
+
+  // Finished-product window: don't dump every locked chapter — show current
+  // neighborhood (≈6 cards) so mid-campaign still scrolls like Harbor, not a spreadsheet.
+  const WINDOW = 6;
+  const start = Math.max(0, Math.min(chapters.length - WINDOW, nextIdx - 2));
+  const end = Math.min(chapters.length, Math.max(start + WINDOW, nextIdx + 2));
+  if (start > 0) {
+    placeList.append(
+      el('div', { class: 'place-list-more' }, [
+        `Earlier · ${start} place${start === 1 ? '' : 's'} cleared behind you`,
       ]),
     );
-
-    const gridWrap = el('div', { class: 'map-grid-wrap' }, []);
-    gridWrap.append(buildChapterPathSvg(levels.length, progressInChapter));
-    const grid = el('div', { class: 'map-grid' }, []);
-    for (const lvl of levels) {
-      const locked = lvl.id > snap.progress.highestUnlocked;
-      const stars = starCountForLevel(snap.progress.stars, lvl.id);
-      const isNext = lvl.id === nextPlayId && !locked;
-      const boss = isBossLevel(lvl.id);
-      const starText = stars > 0 ? '★'.repeat(stars) : locked ? '🔒' : '·';
-      const kids: (string | Node)[] = [
-        `${lvl.id}`,
-        el('div', { class: 'level-stars' }, [starText]),
-      ];
-      if (boss) {
-        kids.push(el('div', { class: 'level-boss-tag' }, ['BOSS']));
-      }
-      if (isNext) {
-        kids.push(el('div', { class: 'level-you' }, ['YOU']));
-      }
-      if (levelHasConveyor(lvl.id) && !locked) {
-        kids.push(el('div', { class: 'level-belt' }, ['▶']));
-      }
-      const b = el(
-        'button',
-        {
-          class: `level-node${locked ? ' locked' : ''}${lvl.id === app.levelId ? ' current' : ''}${stars > 0 ? ' cleared' : ''}${isNext ? ' next-play' : ''}${levelHasConveyor(lvl.id) ? ' has-belt' : ''}${boss ? ' boss' : ''}`,
-          type: 'button',
-          disabled: locked ? true : undefined,
-          title:
-            (boss ? 'Boss · ' : '') +
-            (stars > 0 ? `${stars} star${stars === 1 ? '' : 's'}` : locked ? 'Locked' : 'Play') +
-            (levelHasConveyor(lvl.id) ? ' · ' + L('conveyorActive', 'Conveyor active').toLowerCase() : ''),
-        },
-        kids,
-      ) as HTMLButtonElement;
-      if (!locked) {
-        b.addEventListener('click', () => {
-          app.levelId = lvl.id;
-          app.screen = 'prelevel';
-          renderOverlay();
-        });
-      }
-      grid.append(b);
-    }
-    gridWrap.append(grid);
-    section.append(gridWrap);
-    board.append(section);
-    void cols;
   }
 
-  const meta = snap.meta;
-  const idle = snap.idle;
-  const daily = snap.daily;
-  panel(
-    'Levels',
-    [
-      el('p', {}, [
-        theme().id === 'harbor'
-          ? 'Clear docks · collect stars · restore your harbor'
-          : 'Clear chambers · collect stars · furnish your cavern',
-      ]),
-      el('div', { class: 'goal-banner' }, [nextGoalHint(snap)]),
-      essenceProgressBar(snap),
-      (() => {
-        const card = el('div', { class: 'daily-goal-card' }, [
-          el('div', { class: 'daily-goal-head' }, [
-            el('span', { class: 'daily-goal-title' }, [
-              theme().id === 'harbor' ? 'Today’s dock run' : 'Today’s dive',
-            ]),
-            el('span', { class: 'daily-goal-streak' }, [
-              daily.winStreak > 0
-                ? `🔥 ${daily.winStreak} win streak`
-                : `Best streak ${daily.bestStreak}`,
-            ]),
+  for (let index = start; index < end; index++) {
+    const ch = chapters[index]!;
+    const { levels, chStars, chCleared, open, done } = chapterStats(ch, snap);
+    if (levels.length === 0) continue;
+    const isCurrent = index === nextIdx;
+    // Act I-C region (XVI–XXX) — new postcard art + soft "OUTER" / "CROWN" pill
+    const isActIc = index >= 15;
+    const regionPill =
+      isActIc && open
+        ? el(
+            'span',
+            { class: 'place-card-region-pill' },
+            [theme().id === 'harbor' ? (index < 23 ? 'CHANNEL' : 'TREATY') : index < 23 ? 'UNDER' : 'REGENT'],
+          )
+        : null;
+    const card = el(
+      'button',
+      {
+        class: `place-card depth-${ch.depth}${open ? '' : ' locked'}${done ? ' done' : ''}${isCurrent ? ' current' : ''}${isActIc ? ' region-new' : ''}`,
+        type: 'button',
+        disabled: open ? undefined : true,
+      },
+      [
+        el('img', {
+          class: 'place-card-art',
+          src: assetUrl(chapterPlaceArt(index)),
+          alt: '',
+          decoding: 'async',
+          draggable: 'false',
+        }),
+        el('div', { class: 'place-card-scrim' }, []),
+        el('div', { class: 'place-card-body' }, [
+          el('div', { class: 'place-card-kicker' }, [
+            ch.roman + (done ? ' · done' : isCurrent ? ' · here' : open ? '' : ' · locked'),
+            ...(regionPill ? [regionPill] : []),
           ]),
-          el('div', { class: 'essence-track-wrap' }, [
-            el('div', { class: 'essence-track-label' }, [
-              daily.claimReady
-                ? el('span', { class: 'ess-line' }, [
-                    document.createTextNode(
-                      `${Math.min(daily.clears, daily.target)}/${daily.target} clears · `,
-                    ),
-                    essFig(daily.rewardEssence, { sign: true, size: 'xs' }),
-                    document.createTextNode(' ready'),
-                  ])
-                : document.createTextNode(
-                    `${Math.min(daily.clears, daily.target)}/${daily.target} clears` +
-                      (daily.claimed ? ' · claimed' : ''),
-                  ),
-            ]),
-            el('div', { class: 'essence-track' }, [
-              el('div', {
-                class: 'essence-track-fill',
-                style: `width:${daily.pct}%`,
-              }, []),
-            ]),
+          el('div', { class: 'place-card-title' }, [ch.title]),
+          el('div', { class: 'place-card-meta' }, [
+            open
+              ? el('span', { class: 'place-card-meta-stars' }, [
+                  document.createTextNode(`${chCleared}/${levels.length} · ${chStars}`),
+                  el('img', {
+                    class: 'inline-star',
+                    src: assetUrl(themeUi('ui/icon_star_on.webp')),
+                    alt: '',
+                    decoding: 'async',
+                  }),
+                ])
+              : theme().id === 'harbor'
+                ? 'Reach this dock'
+                : 'Reach this chamber',
           ]),
-        ]);
-        if (daily.claimReady) {
-          card.append(
-            btn(
-              [
-                document.createTextNode('CLAIM DAILY · '),
-                essFig(daily.rewardEssence, { sign: true, size: 'sm' }),
-              ],
-              () => {
-                const n = economy.claimDailyGoal();
-                if (n > 0) {
-                  audio.starDing(2);
-                  haptic('forge');
-                  pushToast(
-                    `Daily goal · +${n} ${theme().softCurrencyName.toLowerCase()}`,
-                    '#ffd24a',
-                    2400,
-                  );
-                }
-                renderOverlay();
-              },
-              'gold',
-            ),
-          );
-        }
-        return card;
-      })(),
-      (() => {
-        const strip = el('div', { class: 'liveops-strip' }, []);
-        const albumB = el(
-          'button',
-          { class: 'liveops-chip', type: 'button' },
-          [`Album · cycle ${snap.album.cycle + 1} · ${snap.album.pct}%`],
-        ) as HTMLButtonElement;
-        albumB.addEventListener('click', () => {
-          app.screen = 'album';
-          renderOverlay();
-        });
-        const eventB = el(
-          'button',
-          { class: 'liveops-chip event', type: 'button' },
-          [`Event · ${snap.event.personal} pts · #${snap.event.leagueRank}`],
-        ) as HTMLButtonElement;
-        eventB.addEventListener('click', () => {
-          app.screen = 'event';
-          renderOverlay();
-        });
-        const idleB = el(
-          'button',
-          {
-            class: `liveops-chip idle${idle.pending > 0 ? '' : ' dim'}`,
-            type: 'button',
-          },
-          idle.pending > 0
-            ? [
-                document.createTextNode('Idle · '),
-                essFig(idle.pending, { sign: true, size: 'xs' }),
-                document.createTextNode(' claim'),
-              ]
-            : [
-                document.createTextNode('Idle · '),
-                essFig(idle.ratePerHour, { size: 'xs' }),
-                document.createTextNode('/h'),
-              ],
-        ) as HTMLButtonElement;
-        idleB.addEventListener('click', () => {
-          if (idle.pending > 0) {
-            const n = economy.claimIdleEssence();
-            if (n > 0) {
-              audio.starDing(1);
-              pushToast(
-                `${L('idleClaim', 'Cavern idle')} · +${n} ${theme().softCurrencyName.toLowerCase()}`,
-                '#b8f0ff',
-                2200,
-              );
-            }
-          } else {
-            app.screen = 'cavern';
-          }
-          renderOverlay();
-        });
-        strip.append(albumB, eventB, idleB);
-        return strip;
-      })(),
-      board,
-      el('div', { class: 'stat-grid' }, [
-        stat('Lives', String(snap.lives.count)),
-        stat('Stars', `${totalStars}`),
-        stat(theme().softCurrencyName, String(meta.essence)),
-        stat('Streak', String(daily.winStreak)),
+        ]),
+      ],
+    ) as HTMLButtonElement;
+    if (open) {
+      card.addEventListener('click', () => {
+        app.mapChapterIndex = index;
+        audio.panelWhoosh();
+        renderOverlay();
+      });
+    }
+    placeList.append(card);
+  }
+
+  if (end < chapters.length) {
+    placeList.append(
+      el('div', { class: 'place-list-more' }, [
+        `Further out · ${chapters.length - end} place${chapters.length - end === 1 ? '' : 's'} ahead`,
       ]),
-    ],
-    [
-      btn(theme().id === 'harbor' ? 'DOCKS' : 'CAVERN', () => {
+    );
+  }
+
+  // Scroll current place into view after paint
+  requestAnimationFrame(() => {
+    placeList.querySelector('.place-card.current')?.scrollIntoView({
+      block: 'nearest',
+      behavior: 'smooth',
+    });
+  });
+
+  const playLabel = `${L('playCta', 'PLAY')} · ${nextPlayId}`;
+  const homeTitle = L('mapTitle', theme().id === 'harbor' ? 'The Harbor' : 'The Mine');
+  const isHarbor = theme().id === 'harbor';
+
+  // Act I-C spotlight — show once the player can reach Outer Channels / Under-Crown
+  const actIcOpen = nextPlayId >= 151;
+  const actIcCh = chapters[15] ?? chapters[Math.min(chapters.length - 1, 15)];
+  let actIcSpotlight: HTMLElement | null = null;
+  if (actIcOpen && actIcCh) {
+    const regionArt = chapterPlaceArt(15);
+    actIcSpotlight = el(
+      'button',
+      {
+        class: 'actic-spotlight',
+        type: 'button',
+      },
+      [
+        el('img', {
+          class: 'actic-spotlight-art',
+          src: assetUrl(regionArt),
+          alt: '',
+          decoding: 'async',
+          draggable: 'false',
+        }),
+        el('div', { class: 'actic-spotlight-scrim' }, []),
+        el('div', { class: 'actic-spotlight-body' }, [
+          el('div', { class: 'actic-spotlight-k' }, [
+            isHarbor ? 'OUTER CHANNELS' : 'UNDER-CROWN',
+          ]),
+          el('div', { class: 'actic-spotlight-v' }, [actIcCh.title]),
+          el('div', { class: 'actic-spotlight-meta' }, [
+            nextPlayId >= 151 && nextPlayId <= 300
+              ? `Your run · L${nextPlayId}`
+              : 'Chapters XVI–XXX · open',
+          ]),
+        ]),
+      ],
+    ) as HTMLButtonElement;
+    actIcSpotlight.addEventListener('click', () => {
+      app.mapChapterIndex = Math.min(chapters.length - 1, Math.max(15, nextIdx));
+      audio.panelWhoosh();
+      renderOverlay();
+    });
+  }
+
+  const foot = el('div', { class: 'map-foot' }, [
+    btn(playLabel, () => {
+      app.levelId = nextPlayId;
+      app.mapChapterIndex = nextIdx;
+      app.screen = 'prelevel';
+      audio.titleSting();
+      renderOverlay();
+    }, 'gold'),
+    el('div', { class: 'map-foot-secondary' }, [
+      btn(isHarbor ? 'DOCKS' : 'CAVERN', () => {
         app.screen = 'cavern';
-        renderOverlay();
-      }, 'gold'),
-      btn('ALBUM', () => {
-        app.screen = 'album';
-        renderOverlay();
-      }, 'secondary'),
-      btn('EVENT', () => {
-        app.screen = 'event';
         renderOverlay();
       }, 'secondary'),
       btn('SHOP', () => {
         app.screen = 'store';
         renderOverlay();
       }, 'secondary'),
-      btn('Settings', () => {
+      btn('SET', () => {
         app.screen = 'settings';
         renderOverlay();
       }, 'secondary'),
+    ]),
+  ]);
+
+  panel(
+    homeTitle,
+    [
+      el('div', { class: 'map-home-hud' }, [
+        el('div', { class: 'map-home-lives' }, [
+          el('img', {
+            class: 'map-home-icon',
+            src: assetUrl(themeUi('ui/icon_lives.webp')),
+            alt: '',
+            decoding: 'async',
+          }),
+          el('span', {}, [String(snap.lives.count)]),
+        ]),
+        el('div', { class: 'map-home-next' }, [
+          el('span', { class: 'map-home-next-k' }, [nextCh.title]),
+          el('span', { class: 'map-home-next-v' }, [`Level ${nextPlayId}`]),
+        ]),
+        el('div', { class: 'map-home-currency' }, [
+          essFig(snap.meta.essence, { size: 'sm' }),
+        ]),
+      ]),
+      mapRetentionStrip(snap),
+      ...(actIcSpotlight ? [actIcSpotlight] : []),
+      placeList,
+      foot,
+    ],
+    [],
+    { className: 'panel-map-home' },
+  );
+}
+
+/** Inside a place: scenic pier/walk with floating level markers. */
+function renderChapterPier(chapterIndex: number): void {
+  const snap = economy.getSnapshot();
+  const chapters = theme().mapChapters;
+  const ch = chapters[chapterIndex] ?? chapters[0]!;
+  const { levels, chStars, chCleared, maxStars } = chapterStats(ch, snap);
+  const nextPlayId = Math.min(LEVEL_COUNT, snap.progress.highestUnlocked);
+  const points = pierMarkerPoints(levels.length);
+  const progressInChapter = levels.filter((l) => l.id <= snap.progress.highestUnlocked).length;
+
+  const actIc = chapterIndex >= 15;
+  const region: '' | 'channel' | 'treaty' = !actIc
+    ? ''
+    : chapterIndex < 23
+      ? 'channel'
+      : 'treaty';
+  const stage = el(
+    'div',
+    {
+      class: `pier-stage depth-${ch.depth}${region ? ` pier-region-${region}` : ''}`,
+    },
+    [
+      el('img', {
+        class: 'pier-stage-art',
+        src: assetUrl(chapterPlaceArt(chapterIndex)),
+        alt: '',
+        decoding: 'async',
+        draggable: 'false',
+      }),
+      el('div', { class: 'pier-stage-scrim' }, []),
     ],
   );
+  // Soft floating lantern/spark motes on Act I-C piers
+  if (region) {
+    const motes = el('div', { class: 'pier-motes', 'aria-hidden': 'true' }, []);
+    for (let i = 0; i < 8; i++) {
+      motes.append(
+        el('span', {
+          class: 'pier-mote',
+          style: `--i:${i};--x:${12 + (i * 11) % 76}%;--delay:${(i % 5) * 0.35}s`,
+        }, []),
+      );
+    }
+    stage.append(motes);
+  }
+  stage.append(buildPierPathSvg(points, progressInChapter, region));
+
+  const markers = el('div', { class: 'pier-markers' }, []);
+  levels.forEach((lvl, i) => {
+    const pos = points[i] ?? { x: 50, y: 50 };
+    const ball = makeLevelMarkerBall(lvl, snap, nextPlayId, pos);
+    if (region) ball.classList.add(`pier-ball-${region}`);
+    markers.append(ball);
+  });
+  stage.append(markers);
+
+  const playThis =
+    nextPlayId >= ch.minId && nextPlayId <= ch.maxId
+      ? nextPlayId
+      : levels.find((l) => l.id <= snap.progress.highestUnlocked && starCountForLevel(snap.progress.stars, l.id) === 0)?.id
+        ?? levels.filter((l) => l.id <= snap.progress.highestUnlocked).slice(-1)[0]?.id
+        ?? ch.minId;
+
+  const pierFoot = el('div', { class: 'map-foot' }, [
+    btn(
+      `PLAY · ${playThis}`,
+      () => {
+        app.levelId = playThis;
+        app.screen = 'prelevel';
+        audio.titleSting();
+        renderOverlay();
+      },
+      'gold',
+      playThis > snap.progress.highestUnlocked,
+    ),
+    el('div', { class: 'map-foot-secondary' }, [
+      btn('PLACES', () => {
+        app.mapChapterIndex = null;
+        audio.panelWhoosh();
+        renderOverlay();
+      }, 'secondary'),
+    ]),
+  ]);
+
+  const regionLabel =
+    region === 'channel'
+      ? theme().id === 'harbor'
+        ? 'Outer Channel'
+        : 'Under-Crown'
+      : region === 'treaty'
+        ? theme().id === 'harbor'
+          ? 'Storm Treaty'
+          : 'Regent Peak'
+        : '';
+
+  panel(
+    `${ch.roman} · ${ch.title}`,
+    [
+      el('div', { class: 'pier-meta pier-meta-stars' }, [
+        document.createTextNode(`${chCleared}/${levels.length} cleared · ${chStars}/${maxStars}`),
+        el('img', {
+          class: 'inline-star',
+          src: assetUrl(themeUi('ui/icon_star_on.webp')),
+          alt: 'stars',
+          decoding: 'async',
+        }),
+        ...(regionLabel
+          ? [el('span', { class: `pier-region-tag pier-region-tag-${region}` }, [regionLabel])]
+          : []),
+      ]),
+      stage,
+      pierFoot,
+    ],
+    [],
+    { className: `panel-pier${region ? ` panel-pier-${region}` : ''}` },
+  );
+}
+
+function renderMap(): void {
+  if (app.mapChapterIndex !== null) {
+    const n = theme().mapChapters.length;
+    const i = Math.max(0, Math.min(n - 1, app.mapChapterIndex));
+    app.mapChapterIndex = i;
+    renderChapterPier(i);
+    return;
+  }
+  renderHarborOverview();
 }
 
 function renderPrelevel(): void {
@@ -2889,15 +3589,17 @@ function renderPrelevel(): void {
   const best = starCountForLevel(snap.progress.stars, level.id);
   const ch = chapterForLevel(level.id);
 
-  const uiRoot = theme().assetRoot || '';
+  // Harbor Outer Channels / Treaty bands get dedicated prelevel banners when present
   const bannerArt =
-    level.id <= 10
-      ? `${uiRoot}ui/prelevel_banner.webp`
-      : level.id <= 20
-        ? `${uiRoot}ui/prelevel_mid.webp`
-        : level.id <= 30
-          ? `${uiRoot}ui/prelevel_deep.webp`
-          : `${uiRoot}ui/prelevel_deep.webp`;
+    theme().id === 'harbor' && level.id >= 251
+      ? themeUi('ui/prelevel_treaty.webp')
+      : theme().id === 'harbor' && level.id >= 151
+        ? themeUi('ui/prelevel_outer.webp')
+        : level.id <= 10
+          ? themeUi('ui/prelevel_banner.webp')
+          : level.id <= 40
+            ? themeUi('ui/prelevel_mid.webp')
+            : themeUi('ui/prelevel_deep.webp');
   const boss = level.boss === true || isBossLevel(level.id);
   const banner = el('div', { class: `level-banner depth-${ch.depth}${boss ? ' boss' : ''}` }, [
     el('img', {
@@ -2910,124 +3612,115 @@ function renderPrelevel(): void {
     el('div', { class: 'level-banner-content' }, [
       el('div', { class: 'level-banner-num' }, [`${level.id}`]),
       el('div', { class: 'level-banner-body' }, [
-        el('div', { class: 'level-banner-chapter' }, [
-          boss ? '⚔ BOSS · ' : '',
-          `${ch.roman} · ${ch.title}`,
-        ]),
+        el('div', { class: 'level-banner-chapter' }, [`${ch.roman} · ${ch.title}`]),
         el('div', { class: 'level-banner-name' }, [level.name]),
-        el('div', { class: 'level-banner-meta' }, [
-          `${level.moves} moves  ·  ${level.width}×${level.height}`,
-          boss ? '  ·  multi-threat' : '',
-        ]),
-        el('div', { class: 'level-banner-stars' }, [
-          best > 0 ? '★'.repeat(best) + '☆'.repeat(3 - best) : '☆☆☆  best',
-        ]),
+        el('div', { class: 'level-banner-meta' }, [`${level.moves} moves`]),
       ]),
     ]),
   ]);
 
-  const goals = el('div', { class: 'goal-row' }, [
+  // Free goal icons — no how-to walls inside form chips
+  const goals = el('div', { class: 'goal-row goal-row-free' }, [
     ...level.objectives.map((o) =>
-      el('div', { class: 'goal-chip goal-chip-visual' }, [
+      el('div', { class: 'goal-chip goal-chip-free' }, [
         el('img', {
           class: 'goal-icon',
-          src: assetUrl(OBJECTIVE_ICON[o.kind]),
+          src: assetUrl(objectiveIconPath(o.kind)),
           alt: OBJECTIVE_LABEL[o.kind],
           decoding: 'async',
           draggable: 'false',
         }),
-        el('div', { class: 'goal-chip-body' }, [
-          el('span', { class: 'goal-k' }, [OBJECTIVE_LABEL[o.kind]]),
-          el('span', { class: 'goal-v' }, [`×${o.target}`]),
-          el('span', { class: 'goal-how' }, [OBJECTIVE_HOWTO[o.kind]]),
-        ]),
+        el('span', { class: 'goal-v' }, [`×${o.target}`]),
       ]),
     ),
   ]);
 
-  // Soft retention: tie this dive to cavern progress
-  const starNudge = boss
-    ? best < 3
-      ? 'Boss chamber — stacked goals, tight moves, bigger reward on ★★★'
-      : 'Boss cleared · still farm ' + theme().softCurrencyName.toLowerCase() + ' on re-runs'
-    : best < 3
-      ? best === 0
-        ? 'First clear mints ' + theme().softCurrencyName.toLowerCase() + ' · ★★★ pays discovery bonus'
-        : `Best ★${best} · push higher for more ${theme().softCurrencyName.toLowerCase()}`
-      : '★★★ sealed · still farm ' + theme().softCurrencyName.toLowerCase() + ' on clears';
-
-  const wardenBeat: CompanionBeat = boss
-    ? level.id >= 30
-      ? 'coreSpire'
-      : 'cavern'
-    : level.id >= 31
-      ? 'coreSpire'
-      : level.id >= 21
-        ? 'cavern'
-        : 'title';
-
+  // Prelevel: banner + goals + optional boosters + PLAY. Rest lives on docks / shop.
+  const prismEmpty = snap.boosters.seedPrism <= 0;
+  const movesEmpty = snap.boosters.extraMoves <= 0;
   const chips = el('div', { class: 'booster-row' }, [
     boosterChip(
-      `Prism seed ${app.prep.seedPrism ? '✓' : ''}`,
-      `×${snap.boosters.seedPrism}`,
+      `Prism ${app.prep.seedPrism ? 'ON' : ''}`,
+      prismEmpty ? 'GET' : `×${snap.boosters.seedPrism}`,
       app.prep.seedPrism,
-      snap.boosters.seedPrism <= 0,
+      false,
       () => {
+        if (prismEmpty) {
+          offerBoosterRestock('seedPrism', 'prelevel');
+          return;
+        }
         app.prep.seedPrism = !app.prep.seedPrism;
         renderOverlay();
       },
-      theme().id === 'harbor'
-        ? 'themes/harbor/ui/booster_prism.webp'
-        : 'ui/booster_prism.webp',
+      themeUi('ui/booster_prism.webp'),
     ),
     boosterChip(
-      `+5 moves ${app.prep.extraMoves ? '✓' : ''}`,
-      `×${snap.boosters.extraMoves}`,
+      `+5 moves ${app.prep.extraMoves ? 'ON' : ''}`,
+      movesEmpty ? 'GET' : `×${snap.boosters.extraMoves}`,
       app.prep.extraMoves,
-      snap.boosters.extraMoves <= 0,
+      false,
       () => {
+        if (movesEmpty) {
+          offerBoosterRestock('extraMoves', 'prelevel');
+          return;
+        }
         app.prep.extraMoves = !app.prep.extraMoves;
         renderOverlay();
       },
-      theme().id === 'harbor'
-        ? 'themes/harbor/ui/booster_moves.webp'
-        : 'ui/booster_moves.webp',
+      themeUi('ui/booster_moves.webp'),
     ),
   ]);
 
+  const titleKids: (string | Node)[] = [
+    el('span', { class: 'prelevel-title-num' }, [`Level ${level.id}`]),
+  ];
+  if (boss) {
+    titleKids.push(el('span', { class: 'prelevel-boss-badge' }, ['BOSS']));
+  }
+  // Act I-C region badge on prelevel
+  if (level.id >= 151) {
+    const regionName =
+      theme().id === 'harbor'
+        ? level.id >= 251
+          ? 'STORM TREATY'
+          : 'OUTER CHANNEL'
+        : level.id >= 251
+          ? 'REGENT PEAK'
+          : 'UNDER-CROWN';
+    titleKids.push(
+      el(
+        'span',
+        {
+          class: `prelevel-region-badge${level.id >= 251 ? ' treaty' : ' channel'}`,
+        },
+        [regionName],
+      ),
+    );
+  }
+
   panel(
-    boss ? `Boss ${level.id}` : `Level ${level.id}`,
+    '', // custom title row below (clear BOSS type, not display-face S/8 mix-up)
     [
+      el('div', { class: 'prelevel-title-row' }, titleKids),
       banner,
-      companionBubble(wardenBeat, level.id + best + (boss ? 100 : 0)),
-      ...(boss
-        ? [
-            el('div', { class: 'boss-callout' }, [
-              el('div', { class: 'boss-callout-k' }, ['BOSS CHAMBER']),
-              el('div', { class: 'boss-callout-v' }, [
-                'Clear every objective. Powers and cascades are your friends — leftover moves explode into a victory flourish.',
-              ]),
-            ]),
-          ]
-        : []),
-      el('div', { class: 'goal-banner soft' }, [nextGoalHint(snap)]),
-      essenceProgressBar(snap),
-      el('p', { class: 'hud-tip' }, [boss ? 'Boss goals' : 'Goals']),
       goals,
-      el('p', { class: 'hud-tip star-nudge' }, [starNudge]),
-      ...(levelHasConveyor(level.id)
+      ...(best > 0
         ? [
-            el('p', { class: 'hud-tip conveyor-note' }, [
-              L('conveyorActive', 'Conveyor active') + ' · a playable row shifts after each move (Sort-inspired)',
+            el('div', { class: 'prelevel-best-stars' }, [
+              ...[0, 1, 2].map((i) =>
+                el('img', {
+                  class: 'level-star-img',
+                  src: assetUrl(
+                    themeUi(i < best ? 'ui/icon_star_on.webp' : 'ui/icon_star_off.webp'),
+                  ),
+                  alt: '',
+                  decoding: 'async',
+                }),
+              ),
             ]),
           ]
         : []),
-      el('p', { class: 'hud-tip' }, ['Boosters (tap to arm)']),
       chips,
-      el('p', { class: 'hud-tip' }, [
-        `Bag · pickaxe ×${snap.boosters.pickaxe} · reshuffle ×${snap.boosters.reshuffle}` +
-          (snap.comfortOwned ? ' · comfort on' : ''),
-      ]),
     ],
     [
       btn('PLAY', () => {
@@ -3039,7 +3732,7 @@ function renderPrelevel(): void {
         renderOverlay();
       }, 'secondary'),
     ],
-    { className: 'panel-prelevel' },
+    { className: `panel-prelevel${boss ? ' is-boss' : ''}` },
   );
 }
 
@@ -3048,33 +3741,218 @@ function renderContinueOffer(): void {
   const r = app.lastResult;
   const progress = app.session ? Math.round(objectiveProgressRatio(app.session) * 100) : 0;
   const cost = ECONOMY_CONST.cost.extraMoves5;
-  const shards = economy.getSnapshot().wallet.shards;
+  const canPay = economy.getSnapshot().wallet.shards >= cost;
+  const isHarbor = theme().id === 'harbor';
+
+  // Peak loss-aversion moment: big progress, one gold rescue, quiet exit.
   panel(
-    'So close!',
+    '',
     [
-      el('div', { class: 'continue-hero' }, [
-        el('div', { class: 'continue-pct' }, [`${progress}%`]),
-        el('div', { class: 'continue-copy' }, [
-          el('div', { class: 'continue-title' }, ['Keep going?']),
-          el('p', {}, [
-            r
-              ? `Score ${r.score.toLocaleString()} · almost there`
-              : 'Out of moves — one more push?',
-          ]),
+      el('div', { class: 'continue-ceremony' }, [
+        el('div', { class: 'continue-kicker' }, [
+          isHarbor ? 'SO CLOSE' : 'SO CLOSE',
         ]),
-      ]),
-      el('p', { class: 'hud-tip' }, [
-        '+5 moves to finish · walk away spends 1 life (wins never cost a life)',
+        el('div', { class: 'continue-pct-ring' }, [
+          el('div', { class: 'continue-pct' }, [`${progress}%`]),
+          el('div', { class: 'continue-pct-label' }, ['cleared']),
+        ]),
+        el('div', { class: 'continue-title' }, ['One more push?']),
+        el('p', { class: 'continue-sub' }, [
+          r
+            ? `Score ${r.score.toLocaleString('en-US')} · +5 moves to finish`
+            : '+5 moves to finish the board',
+        ]),
       ]),
     ],
     [
-      btn(`+5 MOVES · ${cost}◆`, () => acceptContinue('shards'), 'gold'),
-      btn('WATCH · +5', () => acceptContinue('ad')),
-      btn('NO THANKS', () => declineContinue(), 'secondary'),
+      btn(
+        canPay ? `+5 MOVES · ${cost}` : `+5 MOVES · ${cost} (need tokens)`,
+        () => acceptContinue('shards'),
+        'gold',
+        !canPay,
+      ),
+      btn('WATCH · +5 FREE', () => acceptContinue('ad'), 'primary'),
+      btn(
+        isHarbor ? 'WALK AWAY · lose a life' : 'GIVE UP · lose a life',
+        () => declineContinue(),
+        'secondary',
+      ),
     ],
     { className: 'panel-continue' },
   );
-  void shards;
+}
+
+/** One big reward chip for the results ceremony (currency / streak only as chips). */
+function resultsRewardChip(
+  kind: 'currency' | 'streak',
+  title: string,
+  valueNode: string | Node | (string | Node)[],
+): HTMLElement {
+  const kids: (string | Node)[] = [];
+  if (kind === 'currency') {
+    kids.push(
+      el('img', {
+        class: 'results-reward-icon',
+        src: assetUrl(theme().bonusCrackArt),
+        alt: '',
+        decoding: 'async',
+      }),
+    );
+  } else {
+    kids.push(
+      el('img', {
+        class: 'results-reward-icon',
+        src: assetUrl(themeUi('ui/icon_streak.webp')),
+        alt: '',
+        decoding: 'async',
+      }),
+    );
+  }
+  kids.push(
+    el('div', { class: 'results-reward-text' }, [
+      el('div', { class: 'results-reward-k' }, [title]),
+      el(
+        'div',
+        { class: 'results-reward-v' },
+        Array.isArray(valueNode) ? valueNode : [valueNode],
+      ),
+    ]),
+  );
+  return el('div', { class: `results-reward-chip kind-${kind}` }, kids);
+}
+
+/**
+ * Win-screen album hero tray — full crystal atlas faces + names.
+ * Board gem sheet (1024×640 @ 128px cells); display 72px via scaled background.
+ */
+function resultsAlbumLootStrip(
+  granted: readonly { readonly id: string; readonly rarity: string }[],
+  rareCount: number,
+): HTMLElement {
+  const sheet = getAlbumSheet();
+  const sheetUrl = assetUrl(sheet);
+  // Display size / frame size
+  const facePx = 72;
+  const frame = 128;
+  const scale = facePx / frame;
+  const sheetW = Math.round(1024 * scale);
+  const sheetH = Math.round(640 * scale);
+
+  const wrap = el('div', { class: 'results-album-loot results-album-loot-hero' }, [
+    el('div', { class: 'results-album-loot-head' }, [
+      el('img', {
+        class: 'results-album-loot-icon',
+        src: assetUrl(theme().livingCorePath),
+        alt: '',
+        decoding: 'async',
+      }),
+      el('div', { class: 'results-album-loot-k' }, [
+        rareCount > 0
+          ? `Album · ${rareCount} rare pull${rareCount === 1 ? '' : 's'}`
+          : `Album · +${granted.length} keepsake${granted.length === 1 ? '' : 's'}`,
+      ]),
+    ]),
+  ]);
+  const row = el('div', { class: 'results-album-row' }, []);
+  const show = granted.slice(0, 6);
+  show.forEach((g, i) => {
+    const def = getAlbumCards().find((c) => c.id === g.id);
+    const face = el('div', {
+      class: `results-album-face rarity-${g.rarity}`,
+      style: `--i:${i};--shard-glow:${def?.glow ?? '#ffd24a'}`,
+      title: def?.name ?? g.id,
+    }, []) as HTMLElement;
+
+    if (def) {
+      const bx = Math.round(def.atlas.x * scale);
+      const by = Math.round(def.atlas.y * scale);
+      face.append(
+        el('div', {
+          class: 'results-album-sprite',
+          style: [
+            `background-image:url(${sheetUrl})`,
+            `background-size:${sheetW}px ${sheetH}px`,
+            `background-position:-${bx}px -${by}px`,
+          ].join(';'),
+        }, []),
+      );
+      face.append(
+        el('div', { class: 'results-album-face-glow', 'aria-hidden': 'true' }, []),
+      );
+      if (g.rarity === 'rare' || g.rarity === 'uncommon') {
+        face.append(
+          el(
+            'span',
+            { class: `results-album-rare-tag tag-${g.rarity}` },
+            [g.rarity === 'rare' ? 'RARE' : 'UNCM'],
+          ),
+        );
+      }
+      face.append(el('span', { class: 'results-album-name' }, [def.name]));
+    } else {
+      // Last-resort: still try essence art, never a bare letter chip if we can help it
+      face.append(
+        el('img', {
+          class: 'results-album-sprite-img',
+          src: assetUrl(theme().bonusCrackArt),
+          alt: g.id,
+          decoding: 'async',
+        }),
+      );
+    }
+    row.append(face);
+  });
+  if (granted.length > show.length) {
+    row.append(
+      el('div', { class: 'results-album-more' }, [`+${granted.length - show.length}`]),
+    );
+  }
+  wrap.append(row);
+  wrap.append(
+    el('button', {
+      class: 'results-album-open',
+      type: 'button',
+    }, ['View album']) as HTMLButtonElement,
+  );
+  const openBtn = wrap.querySelector('.results-album-open') as HTMLButtonElement;
+  openBtn?.addEventListener('click', () => {
+    app.pendingGeode = false;
+    app.screen = 'album';
+    renderOverlay();
+  });
+  return wrap;
+}
+
+/** PLACE CTA with prop art when docks/cavern placement is ready (not a form chip). */
+function resultsPlaceCta(upgrade: { name: string; art: string }, isHarbor: boolean): HTMLElement {
+  const b = el(
+    'button',
+    {
+      class: 'btn gold results-place-cta',
+      type: 'button',
+    },
+    [
+      el('img', {
+        class: 'results-place-cta-art',
+        src: assetUrl(upgrade.art),
+        alt: '',
+        decoding: 'async',
+        draggable: 'false',
+      }),
+      el('span', { class: 'results-place-cta-copy' }, [
+        el('span', { class: 'results-place-cta-k' }, [
+          isHarbor ? 'Ready on the docks' : 'Ready in the cavern',
+        ]),
+        el('span', { class: 'results-place-cta-v' }, [upgrade.name]),
+      ]),
+    ],
+  ) as HTMLButtonElement;
+  b.addEventListener('click', () => {
+    app.pendingGeode = false;
+    app.screen = 'cavern';
+    renderOverlay();
+  });
+  return b;
 }
 
 function renderResults(): void {
@@ -3085,103 +3963,28 @@ function renderResults(): void {
     return;
   }
   const snap = economy.getSnapshot();
-  const essenceLine =
-    r.status === 'won' && snap.lastEssenceGain > 0
-      ? el('p', { class: 'essence-gain ess-line-wrap' }, [
-          essFig(snap.lastEssenceGain, { sign: true, size: 'md' }),
-          document.createTextNode(` ${theme().softCurrencyName.toLowerCase()} → ${theme().metaHubName}`),
-        ])
-      : null;
-  const starsEl = el('div', { class: 'results-burst-stars' }, []);
-  const scoreEl = el('div', { class: 'results-burst-score' }, ['0']);
-  const burst = el(
-    'div',
-    { class: r.status === 'won' ? 'results-burst' : 'results-burst fail' },
-    [
-      el('img', {
-        class: 'results-burst-art',
-        src: assetUrl((theme().assetRoot || '') + (r.status === 'won' ? 'ui/win_banner.webp' : 'ui/fail_banner.webp')),
-        alt: '',
-        decoding: 'async',
-      }),
-      el('div', { class: 'results-burst-scrim' }, []),
-      el('div', { class: 'results-burst-content' }, [
-        starsEl,
-        scoreEl,
-        el('div', { class: 'results-burst-label' }, ['SCORE']),
-      ]),
-    ],
-  );
+  const isHarbor = theme().id === 'harbor';
+  const nStars = Math.max(0, Math.min(3, r.stars));
+  const perfect = r.status === 'won' && nStars >= 3;
 
-  // Win ceremony: stars pop + score count-up
-  if (r.status === 'won') {
-    const nStars = Math.max(0, Math.min(3, r.stars));
-    for (let i = 0; i < 3; i++) {
-      const s = el('span', { class: `star-pop${i < nStars ? ' on' : ''}` }, [
-        i < nStars ? '★' : '☆',
-      ]);
-      s.style.animationDelay = `${120 + i * 280}ms`;
-      starsEl.append(s);
-      if (i < nStars) {
-        window.setTimeout(() => audio.starDing(i), 140 + i * 280);
-      }
+  const afterWinExit = (then: () => void): void => {
+    if (app.pendingActIcCeremony) {
+      app.pendingActIcCeremony = false;
+      showActIcUnlockCeremony(then);
+      return;
     }
-    const target = r.score;
-    const start = performance.now();
-    const dur = 900;
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / dur);
-      const eased = 1 - (1 - t) ** 3;
-      scoreEl.textContent = Math.floor(target * eased).toLocaleString();
-      if (t < 1) requestAnimationFrame(tick);
-      else scoreEl.textContent = target.toLocaleString();
-    };
-    requestAnimationFrame(tick);
-  } else {
-    // Life spent — real art, not an ASCII diamond
-    starsEl.append(
-      el('img', {
-        class: 'life-spent-icon',
-        src: assetUrl('ui/icon_life_spent.webp'),
-        alt: 'Life spent',
-        decoding: 'async',
-        draggable: 'false',
-      }),
-    );
-    scoreEl.textContent = r.score.toLocaleString();
-  }
+    then();
+  };
 
-  const nextHint =
-    r.status === 'won'
-      ? el('div', { class: 'goal-banner soft' }, [
-          snap.meta.nextAffordable
-            ? el('span', { class: 'ess-line' }, [
-                `Ready · place ${snap.meta.nextAffordable.name}`,
-              ])
-            : nextGoalHint(snap),
-        ])
-      : null;
-
-  const beat: CompanionBeat =
-    r.status === 'won'
-      ? r.stars >= 3
-        ? 'winPerfect'
-        : snap.daily.winStreak >= 3
-          ? 'streak'
-          : app.levelId >= 31
-            ? 'coreSpire'
-            : 'win'
-      : 'lose';
-  const warden = companionBubble(beat, r.score + r.stars * 11 + snap.daily.winStreak);
-
-  const leaveResults = (screen: typeof app.screen, levelDelta = 0): void => {
+  const leaveResults = (screen: typeof app.screen): void => {
     const go = () => {
       app.pendingGeode = false;
-      if (levelDelta) app.levelId = Math.min(LEVEL_COUNT, app.levelId + levelDelta);
-      app.screen = screen;
-      renderOverlay();
+      afterWinExit(() => {
+        app.screen = screen;
+        renderOverlay();
+      });
     };
-    // One last chance to crack if they leave without tapping CRACK GEODE
+    // Leaving with unclaimed chest still offers the bonus once
     if (r.status === 'won' && app.pendingGeode) {
       showGeodeCrackModal(go);
     } else {
@@ -3189,150 +3992,244 @@ function renderResults(): void {
     }
   };
 
-  const albumLine =
-    r.status === 'won' && snap.lastAlbumGranted.length > 0
-      ? el('p', { class: 'album-gain ess-line-wrap' }, [
-          document.createTextNode(
-            `Album +${snap.lastAlbumGranted.length}` +
-              (snap.lastAlbumRareCount > 0
-                ? ` · ${snap.lastAlbumRareCount} rare!`
-                : ' cards'),
-          ),
-          ...(snap.lastAlbumPageReward > 0
-            ? [
-                document.createTextNode(' · page '),
-                essFig(snap.lastAlbumPageReward, { sign: true, size: 'xs' }),
-              ]
-            : []),
-        ])
-      : null;
+  const goNextLevel = (skipChest: boolean): void => {
+    if (skipChest) app.pendingGeode = false;
+    if (r.status === 'won' && app.levelId < LEVEL_COUNT) {
+      const advance = () => {
+        app.levelId = Math.min(LEVEL_COUNT, app.levelId + 1);
+        app.screen = 'prelevel';
+        renderOverlay();
+      };
+      if (app.pendingGeode && !skipChest) {
+        showGeodeCrackModal(() => {
+          app.pendingGeode = false;
+          afterWinExit(advance);
+        });
+        return;
+      }
+      app.pendingGeode = false;
+      afterWinExit(advance);
+      return;
+    }
+    if (r.status === 'lost') {
+      app.screen = 'prelevel';
+      renderOverlay();
+      return;
+    }
+    leaveResults('map');
+  };
 
-  if (r.status === 'won' && snap.lastAlbumRareCount > 0) {
-    window.setTimeout(() => audio.starDing(2), 400);
+  // ---- LOSE: short, clear, one recovery path ----
+  if (r.status === 'lost') {
+    panel(
+      'Almost…',
+      [
+        el('div', { class: 'results-fail-hero' }, [
+          el('img', {
+            class: 'life-spent-icon',
+            src: assetUrl(themeUi('ui/icon_life_spent.webp')),
+            alt: '',
+            decoding: 'async',
+          }),
+          el('div', { class: 'results-fail-score' }, [r.score.toLocaleString('en-US')]),
+          el('div', { class: 'results-burst-label' }, ['SCORE']),
+          el('p', { class: 'results-fail-copy' }, ['A life was spent. You’ve got this.']),
+        ]),
+      ],
+      [
+        btn('RETRY', () => goNextLevel(true), 'gold'),
+        btn('LEVELS', () => leaveResults('map'), 'secondary'),
+      ],
+      { className: 'panel-results lose' },
+    );
+    return;
+  }
+
+  // ---- WIN: ceremony first, then fat rewards, then one primary CTA ----
+  const headline =
+    perfect
+      ? isHarbor
+        ? 'PERFECT SORT!'
+        : 'PERFECT CLEAR!'
+      : nStars === 2
+        ? 'GREAT CLEAR!'
+        : isHarbor
+          ? 'DOCK CLEAR!'
+          : 'LEVEL CLEAR!';
+
+  const starsEl = el('div', { class: 'results-burst-stars results-stars-hero' }, []);
+  const scoreEl = el('div', { class: 'results-burst-score' }, ['0']);
+  const titleEl = el('div', { class: 'results-hero-title' }, [headline]);
+
+  const burst = el('div', { class: `results-burst results-ceremony${perfect ? ' perfect' : ''}` }, [
+    el('img', {
+      class: 'results-burst-art',
+      src: assetUrl(themeUi('ui/win_banner.webp')),
+      alt: '',
+      decoding: 'async',
+    }),
+    el('div', { class: 'results-burst-scrim' }, []),
+    el('div', { class: 'results-burst-content' }, [
+      titleEl,
+      starsEl,
+      scoreEl,
+      el('div', { class: 'results-burst-label' }, ['SCORE']),
+    ]),
+  ]);
+
+  // Star pop + score count-up (slightly longer = bigger deal)
+  for (let i = 0; i < 3; i++) {
+    const on = i < nStars;
+    const s = el('img', {
+      class: `star-pop-img results-star-lg${on ? ' on' : ''}`,
+      src: assetUrl(themeUi(on ? 'ui/icon_star_on.webp' : 'ui/icon_star_off.webp')),
+      alt: on ? 'star' : '',
+      decoding: 'async',
+      draggable: 'false',
+    }) as HTMLImageElement;
+    s.style.animationDelay = `${180 + i * 320}ms`;
+    starsEl.append(s);
+    if (on) {
+      window.setTimeout(() => {
+        audio.starDing(i);
+        if (i === nStars - 1) haptic(perfect ? 'specialBig' : 'forge');
+      }, 200 + i * 320);
+    }
+  }
+  {
+    const target = r.score;
+    const start = performance.now();
+    const dur = perfect ? 1200 : 1000;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / dur);
+      const eased = 1 - (1 - t) ** 3;
+      scoreEl.textContent = Math.floor(target * eased).toLocaleString('en-US');
+      if (t < 1) requestAnimationFrame(tick);
+      else scoreEl.textContent = target.toLocaleString('en-US');
+    };
+    requestAnimationFrame(tick);
+  }
+
+  if (snap.lastAlbumRareCount > 0) {
+    window.setTimeout(() => audio.albumRare(), 500);
     juice.powerBanner(
       snap.lastAlbumRareCount > 1 ? 'RARE ALBUM PULLS!' : 'RARE ALBUM CARD!',
     );
   }
-  const streakLine =
-    r.status === 'won' && snap.daily.winStreak > 1
-      ? el('p', { class: 'streak-gain' }, [`🔥 ${snap.daily.winStreak} win streak`])
-      : null;
-  const dailyProg =
-    r.status === 'won'
-      ? el(
-          'p',
-          { class: 'hud-tip ess-line-wrap' },
-          snap.daily.claimReady
-            ? [
-                document.createTextNode(
-                  `${L('dailyGoal', 'Daily dive')} ready · claim `,
-                ),
-                essFig(snap.daily.rewardEssence, { sign: true, size: 'xs' }),
-                document.createTextNode(' on Levels'),
-              ]
-            : [
-                document.createTextNode(
-                  snap.daily.claimed
-                    ? L('dailyGoal', 'Daily dive') + ' claimed · keep streaking'
-                    : `${L('dailyGoal', 'Daily dive')} ${Math.min(snap.daily.clears, snap.daily.target)}/${snap.daily.target}`,
-                ),
-              ],
-        )
+  if (perfect) {
+    window.setTimeout(() => {
+      juice.screenFlash('rgba(255, 220, 100, 0.45)', 420, 0.4);
+      juice.powerBanner(isHarbor ? 'THREE STARS!' : 'PERFECT!');
+    }, 900);
+  }
+
+  // Loot tray: currency + streak chips; album as visual faces; place is a CTA (not a form chip)
+  const rewards = el('div', { class: 'results-rewards' }, []);
+  if (snap.lastEssenceGain > 0) {
+    rewards.append(
+      resultsRewardChip(
+        'currency',
+        theme().softCurrencyName,
+        `+${snap.lastEssenceGain.toLocaleString('en-US')}`,
+      ),
+    );
+  }
+  if (snap.daily.winStreak > 1) {
+    rewards.append(
+      resultsRewardChip('streak', 'Streak', String(snap.daily.winStreak)),
+    );
+  }
+
+  // Peak special recap — Super Chest / Supernova count this clear
+  let peakRecap: HTMLElement | null = null;
+  if (app.levelPeakSpecials > 0) {
+    const peakName = isHarbor ? 'Super Chest' : 'Supernova';
+    const peakArt = isHarbor
+      ? 'themes/harbor/gen/octopus_chest_128.webp'
+      : theme().livingCorePath;
+    peakRecap = el('div', { class: 'results-peak-recap' }, [
+      el('img', {
+        class: 'results-peak-icon',
+        src: assetUrl(peakArt),
+        alt: '',
+        decoding: 'async',
+        draggable: 'false',
+      }),
+      el('div', { class: 'results-peak-text' }, [
+        el('div', { class: 'results-peak-k' }, [
+          app.levelPeakSpecials === 1
+            ? isHarbor
+              ? 'FEAST FIRED'
+              : 'NOVA FIRED'
+            : isHarbor
+              ? 'FEAST FRENZY'
+              : 'NOVA STORM',
+        ]),
+        el('div', { class: 'results-peak-v' }, [
+          app.levelPeakSpecials === 1
+            ? `1× ${peakName}`
+            : `${app.levelPeakSpecials}× ${peakName}`,
+        ]),
+      ]),
+    ]);
+  }
+
+  const albumLoot =
+    snap.lastAlbumGranted.length > 0
+      ? resultsAlbumLootStrip(snap.lastAlbumGranted, snap.lastAlbumRareCount)
       : null;
 
+  // One optional soft line from the companion (short celebration, not a wall)
+  const beat: CompanionBeat = perfect
+    ? 'winPerfect'
+    : snap.daily.winStreak >= 3
+      ? 'streak'
+      : 'win';
+  const cheer = el('p', { class: 'results-cheer' }, [
+    companionLine(beat, r.score + r.stars * 11 + snap.daily.winStreak),
+  ]);
+
+  // CTAs: chest first when open; NEXT primary; place as art-forward secondary when ready
+  const actions: HTMLElement[] = [];
+  if (app.pendingGeode) {
+    actions.push(
+      btn(
+        isHarbor ? 'CRACK CHEST' : 'CRACK GEODE',
+        () => {
+          showGeodeCrackModal(() => {
+            if (app.screen === 'results') renderOverlay();
+          });
+        },
+        'gold',
+      ),
+    );
+    actions.push(btn('NEXT', () => goNextLevel(true), 'secondary'));
+  } else {
+    actions.push(
+      btn(
+        app.levelId < LEVEL_COUNT ? 'NEXT LEVEL' : L('mapTitle', 'LEVELS'),
+        () => goNextLevel(false),
+        'gold',
+      ),
+    );
+    if (snap.meta.nextAffordable) {
+      actions.push(resultsPlaceCta(snap.meta.nextAffordable, isHarbor));
+    } else {
+      actions.push(btn('MAP', () => leaveResults('map'), 'secondary'));
+    }
+  }
+
   panel(
-    r.status === 'won' ? 'Level Clear!' : 'Almost…',
+    `Level ${app.levelId}`,
     [
       burst,
-      warden,
-      ...(essenceLine ? [essenceLine] : []),
-      ...(albumLine ? [albumLine] : []),
-      ...(streakLine ? [streakLine] : []),
-      ...(dailyProg ? [dailyProg] : []),
-      ...(nextHint ? [nextHint] : []),
-      ...(r.status === 'won' ? [essenceProgressBar(snap)] : []),
-      ...(r.status === 'won' && r.stars === 1
-        ? [el('p', { class: 'hud-tip' }, ['More points or leftover moves → ★★ / ★★★'])]
-        : []),
-      ...(r.status === 'won' && r.stars === 3
-        ? [el('p', { class: 'hud-tip' }, ['Perfect clear · discovery ' + theme().softCurrencyName.toLowerCase() + ' banked'])]
-        : []),
-      ...(r.status === 'lost'
-        ? [
-            el('div', { class: 'life-spent-row' }, [
-              el('img', {
-                class: 'life-spent-icon-sm',
-                src: assetUrl('ui/icon_life_spent.webp'),
-                alt: '',
-                decoding: 'async',
-                draggable: 'false',
-              }),
-              el('p', { class: 'life-spent-copy' }, ['A life was spent. Try again!']),
-            ]),
-          ]
-        : []),
+      ...(peakRecap ? [peakRecap] : []),
+      ...(rewards.childNodes.length > 0 ? [rewards] : []),
+      ...(albumLoot ? [albumLoot] : []),
+      cheer,
     ],
-    [
-      ...(r.status === 'won' && app.pendingGeode
-        ? [
-            btn(
-              theme().id === 'harbor' ? 'CRACK A CHEST' : 'CRACK A GEODE',
-              () => {
-                showGeodeCrackModal(() => {
-                  if (app.screen === 'results') renderOverlay();
-                });
-              },
-              'gold',
-            ),
-          ]
-        : []),
-      btn(
-        r.status === 'won'
-          ? app.pendingGeode
-            ? theme().id === 'harbor'
-              ? 'NEXT · SKIP CHEST'
-              : 'NEXT · SKIP GEODE'
-            : 'NEXT'
-          : 'RETRY',
-        () => {
-          if (r.status === 'won' && app.levelId < LEVEL_COUNT) {
-            // Explicit next can skip geode if they already cracked; else offer then go
-            if (app.pendingGeode) {
-              // Skip without modal
-              app.pendingGeode = false;
-            }
-            app.levelId = Math.min(LEVEL_COUNT, app.levelId + 1);
-            app.screen = 'prelevel';
-            renderOverlay();
-          } else if (r.status === 'lost') {
-            app.screen = 'prelevel';
-            renderOverlay();
-          } else {
-            app.pendingGeode = false;
-            app.screen = 'map';
-            renderOverlay();
-          }
-        },
-        r.status === 'won' && app.pendingGeode ? 'secondary' : 'gold',
-      ),
-      ...(r.status === 'won'
-        ? [
-            btn(
-              snap.meta.nextAffordable
-                ? theme().id === 'harbor'
-                  ? 'PLACE ON DOCKS'
-                  : 'PLACE IN CAVERN'
-                : theme().id === 'harbor'
-                  ? 'DOCKS'
-                  : 'CAVERN',
-              () => leaveResults('cavern'),
-              snap.meta.nextAffordable ? 'primary' : 'secondary',
-            ),
-          ]
-        : []),
-      btn('LEVELS', () => leaveResults('map'), 'secondary'),
-    ],
-    { className: r.status === 'won' ? 'panel-results win' : 'panel-results lose' },
+    actions,
+    { className: `panel-results win${perfect ? ' perfect' : ''}` },
   );
 }
 
@@ -3396,8 +4293,9 @@ function renderCavern(): void {
     stageProps,
     el('div', { class: 'cavern-depth' }, [
       el('span', { class: 'cavern-label' }, [
-        meta.stagesComplete >= 4
-          ? (getMetaStages().find(s => s.id === 4)?.name ?? 'Finale') + ' complete'
+        meta.stagesComplete >= getMetaStages().reduce((m, s) => Math.max(m, s.id), 1)
+          ? (getMetaStages().find((s) => s.id === meta.stagesComplete)?.name ?? 'Finale') +
+            ' complete'
           : `Furnishing · ${activeStage.name}`,
       ]),
       el('span', { class: 'cavern-essence' }, [essFig(meta.essence, { size: 'sm' })]),
@@ -3493,9 +4391,12 @@ function renderCavern(): void {
       essenceProgressBar(snap),
       vista,
       el('div', { class: 'stat-grid' }, [
-        stat(theme().softCurrencyName, String(meta.essence)),
+        statIcon(theme().bonusCrackArt, theme().softCurrencyName, String(meta.essence)),
         stat('Placed', `${meta.ownedCount}/${meta.totalCount}`),
-        stat('Stages', `${meta.stagesComplete}/4`),
+        stat(
+          'Stages',
+          `${meta.stagesComplete}/${getMetaStages().reduce((m, s) => Math.max(m, s.id), 1)}`,
+        ),
         stat('Spent', String(meta.totalSpent)),
       ]),
       ...stages,
@@ -3560,13 +4461,13 @@ function scrollCavernVistaIntoView(opts?: { highlightId?: string | null }): void
 function playPlacementCeremony(up: MetaUpgrade, onDone: () => void): void {
   // Snap scroll to top immediately so the player sees the ceremony, not mid-list
   overlay.scrollTop = 0;
-  const layer = el('div', { class: 'place-ceremony' }, []);
+  const isHarbor = theme().id === 'harbor';
+  const layer = el('div', { class: 'place-ceremony place-pride' }, []);
   const stageArt =
     getMetaStages().find((s) => s.id === up.stage)?.art ?? getMetaStages()[0]!.art;
   const ceremony = theme().placeCeremony;
-  // Per-item video reels are not authored — never play the generic lamp reel.
-  const hasVideo = false;
-  void hasVideo;
+  const stageName =
+    getMetaStages().find((s) => s.id === up.stage)?.name ?? theme().metaHubName;
 
   const mediaEl = metaArtImg(
     stageArt,
@@ -3574,19 +4475,44 @@ function playPlacementCeremony(up: MetaUpgrade, onDone: () => void): void {
     'place-ceremony-video place-ceremony-still',
   );
 
+  const sparks = el('div', { class: 'place-pride-sparks', 'aria-hidden': 'true' }, []);
+  for (let i = 0; i < 14; i++) {
+    sparks.append(
+      el('span', {
+        class: 'place-pride-spark',
+        style: `--i:${i};--x:${10 + (i * 41) % 80}%;--delay:${(i % 6) * 0.08}s`,
+      }, []),
+    );
+  }
+
   const prop = metaArtImg(up.art, up.name, 'place-ceremony-prop');
   const caption = el('div', { class: 'place-ceremony-caption' }, [
+    el('div', { class: 'place-pride-kicker' }, [
+      isHarbor ? 'YOURS ON THE DOCKS' : 'YOURS IN THE MINE',
+    ]),
     el('div', { class: 'place-ceremony-title' }, [up.name]),
-    el('div', { class: 'place-ceremony-sub' }, [ceremony.caption]),
+    el('div', { class: 'place-ceremony-sub' }, [
+      `${stageName} · ${ceremony.caption}`,
+    ]),
   ]);
-  const skip = btn('Continue', () => finish(), 'gold');
+  const skip = btn(
+    isHarbor ? 'SEE MY DOCKS' : 'SEE MY CAVERN',
+    () => finish(),
+    'gold',
+  );
 
-  layer.append(mediaEl, prop, caption, skip);
+  layer.append(mediaEl, sparks, prop, caption, skip);
   mountCeremonyLayer(layer);
-  haptic('special');
+  haptic('specialBig');
+  audio.starDing(2);
+  juice.screenFlash(
+    isHarbor ? 'rgba(100, 200, 220, 0.4)' : 'rgba(180, 140, 255, 0.35)',
+    480,
+    0.35,
+  );
   try {
     const sfx = new Audio(assetUrl('sfx/whoosh-motion.ogg'));
-    sfx.volume = 0.45;
+    sfx.volume = 0.5;
     void sfx.play();
   } catch {
     /* ignore */
@@ -3597,11 +4523,99 @@ function playPlacementCeremony(up: MetaUpgrade, onDone: () => void): void {
     if (done) return;
     done = true;
     layer.remove();
+    pushToast(
+      isHarbor
+        ? `${up.name} stands on your docks`
+        : `${up.name} lights your cavern`,
+      '#ffe56a',
+      2600,
+    );
     onDone();
   };
 
-  // Prop drop animation ~1.35s — hold a beat longer so the name lands
-  window.setTimeout(() => finish(), 2000);
+  // Longer pride hold so placement feels like a second win
+  window.setTimeout(() => finish(), 2800);
+}
+
+/**
+ * First unlock of Act I-C (L151+) — Outer Channels / Under-Crown region ceremony.
+ * Once per save (localStorage). Shown after L150 clear before map/prelevel.
+ */
+function showActIcUnlockCeremony(onDone: () => void): void {
+  if (document.getElementById('actic-unlock-modal')) {
+    onDone();
+    return;
+  }
+  const isHarbor = theme().id === 'harbor';
+  // Stage 5 art = Outer Channel / Under-Crown vista
+  const stages = getMetaStages();
+  const art =
+    stages.find((s) => s.id === 5)?.art ??
+    stages[stages.length - 1]?.art ??
+    themeUi('ui/map_bg.webp');
+  const sparks = el('div', { class: 'actic-sparks', 'aria-hidden': 'true' }, []);
+  for (let i = 0; i < 16; i++) {
+    sparks.append(
+      el('span', {
+        class: 'actic-spark',
+        style: `--i:${i};--x:${6 + (i * 41) % 88}%;--delay:${(i % 6) * 0.09}s`,
+      }, []),
+    );
+  }
+  const layer = el('div', { class: 'actic-unlock ceremony-root-layer', id: 'actic-unlock-modal' }, [
+    sparks,
+    el('div', { class: 'actic-unlock-card panel-enter' }, [
+      metaArtImg(art, isHarbor ? 'Outer Channel' : 'Under-Crown', 'actic-unlock-art'),
+      el('div', { class: 'actic-unlock-kicker' }, [
+        isHarbor ? 'NEW WATERS' : 'NEW DEPTHS',
+      ]),
+      el('h2', { class: 'actic-unlock-title' }, [
+        isHarbor ? 'Outer Channels open' : 'Under-Crown opens',
+      ]),
+      el('p', { class: 'actic-unlock-sub' }, [
+        isHarbor
+          ? 'Beyond the festival — fog fleets, rival buoys, and the Storm Treaty await.'
+          : 'The mountain answers back — fault lanterns, glass seams, and the Regent Peak.',
+      ]),
+      el('div', { class: 'actic-unlock-meta' }, [
+        isHarbor ? 'Chapters XVI–XXX · L151–300' : 'Chapters XVI–XXX · L151–300',
+      ]),
+      btn(
+        isHarbor ? 'ENTER THE CHANNEL' : 'ENTER THE CROWN',
+        () => {
+          layer.remove();
+          // Drop them on Act I-C map chapter XVI
+          app.mapChapterIndex = 15;
+          onDone();
+        },
+        'gold',
+      ),
+    ]),
+  ]);
+  mountCeremonyLayer(layer);
+  haptic('specialBig');
+  audio.starDing(0);
+  window.setTimeout(() => audio.starDing(1), 160);
+  window.setTimeout(() => audio.starDing(2), 320);
+  juice.screenFlash(
+    isHarbor ? 'rgba(90, 200, 210, 0.45)' : 'rgba(160, 100, 255, 0.4)',
+    480,
+    0.4,
+  );
+  try {
+    const sfx = new Audio(assetUrl('sfx/whoosh-cinematic.ogg'));
+    sfx.volume = 0.55;
+    void sfx.play();
+  } catch {
+    /* ignore */
+  }
+  window.setTimeout(() => {
+    if (document.getElementById('actic-unlock-modal')) {
+      layer.remove();
+      app.mapChapterIndex = 15;
+      onDone();
+    }
+  }, 9000);
 }
 
 /**
@@ -3620,7 +4634,7 @@ function showStageCompleteFanfare(stageId: number, onDone: () => void): void {
       el('span', {
         class: 'stage-spark',
         style: `--i:${i};--x:${8 + (i * 37) % 84}%;--delay:${(i % 7) * 0.07}s;--hue:${(i * 23) % 360}`,
-      }, ['✦']),
+      }, []),
     );
   }
 
@@ -3639,10 +4653,15 @@ function showStageCompleteFanfare(stageId: number, onDone: () => void): void {
       el('p', { class: 'stage-complete-sub' }, [
         next
           ? `New ${theme().id === 'harbor' ? 'dock' : 'chamber'} open · ${next.name}`
-          : (getMetaStages().find((s) => s.id === 4)?.name ?? 'Finale') +
-            (theme().id === 'harbor'
-              ? ' finished · the harbor is yours'
-              : ' finished · the mine is yours'),
+          : (() => {
+              const last =
+                getMetaStages().find(
+                  (s) => s.id === getMetaStages().reduce((m, x) => Math.max(m, x.id), 1),
+                )?.name ?? 'Finale';
+              return theme().id === 'harbor'
+                ? `${last} finished · the docks are yours`
+                : `${last} finished · the mine is yours`;
+            })(),
       ]),
       btn(
         next
@@ -3746,31 +4765,21 @@ function metaUpgradeRow(
   return row;
 }
 
-/** Fallback text only if art fails — prefer SKU_ICON art. */
-const SKU_GLYPH: Record<string, string> = {
-  'shards.pocket': '◆',
-  'shards.hoard': '◆◆',
-  'shards.vault': '💎',
-  'bundle.starter': '✦',
-  'lives.refill': '♥',
-  'ads.remove': '☁',
-  'ads.pass7': '☁',
-  'ads.pass30': '☁',
-  'ease.comfort': '☕',
-};
-
-/** Real shop tile art for every SKU (no ASCII glyphs in store). */
-const SKU_ICON: Partial<Record<string, string>> = {
-  'shards.pocket': 'ui/shop/shards_pocket.webp',
-  'shards.hoard': 'ui/shop/shards_hoard.webp',
-  'shards.vault': 'ui/shop/shards_vault.webp',
-  'bundle.starter': 'ui/shop/bundle_starter.webp',
-  'lives.refill': 'ui/icon_lives.webp',
-  'ads.pass7': 'ui/shop/clear_skies_7.webp',
-  'ads.pass30': 'ui/shop/clear_skies_30.webp',
-  'ads.remove': 'ui/shop/clear_skies_forever.webp',
-  'ease.comfort': 'ui/shop/comfort_tools.webp',
-};
+/** Real shop tile art for every SKU (no letter / ASCII glyphs). */
+function skuIconPath(id: string): string {
+  const map: Record<string, string> = {
+    'shards.pocket': 'ui/shop/shards_pocket.webp',
+    'shards.hoard': 'ui/shop/shards_hoard.webp',
+    'shards.vault': 'ui/shop/shards_vault.webp',
+    'bundle.starter': 'ui/shop/bundle_starter.webp',
+    'lives.refill': 'ui/icon_lives.webp',
+    'ads.pass7': 'ui/shop/clear_skies_7.webp',
+    'ads.pass30': 'ui/shop/clear_skies_30.webp',
+    'ads.remove': 'ui/shop/clear_skies_forever.webp',
+    'ease.comfort': 'ui/shop/comfort_tools.webp',
+  };
+  return themeUi(map[id] ?? 'ui/icon_shards.webp');
+}
 
 const SKU_TAG_LABEL: Record<string, string> = {
   bestValue: 'BEST VALUE',
@@ -3832,7 +4841,7 @@ function albumShardStage(slot: {
       el('span', {
         class: 'album-spark',
         style: `--i:${i};--delay:${i * 0.35}s`,
-      }, ['✦']),
+      }, []),
     );
   }
   stage.append(sparks);
@@ -3864,34 +4873,58 @@ function renderAlbum(): void {
         el('div', { class: `album-rarity-tag ${slot.rarity}` }, [slot.rarity]),
         albumShardStage(slot),
         el('div', { class: 'album-name' }, [slot.name]),
-        el('div', { class: 'album-count' }, [
-          slot.complete ? '✓ sealed' : `${slot.count}/${slot.need}`,
-        ]),
+        el(
+          'div',
+          { class: 'album-count' },
+          slot.complete
+            ? [
+                el('img', {
+                  class: 'inline-check',
+                  src: assetUrl(themeUi('ui/icon_check.webp')),
+                  alt: '',
+                  decoding: 'async',
+                }),
+                document.createTextNode(' sealed'),
+              ]
+            : [document.createTextNode(`${slot.count}/${slot.need}`)],
+        ),
       ],
     );
     grid.append(card);
   }
+  const albumHeroArt =
+    getMetaStages().find((s) => s.id === Math.min(4, Math.max(1, snap.meta.activeStageId)))?.art ??
+    themeUi('ui/map_bg.webp');
+
   panel(
     L('albumTitle', 'Endless Album'),
     [
-      companionBubble('cavern', a.cycle + a.completeCount),
-      el('p', {}, [
-        `Cycle ${a.cycle + 1} · keepsakes from your clears — complete the page, rise forever.`,
-      ]),
-      el('div', { class: 'essence-track-wrap' }, [
-        el('div', { class: 'essence-track-label' }, [
-          `${a.completeCount}/${a.totalSlots} seals · ${a.pct}%`,
+      el('div', { class: 'album-hero' }, [
+        el('img', {
+          class: 'album-hero-art',
+          src: assetUrl(albumHeroArt),
+          alt: '',
+          decoding: 'async',
+          draggable: 'false',
+        }),
+        el('div', { class: 'album-hero-scrim' }, []),
+        el('div', { class: 'album-hero-body' }, [
+          el('div', { class: 'album-hero-k' }, [
+            theme().id === 'harbor' ? 'KEEPSAKE SHELF' : 'SHARD CABINET',
+          ]),
+          el('div', { class: 'album-hero-v' }, [
+            `Cycle ${a.cycle + 1} · ${a.completeCount}/${a.totalSlots}`,
+          ]),
         ]),
+      ]),
+      companionBubble('cavern', a.cycle + a.completeCount),
+      el('div', { class: 'essence-track-wrap' }, [
+        el('div', { class: 'essence-track-label' }, [`${a.pct}% sealed`]),
         el('div', { class: 'essence-track' }, [
           el('div', { class: 'essence-track-fill', style: `width:${a.pct}%` }, []),
         ]),
       ]),
       grid,
-      el('p', { class: 'hud-tip' }, [
-        theme().id === 'harbor'
-          ? 'Keepsakes share art with the board. Stars and deep docks pull rarer finds.'
-          : 'Shards are the same gems as the board. Stars and deep chambers pull rarer facets.',
-      ]),
     ],
     [
       btn('LEVELS', () => {
@@ -3907,13 +4940,44 @@ function renderAlbum(): void {
   );
 }
 
+/** Milestone face art — rotates soft theme icons (no ASCII). */
+function eventMileIconPath(index: number, done: boolean, claimed: boolean): string {
+  if (claimed || done) return themeUi('ui/icon_check.webp');
+  const isHarbor = theme().id === 'harbor';
+  const pool = isHarbor
+    ? [
+        themeUi('ui/icon_shards.webp'),
+        theme().bonusCrackArt,
+        themeUi('ui/icon_streak.webp'),
+        themeUi('ui/booster_prism.webp'),
+        themeUi('ui/icon_lives.webp'),
+      ]
+    : [
+        theme().bonusCrackArt,
+        theme().livingCorePath,
+        themeUi('ui/icon_shards.webp'),
+        themeUi('ui/booster_prism.webp'),
+        themeUi('ui/icon_streak.webp'),
+      ];
+  return pool[index % pool.length]!;
+}
+
 function renderHybridEvent(): void {
   const snap = economy.getSnapshot();
   const ev = snap.event;
   const days = Math.max(0, Math.ceil(ev.msLeft / 86_400_000));
-  const rows = ev.milestones.map((m) =>
+  const rows = ev.milestones.map((m, mi) =>
     el('div', { class: `event-mile${m.done ? ' done' : ''}${m.claimed ? ' claimed' : ''}` }, [
-      el('div', { class: 'event-mile-at' }, [`${m.at} pts`]),
+      el('div', { class: 'event-mile-icon-wrap' }, [
+        el('img', {
+          class: `event-mile-icon${m.claimed ? ' claimed' : m.done ? ' ready' : ''}`,
+          src: assetUrl(eventMileIconPath(mi, m.done, m.claimed)),
+          alt: '',
+          decoding: 'async',
+          draggable: 'false',
+        }),
+      ]),
+      el('div', { class: 'event-mile-at' }, [`${m.at}`]),
       el('div', { class: 'event-mile-body' }, [
         el('div', { class: 'name' }, [m.label]),
         el('div', { class: 'blurb ess-line-wrap' }, [
@@ -3923,29 +4987,54 @@ function renderHybridEvent(): void {
               ? document.createTextNode('Ready · auto-claimed on clear')
               : el('span', { class: 'ess-line' }, [
                   essFig(m.essence, { sign: true, size: 'xs' }),
-                  document.createTextNode(` · +${m.shards}◆`),
+                  document.createTextNode(` · +${m.shards} tokens`),
                 ]),
         ]),
       ]),
-      el('div', { class: 'event-mile-flag' }, [m.claimed ? '✓' : m.done ? '●' : '○']),
+      el(
+        'div',
+        {
+          class: `event-mile-flag${m.claimed ? ' claimed' : m.done ? ' ready' : ''}`,
+        },
+        m.claimed || m.done
+          ? [
+              el('img', {
+                class: 'event-mile-check',
+                src: assetUrl(themeUi('ui/icon_check.webp')),
+                alt: m.claimed ? 'claimed' : 'ready',
+                decoding: 'async',
+              }),
+            ]
+          : [el('span', { class: 'event-mile-dot' }, [])],
+      ),
     ]),
   );
+  const eventArt =
+    theme().id === 'harbor'
+      ? themeUi('ui/prelevel_outer.webp')
+      : getMetaStages().find((s) => s.id === 3)?.art ?? themeUi('ui/map_bg.webp');
+
   panel(
     ev.name || L('eventName', 'Mine Rush'),
     [
-      el('p', {}, [ev.tagline]),
-      el('div', { class: 'event-hero' }, [
+      el('div', { class: 'event-hero event-hero-artful' }, [
+        el('img', {
+          class: 'event-hero-bg',
+          src: assetUrl(eventArt),
+          alt: '',
+          decoding: 'async',
+          draggable: 'false',
+        }),
+        el('div', { class: 'event-hero-scrim' }, []),
         el('div', { class: 'event-hero-pts' }, [String(ev.personal)]),
-        el('div', {}, [
+        el('div', { class: 'event-hero-copy' }, [
           el('div', { class: 'event-hero-label' }, ['Personal points']),
-          el('div', { class: 'hud-tip' }, [
-            `Soft league #${ev.leagueRank} · ${ev.leagueLabel} · ~${days}d left`,
+          el('div', { class: 'event-hero-sub' }, [
+            `#${ev.leagueRank} ${ev.leagueLabel} · ~${days}d`,
           ]),
         ]),
       ]),
-      el('p', { class: 'hud-tip' }, [
-        'Hybrid design: personal milestones always pay. League rank is flavour only — not a whale gate.',
-      ]),
+      el('p', { class: 'event-tagline' }, [ev.tagline]),
       ...rows,
       ev.nextMilestone
         ? el('div', { class: 'goal-banner soft' }, [
@@ -3973,17 +5062,17 @@ function renderStore(): void {
     el('div', { class: 'shop-wallet-chip credits' }, [
       el('img', {
         class: 'shop-wallet-icon',
-        src: assetUrl('ui/shop/credits.webp'),
+        src: assetUrl(themeUi('ui/shop/credits.webp')),
         alt: '',
         decoding: 'async',
       }),
       el('span', { class: 'shop-wallet-k' }, ['Credits']),
-      el('span', { class: 'shop-wallet-v' }, [snap.wallet.credits.toLocaleString()]),
+      el('span', { class: 'shop-wallet-v' }, [snap.wallet.credits.toLocaleString('en-US')]),
     ]),
     el('div', { class: 'shop-wallet-chip shards' }, [
       el('img', {
         class: 'shop-wallet-icon',
-        src: assetUrl('ui/icon_shards.webp'),
+        src: assetUrl(themeUi('ui/icon_shards.webp')),
         alt: '',
         decoding: 'async',
       }),
@@ -4005,18 +5094,16 @@ function renderStore(): void {
       const n = Object.values(sku.grantBoosters).reduce((a, b) => a + (b ?? 0), 0);
       if (n > 0) grantBits.push(`+${n} tools`);
     }
-    const iconPath = SKU_ICON[sku.id];
-    const glyphNode = iconPath
-      ? el('div', { class: 'sku-glyph sku-glyph-art' }, [
-          el('img', {
-            class: 'sku-glyph-img',
-            src: assetUrl(iconPath),
-            alt: '',
-            decoding: 'async',
-            draggable: 'false',
-          }),
-        ])
-      : el('div', { class: 'sku-glyph' }, [SKU_GLYPH[sku.id] ?? '◇']);
+    const iconPath = skuIconPath(sku.id);
+    const glyphNode = el('div', { class: 'sku-glyph sku-glyph-art' }, [
+      el('img', {
+        class: 'sku-glyph-img',
+        src: assetUrl(iconPath),
+        alt: '',
+        decoding: 'async',
+        draggable: 'false',
+      }),
+    ]);
     const row = el(
       'div',
       {
@@ -4037,7 +5124,7 @@ function renderStore(): void {
       ],
     );
     const buy = btn(
-      `${sku.credits.toLocaleString()}¢`,
+      `${sku.credits.toLocaleString('en-US')}¢`,
       () => {
         const res = economy.purchase(sku.id);
         if (!res.ok) {
@@ -4069,6 +5156,54 @@ function renderStore(): void {
     snap.comfortOwned ? ' · Comfort tools on' : '',
   ]);
 
+  // Core tools: buy with shards or earn via rewarded Short (economy was ready; UI was not).
+  const toolCost = BOOSTER_COST();
+  const toolIds: BoosterId[] = ['pickaxe', 'reshuffle', 'seedPrism', 'extraMoves'];
+  const toolArt: Partial<Record<BoosterId, string>> = {
+    pickaxe: themeUi('ui/tools/pickaxe.webp'),
+    reshuffle: themeUi('ui/tools/reshuffle.webp'),
+    seedPrism: themeUi('ui/booster_prism.webp'),
+    extraMoves: themeUi('ui/booster_moves.webp'),
+  };
+  const toolsSection = el('div', { class: 'shop-tools' }, [
+    el('p', { class: 'hud-tip shop-tools-head' }, [
+      `Dive tools · ${toolCost} ${theme().premiumCurrencyName.toLowerCase()} each · or watch a Short`,
+    ]),
+    ...toolIds.map((id) => {
+      const owned = snap.boosters[id];
+      const can = snap.wallet.shards >= toolCost;
+      const row = el('div', { class: `sku shop-tool-sku${can ? '' : ' broke'}` }, [
+        el('div', { class: 'sku-glyph sku-glyph-art' }, [
+          el('img', {
+            class: 'sku-glyph-img',
+            src: assetUrl(toolArt[id] ?? themeUi('ui/icon_shards.webp')),
+            alt: '',
+            decoding: 'async',
+            draggable: 'false',
+          }),
+        ]),
+        el('div', { class: 'sku-body' }, [
+          el('div', { class: 'name' }, [BOOSTER_LABEL[id]]),
+          el('div', { class: 'blurb' }, [`Owned ×${owned}`]),
+          el('div', { class: 'sku-grants' }, [`+1 for ${toolCost} shards`]),
+        ]),
+      ]);
+      const actions = el('div', { class: 'shop-tool-actions' }, [
+        btn(
+          `${toolCost}`,
+          () => {
+            tryBuyBooster(id, 'store');
+          },
+          can ? 'gold' : 'secondary',
+          !can,
+        ),
+        btn('WATCH', () => watchForBooster(id, 'store'), 'secondary'),
+      ]);
+      row.append(actions);
+      return row;
+    }),
+  ]);
+
   panel(
     'Shop',
     [
@@ -4078,6 +5213,8 @@ function renderStore(): void {
       el('p', { class: 'hud-tip' }, [
         'Ease of play over dark patterns · pay to skip friction, not to exist',
       ]),
+      toolsSection,
+      el('p', { class: 'hud-tip' }, ['Credits packs & passes']),
       ...items,
     ],
     [
@@ -4104,7 +5241,7 @@ function renderLivesGate(): void {
       el('div', { class: 'lives-hero' }, [
         el('img', {
           class: 'lives-heart-img',
-          src: assetUrl('ui/icon_lives.webp'),
+          src: assetUrl(themeUi('ui/icon_lives.webp')),
           alt: 'Lives',
           decoding: 'async',
           draggable: 'false',
@@ -4118,7 +5255,7 @@ function renderLivesGate(): void {
         [
           el('img', {
             class: 'btn-inline-icon',
-            src: assetUrl('ui/icon_shards.webp'),
+            src: assetUrl(themeUi('ui/icon_shards.webp')),
             alt: '',
             decoding: 'async',
           }),
@@ -4138,7 +5275,7 @@ function renderLivesGate(): void {
         [
           el('img', {
             class: 'btn-inline-icon',
-            src: assetUrl('ui/icon_lives.webp'),
+            src: assetUrl(themeUi('ui/icon_lives.webp')),
             alt: '',
             decoding: 'async',
           }),
@@ -4348,21 +5485,36 @@ function renderSettings(): void {
           if (!s.sfx) audio.uiTap();
           renderOverlay();
         }),
-        settingsToggle('Ambient pad', 'Soft title / mine hum when SFX is on', s.music, () => {
+        settingsToggle('Ambient pad', 'Soft mine / dock bed under menus and play', s.music, () => {
           const next = !s.music;
           economy.updateSettings({ music: next });
-          if (!next) audio.stopPad();
-          else if (s.sfx) audio.resume();
+          audio.setMusic(next && s.sfx);
+          if (next && s.sfx) audio.resume();
           renderOverlay();
         }),
       ]),
       el('div', { class: 'settings-section' }, [
         el('div', { class: 'settings-section-title' }, ['Accessibility']),
-        settingsToggle('Shape glyphs', 'Extra symbols on crystals for colour-blind play', s.glyphs, () => {
-          economy.updateSettings({ glyphs: !s.glyphs });
-          boardView.glyphs = !s.glyphs;
-          renderOverlay();
-        }),
+        settingsToggle(
+          'Colour-blind shapes',
+          'Distinct symbols on each gem (flame, ring, star, leaf, drop, moon) — on by default',
+          s.glyphs,
+          () => {
+            economy.updateSettings({ glyphs: !s.glyphs });
+            boardView.glyphs = !s.glyphs;
+            renderOverlay();
+          },
+        ),
+        settingsToggle(
+          'High contrast',
+          'Thicker rims + larger shape symbols for low-vision / colour-blind play',
+          s.highContrast,
+          () => {
+            economy.updateSettings({ highContrast: !s.highContrast });
+            boardView.highContrast = !s.highContrast;
+            renderOverlay();
+          },
+        ),
         settingsToggle('Reduced motion', 'Softer HUD pulses and less urgency flash', s.reducedMotion, () => {
           economy.updateSettings({ reducedMotion: !s.reducedMotion });
           renderOverlay();
@@ -4387,9 +5539,12 @@ function renderSettings(): void {
         ]),
       ]),
       el('div', { class: 'settings-section' }, [
-        el('div', { class: 'settings-section-title' }, ['Research']),
+        el('div', { class: 'settings-section-title' }, ['Studio']),
         el('div', { class: 'settings-about' }, [
-          el('div', {}, [theme().versionLabel]),
+          el('div', {}, [STUDIO.name]),
+          el('div', { class: 'hud-tip' }, [STUDIO.license]),
+          el('div', { class: 'hud-tip' }, [STUDIO.url.replace('https://', '')]),
+          el('div', { class: 'hud-tip' }, [theme().versionLabel]),
           el('div', { class: 'hud-tip' }, [
             'Simulated economy · Discworld Shorts ads · local save only',
           ]),
@@ -4458,4 +5613,26 @@ function stat(k: string, v: string): HTMLElement {
   ]);
 }
 
+/** Map / hub stat chip with real art (no emoji / unicode gems). Kept for docks / settings. */
+function statIcon(iconPath: string, k: string, v: string): HTMLElement {
+  const img = el('img', {
+    class: 'stat-icon',
+    src: assetUrl(iconPath),
+    alt: '',
+    decoding: 'async',
+    draggable: 'false',
+  }) as HTMLImageElement;
+  img.onerror = () => {
+    img.style.display = 'none';
+  };
+  return el('div', { class: 'stat stat-with-icon' }, [
+    el('div', { class: 'stat-icon-row' }, [
+      img,
+      el('div', { class: 'stat-text' }, [
+        el('div', { class: 'k' }, [k]),
+        el('div', { class: 'v' }, [v]),
+      ]),
+    ]),
+  ]);
+}
 mount();

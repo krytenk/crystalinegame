@@ -1,0 +1,36 @@
+{
+  "id": 133,
+  "name": "Night Creep 133",
+  "width": 7,
+  "height": 7,
+  "moves": 22,
+  "objectives": [
+    {
+      "kind": "contain",
+      "target": 10
+    }
+  ],
+  "stars": [
+    2380,
+    3689,
+    5474
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#.....#",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    ".......",
+    "#.....#"
+  ],
+  "shadowPeriod": 3
+}

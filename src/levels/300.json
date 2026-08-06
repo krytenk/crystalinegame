@@ -1,0 +1,54 @@
+{
+  "id": 300,
+  "name": "Last Quay",
+  "width": 8,
+  "height": 7,
+  "moves": 30,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 18
+    },
+    {
+      "kind": "defuse",
+      "target": 3
+    },
+    {
+      "kind": "collect",
+      "target": 4
+    },
+    {
+      "kind": "contain",
+      "target": 12
+    },
+    {
+      "kind": "score",
+      "target": 7500
+    }
+  ],
+  "stars": [
+    5100,
+    7905,
+    11985
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#......#",
+    ".B.11.B.",
+    "..1221..",
+    ".123321.",
+    "..1221..",
+    ".B.11...",
+    "#......#"
+  ],
+  "shadowPeriod": 3,
+  "bombFuse": 6,
+  "boss": true
+}

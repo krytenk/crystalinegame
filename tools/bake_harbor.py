@@ -43,6 +43,8 @@ FRAME_KEYS_ORDER = [
     "glyph.void", "prism", "stone",
     # row4
     "bomb", "relic", "crust1", "crust2", "crust3", "shadow1", "shadow2",
+    # Super Chest (octopus) — 6+ match peak special
+    "supernova",
 ]
 
 PALETTE = {
@@ -172,13 +174,18 @@ def load_keyed(path: Path) -> Image.Image:
 
 
 def make_vfx_sheet(burst: Image.Image, frame: int, cols: int, count: int, out: Path) -> None:
+    """Bake match VFX with REAL alpha — never solid black boxes on the board."""
     burst = burst.convert("RGBA")
-    # Ensure on black for screen composite
-    bg = Image.new("RGB", (frame, frame), (0, 0, 0))
+    # Key near-black from photo sources so screen/alpha both look clean
+    arr0 = np.asarray(burst).astype(np.float32)
+    mx = arr0[..., :3].max(axis=2)
+    arr0[mx <= 28, 3] = 0
+    arr0[mx <= 28, :3] = 0
+    burst = Image.fromarray(arr0.astype(np.uint8), "RGBA")
     b = burst.copy()
     b.thumbnail((frame, frame), Image.Resampling.LANCZOS)
     rows = math.ceil(count / cols)
-    sheet = Image.new("RGB", (cols * frame, rows * frame), (0, 0, 0))
+    sheet = Image.new("RGBA", (cols * frame, rows * frame), (0, 0, 0, 0))
     for i in range(count):
         t = i / max(1, count - 1)
         scale = 0.35 + 0.65 * (math.sin(t * math.pi) ** 0.7)
@@ -193,11 +200,10 @@ def make_vfx_sheet(burst: Image.Image, frame: int, cols: int, count: int, out: P
         arr = np.asarray(fr).astype(np.float32)
         arr[..., 3] *= alpha
         fr = Image.fromarray(arr.astype(np.uint8), "RGBA")
-        cell = bg.copy().convert("RGBA")
-        cell = Image.alpha_composite(cell, fr)
+        cell = fr
         col = i % cols
         row = i // cols
-        sheet.paste(cell.convert("RGB"), (col * frame, row * frame))
+        sheet.paste(cell, (col * frame, row * frame), cell)
     sheet.save(out, "WEBP", quality=88)
 
 
@@ -343,6 +349,14 @@ def main() -> int:
         p = RAW / f"{name}.jpg"
         if p.exists():
             specials[name] = load_keyed(p)
+    # Super Chest octopus (png with transparency preferred)
+    for cand in ("octopus_chest.png", "supernova.png", "octopus_chest.jpg"):
+        op = RAW / cand
+        if op.exists():
+            specials["supernova"] = (
+                load_keyed(op) if op.suffix.lower() in (".jpg", ".jpeg") else Image.open(op).convert("RGBA")
+            )
+            break
 
     # --- Build atlas pages ---
     def build_page(scale: int) -> tuple[Image.Image, dict]:
@@ -377,6 +391,10 @@ def main() -> int:
                 cell_im = fit_cell(specials.get("bomb") or colors["ember"], cell)
             elif key == "relic":
                 cell_im = fit_cell(specials.get("relic") or colors["solar"], cell)
+            elif key == "supernova":
+                # Octopus Super Chest art (assets/harbor/raw/octopus_chest.png)
+                octo = specials.get("supernova") or specials.get("prism") or colors["tidal"]
+                cell_im = fit_cell(octo, cell)
             elif key.startswith("crust"):
                 base = specials.get("crust") or colors["aurum"]
                 cell_im = fit_cell(base, cell)
@@ -415,7 +433,7 @@ def main() -> int:
     vfx_src = specials.get("core")  # fallback
     if (RAW / "vfx_burst.jpg").exists():
         vfx_src = Image.open(RAW / "vfx_burst.jpg").convert("RGBA")
-        # black bg already — keep
+        # black photo bg keyed out inside make_vfx_sheet
     elif "core" in specials:
         vfx_src = specials["core"]
     else:
@@ -432,7 +450,8 @@ def main() -> int:
         make_vfx_sheet(vfx_src, fw, cols, count, out)
         vfx_meta.append({
             "tier": tier,
-            "composite": "screen" if tier >= 5 else "alpha",
+            # Real alpha sheets: screen still looks best for glow, without black boxes
+            "composite": "screen",
             "sheet": {
                 "src": f"vfx_match{tier}.webp",
                 "frameWidth": fw,

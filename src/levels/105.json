@@ -1,0 +1,54 @@
+{
+  "id": 105,
+  "name": "Spire Regent",
+  "width": 8,
+  "height": 7,
+  "moves": 28,
+  "objectives": [
+    {
+      "kind": "crust",
+      "target": 18
+    },
+    {
+      "kind": "defuse",
+      "target": 3
+    },
+    {
+      "kind": "collect",
+      "target": 3
+    },
+    {
+      "kind": "contain",
+      "target": 10
+    },
+    {
+      "kind": "score",
+      "target": 3908
+    }
+  ],
+  "stars": [
+    4520,
+    7006,
+    10396
+  ],
+  "colors": [
+    "ember",
+    "aurum",
+    "solar",
+    "verdant",
+    "tidal",
+    "void"
+  ],
+  "layout": [
+    "#......#",
+    ".B.11.B.",
+    "..1221..",
+    ".123321.",
+    "..1221..",
+    ".B.11...",
+    "#......#"
+  ],
+  "shadowPeriod": 4,
+  "bombFuse": 7,
+  "boss": true
+}
