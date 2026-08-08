@@ -59,16 +59,18 @@ export const ECONOMY_CONST = {
     reshuffle: 3,
   } as const,
 
-  /** A level fail or clear every N plays triggers a simulated interstitial. */
-  interstitialEvery: 3,
   /**
-   * Rewarded / interstitial length matches Discworld in 60s Shorts (~60s).
-   * Skip unlocks after `adSkippableAfterMs` (mobile-ad cadence).
-   * Completing the full duration grants the rewarded payout; Skip dismisses
-   * with no reward (interstitials just close).
+   * Interstitials off for Play internal/public free build (no ad network).
+   * Set ≥1 only if a real ad SDK is integrated later.
    */
-  adDurationMs: 60_000,
-  adSkippableAfterMs: 5_000,
+  interstitialEvery: 0,
+  /**
+   * Free-gift timer (no YouTube / no ad SDK). Short wait keeps the daily cap
+   * meaningful without demo Shorts. Completing grants rewarded payout; skip
+   * dismisses without reward.
+   */
+  adDurationMs: 4_000,
+  adSkippableAfterMs: 1_500,
 } as const;
 
 // ---------------------------------------------------------------------------

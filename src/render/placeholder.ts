@@ -344,6 +344,11 @@ export class PlaceholderAtlas {
       this.paintSupernova(ctx);
       return canvas;
     }
+    if (key === 'superchest') {
+      // Harbor peak: Super Chest with octopus peek — not a full creature tile
+      this.paintSuperChest(ctx);
+      return canvas;
+    }
     if (key === 'stone') {
       this.paintStone(ctx);
       return canvas;
@@ -377,54 +382,93 @@ export class PlaceholderAtlas {
 
     // Contact shadow so pieces sit on the board rather than float over it.
     ctx.save();
-    ctx.translate(0, 0.035);
-    ctx.fillStyle = 'rgba(0,0,0,0.34)';
+    ctx.translate(0, 0.038);
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
     ctx.fill(path);
     ctx.restore();
 
-    const grad = ctx.createLinearGradient(-0.3, -0.42, 0.26, 0.44);
-    grad.addColorStop(0, shade(hex, 0.42));
-    grad.addColorStop(0.45, hex);
-    grad.addColorStop(1, shade(hex, -0.42));
+    // Body — multi-stop cut for a real gem, not a flat plastic chip
+    const grad = ctx.createLinearGradient(-0.32, -0.45, 0.3, 0.48);
+    grad.addColorStop(0, shade(hex, 0.55));
+    grad.addColorStop(0.22, shade(hex, 0.22));
+    grad.addColorStop(0.48, hex);
+    grad.addColorStop(0.78, shade(hex, -0.28));
+    grad.addColorStop(1, shade(hex, -0.5));
     ctx.fillStyle = grad;
     ctx.fill(path);
 
-    // Facet: a lighter wedge across the upper-left, clipped to the silhouette.
     ctx.save();
     ctx.clip(path);
-    ctx.fillStyle = rgba('#ffffff', 0.2);
+
+    // Crown facet (bright upper plate)
+    ctx.fillStyle = rgba('#ffffff', 0.28);
     ctx.beginPath();
     ctx.moveTo(-0.5, -0.5);
-    ctx.lineTo(0.5, -0.5);
-    ctx.lineTo(-0.5, 0.34);
+    ctx.lineTo(0.55, -0.5);
+    ctx.lineTo(-0.12, 0.12);
+    ctx.lineTo(-0.5, 0.28);
     ctx.closePath();
     ctx.fill();
 
-    // Deep inner shadow at the base for volume.
-    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    // Secondary facet edge (right side catch-light)
+    ctx.fillStyle = rgba('#ffffff', 0.12);
+    ctx.beginPath();
+    ctx.moveTo(0.08, -0.42);
+    ctx.lineTo(0.5, -0.2);
+    ctx.lineTo(0.5, 0.15);
+    ctx.lineTo(0.05, -0.05);
+    ctx.closePath();
+    ctx.fill();
+
+    // Internal fire — soft colour bloom in the heart
+    const fire = ctx.createRadialGradient(-0.06, -0.08, 0.02, 0.02, 0.04, 0.38);
+    fire.addColorStop(0, rgba('#ffffff', 0.55));
+    fire.addColorStop(0.35, rgba(shade(hex, 0.35), 0.35));
+    fire.addColorStop(0.7, rgba(hex, 0.08));
+    fire.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = fire;
+    ctx.beginPath();
+    ctx.arc(0, 0, 0.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Pavilion depth
+    ctx.fillStyle = 'rgba(0,0,0,0.26)';
     ctx.beginPath();
     ctx.moveTo(-0.5, 0.5);
     ctx.lineTo(0.5, 0.5);
-    ctx.lineTo(0.5, 0.06);
+    ctx.lineTo(0.5, 0.02);
+    ctx.lineTo(0.05, 0.18);
+    ctx.lineTo(-0.5, 0.08);
     ctx.closePath();
     ctx.fill();
-    ctx.restore();
 
-    // Specular glint.
-    ctx.save();
-    ctx.clip(path);
-    ctx.fillStyle = 'rgba(255,255,255,0.72)';
+    // Thin internal facet ridges
+    ctx.strokeStyle = rgba('#ffffff', 0.18);
+    ctx.lineWidth = 0.012;
     ctx.beginPath();
-    ctx.ellipse(-0.14, -0.22, 0.1, 0.055, -0.6, 0, Math.PI * 2);
+    ctx.moveTo(-0.08, -0.32);
+    ctx.lineTo(0.06, 0.22);
+    ctx.moveTo(0.12, -0.18);
+    ctx.lineTo(-0.18, 0.28);
+    ctx.stroke();
+
+    // Specular glint (sharp gem sparkle)
+    ctx.fillStyle = 'rgba(255,255,255,0.88)';
+    ctx.beginPath();
+    ctx.ellipse(-0.13, -0.2, 0.09, 0.045, -0.55, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.beginPath();
+    ctx.ellipse(0.1, -0.08, 0.04, 0.022, 0.4, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
-    // High-contrast rim: the doc calls this out explicitly for rapid comprehension.
+    // High-contrast rim + warm edge for arm's-length readability
     ctx.lineWidth = 0.055;
     ctx.strokeStyle = 'rgba(6,8,18,0.92)';
     ctx.stroke(path);
-    ctx.lineWidth = 0.018;
-    ctx.strokeStyle = rgba(shade(hex, 0.6), 0.55);
+    ctx.lineWidth = 0.016;
+    ctx.strokeStyle = rgba(shade(hex, 0.65), 0.65);
     ctx.stroke(path);
   }
 
@@ -464,38 +508,219 @@ export class PlaceholderAtlas {
     ctx.restore();
   }
 
-  /** 6+ match peak piece — faceted star-core for the crystal mine. */
+  /**
+   * 6+ match Living Geode — multi-facet prism gem (mine identity).
+   * Same language as Opal Prism: silhouette + opalescent wedges + gloss + dark rim.
+   * Not a flat star polygon; not Harbor teal lantern.
+   */
   private paintSupernova(ctx: CanvasRenderingContext2D): void {
-    const core = new Path2D();
-    for (let i = 0; i < 8; i++) {
-      const a = -Math.PI / 2 + (i / 8) * Math.PI * 2;
-      const r = i % 2 === 0 ? 0.46 : 0.22;
-      const x = 0.5 + Math.cos(a) * r;
-      const y = 0.5 + Math.sin(a) * r;
-      if (i === 0) core.moveTo(x, y);
-      else core.lineTo(x, y);
+    // Brilliant-cut-ish outline: pointed crown, wide girdle, deep pavilion
+    const path = new Path2D();
+    const outline: readonly [number, number][] = [
+      [0, -0.46],
+      [0.18, -0.28],
+      [0.42, -0.12],
+      [0.44, 0.08],
+      [0.28, 0.32],
+      [0.1, 0.44],
+      [0, 0.48],
+      [-0.1, 0.44],
+      [-0.28, 0.32],
+      [-0.44, 0.08],
+      [-0.42, -0.12],
+      [-0.18, -0.28],
+    ];
+    for (let i = 0; i < outline.length; i++) {
+      const [x, y] = outline[i]!;
+      if (i === 0) path.moveTo(x, y);
+      else path.lineTo(x, y);
     }
-    core.closePath();
-    const g = ctx.createRadialGradient(0.42, 0.4, 0.04, 0.5, 0.5, 0.48);
-    g.addColorStop(0, '#ffffff');
-    g.addColorStop(0.25, '#ffe56a');
-    g.addColorStop(0.55, '#e0a0ff');
-    g.addColorStop(1, '#5a3080');
-    ctx.fillStyle = g;
-    ctx.fill(core);
-    ctx.lineWidth = 0.04;
-    ctx.strokeStyle = 'rgba(255, 230, 140, 0.95)';
-    ctx.stroke(core);
-    // Facet spokes
-    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-    ctx.lineWidth = 0.02;
-    for (let i = 0; i < 4; i++) {
-      const a = (i / 4) * Math.PI * 2 - Math.PI / 2;
+    path.closePath();
+
+    // Contact shadow
+    ctx.save();
+    ctx.translate(0, 0.04);
+    ctx.fillStyle = 'rgba(0,0,0,0.38)';
+    ctx.fill(path);
+    ctx.restore();
+
+    ctx.save();
+    ctx.clip(path);
+
+    // Opalescent wedges — same family as paintPrism, richer peak gem
+    const wedge = Math.PI / 6;
+    for (let i = 0; i < 12; i++) {
+      const c = CRYSTAL_COLORS[i % CRYSTAL_COLORS.length];
+      if (c === undefined) continue;
+      const hex = this.palette[c];
+      ctx.fillStyle = shade(hex, i % 2 === 0 ? 0.22 : 0.08);
       ctx.beginPath();
-      ctx.moveTo(0.5, 0.5);
-      ctx.lineTo(0.5 + Math.cos(a) * 0.38, 0.5 + Math.sin(a) * 0.38);
+      ctx.moveTo(0, 0.02);
+      ctx.arc(0, 0.02, 0.72, i * wedge - Math.PI / 2, (i + 1) * wedge - Math.PI / 2);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Crown table highlight (upper facet plate)
+    const table = ctx.createLinearGradient(-0.2, -0.42, 0.15, 0.05);
+    table.addColorStop(0, 'rgba(255,255,255,0.88)');
+    table.addColorStop(0.35, 'rgba(255, 236, 200, 0.35)');
+    table.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = table;
+    ctx.beginPath();
+    ctx.moveTo(0, -0.44);
+    ctx.lineTo(0.2, -0.22);
+    ctx.lineTo(0.08, 0.02);
+    ctx.lineTo(-0.1, 0.0);
+    ctx.lineTo(-0.18, -0.24);
+    ctx.closePath();
+    ctx.fill();
+
+    // Deep pavilion shadow (volume)
+    const deep = ctx.createLinearGradient(0, 0.05, 0, 0.48);
+    deep.addColorStop(0, 'rgba(40, 20, 70, 0)');
+    deep.addColorStop(0.45, 'rgba(40, 16, 60, 0.25)');
+    deep.addColorStop(1, 'rgba(20, 8, 40, 0.55)');
+    ctx.fillStyle = deep;
+    ctx.fillRect(-0.5, 0, 1, 0.5);
+
+    // Hot internal fire
+    const fire = ctx.createRadialGradient(-0.06, -0.08, 0.01, 0, 0.02, 0.28);
+    fire.addColorStop(0, 'rgba(255,255,255,0.95)');
+    fire.addColorStop(0.25, 'rgba(255, 230, 170, 0.55)');
+    fire.addColorStop(0.55, 'rgba(224, 160, 255, 0.28)');
+    fire.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = fire;
+    ctx.beginPath();
+    ctx.arc(0, 0.02, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Facet ridge lines (thin crystal edges, not star spokes)
+    ctx.strokeStyle = 'rgba(255,255,255,0.38)';
+    ctx.lineWidth = 0.012;
+    const ridges: readonly [number, number][] = [
+      [0, -0.46],
+      [0.42, -0.12],
+      [0.44, 0.08],
+      [0.1, 0.44],
+      [-0.1, 0.44],
+      [-0.44, 0.08],
+      [-0.42, -0.12],
+    ];
+    for (const [x, y] of ridges) {
+      ctx.beginPath();
+      ctx.moveTo(0, 0.02);
+      ctx.lineTo(x * 0.92, y * 0.92);
       ctx.stroke();
     }
+
+    // Specular glint (same language as paintCrystal)
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.beginPath();
+    ctx.ellipse(-0.1, -0.22, 0.09, 0.045, -0.55, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // High-contrast gem rim
+    ctx.lineWidth = 0.055;
+    ctx.strokeStyle = 'rgba(6,8,18,0.92)';
+    ctx.stroke(path);
+    ctx.lineWidth = 0.016;
+    ctx.strokeStyle = 'rgba(255, 236, 200, 0.55)';
+    ctx.stroke(path);
+  }
+
+  /**
+   * Harbor peak idle tile — Super Chest first; octopus peeks on the lid.
+   * Unit space centred at (0,0). Full arms only in feast FX (SUPER_CHEST_OCTO.md).
+   */
+  private paintSuperChest(ctx: CanvasRenderingContext2D): void {
+    const glow = ctx.createRadialGradient(0, 0.05, 0.05, 0, 0.05, 0.5);
+    glow.addColorStop(0, 'rgba(160, 230, 235, 0.55)');
+    glow.addColorStop(0.55, 'rgba(90, 180, 190, 0.2)');
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, 0.02, 0.48, 0, Math.PI * 2);
+    ctx.fill();
+
+    const body = new Path2D();
+    body.moveTo(-0.32, -0.02);
+    body.lineTo(0.32, -0.02);
+    body.lineTo(0.28, 0.34);
+    body.lineTo(-0.28, 0.34);
+    body.closePath();
+    const wood = ctx.createLinearGradient(-0.3, -0.02, 0.3, 0.34);
+    wood.addColorStop(0, '#6a4528');
+    wood.addColorStop(0.45, '#8b5a2b');
+    wood.addColorStop(1, '#4a3018');
+    ctx.fillStyle = wood;
+    ctx.fill(body);
+    ctx.lineWidth = 0.03;
+    ctx.strokeStyle = 'rgba(20, 12, 8, 0.85)';
+    ctx.stroke(body);
+
+    ctx.fillStyle = '#e8c050';
+    ctx.fillRect(-0.3, 0.08, 0.6, 0.06);
+    ctx.fillStyle = '#ffd24a';
+    ctx.beginPath();
+    ctx.arc(0, 0.11, 0.055, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(80, 50, 10, 0.7)';
+    ctx.lineWidth = 0.015;
+    ctx.stroke();
+
+    const lid = new Path2D();
+    lid.moveTo(-0.34, 0);
+    lid.quadraticCurveTo(0, -0.36, 0.34, 0);
+    lid.lineTo(0.28, 0);
+    lid.quadraticCurveTo(0, -0.24, -0.28, 0);
+    lid.closePath();
+    const lidG = ctx.createLinearGradient(-0.2, -0.32, 0.2, 0.02);
+    lidG.addColorStop(0, '#9ee0e8');
+    lidG.addColorStop(0.4, '#5eb8c4');
+    lidG.addColorStop(1, '#3a8890');
+    ctx.fillStyle = lidG;
+    ctx.fill(lid);
+    ctx.lineWidth = 0.028;
+    ctx.strokeStyle = 'rgba(20, 50, 55, 0.75)';
+    ctx.stroke(lid);
+
+    // Octopus peek on lid
+    ctx.fillStyle = '#4aa8b0';
+    ctx.beginPath();
+    ctx.ellipse(0, -0.14, 0.14, 0.11, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255, 140, 130, 0.45)';
+    ctx.beginPath();
+    ctx.ellipse(-0.1, -0.12, 0.035, 0.022, 0, 0, Math.PI * 2);
+    ctx.ellipse(0.1, -0.12, 0.035, 0.022, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff6e8';
+    ctx.beginPath();
+    ctx.arc(-0.06, -0.16, 0.04, 0, Math.PI * 2);
+    ctx.arc(0.06, -0.16, 0.04, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#1a2030';
+    ctx.beginPath();
+    ctx.arc(-0.055, -0.16, 0.02, 0, Math.PI * 2);
+    ctx.arc(0.065, -0.16, 0.02, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.beginPath();
+    ctx.arc(-0.065, -0.17, 0.01, 0, Math.PI * 2);
+    ctx.arc(0.055, -0.17, 0.01, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#5eb8c4';
+    ctx.lineWidth = 0.035;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-0.22, -0.02);
+    ctx.quadraticCurveTo(-0.28, 0.05, -0.24, 0.12);
+    ctx.moveTo(0.22, -0.02);
+    ctx.quadraticCurveTo(0.28, 0.05, 0.24, 0.12);
+    ctx.stroke();
   }
 
   private paintPrism(ctx: CanvasRenderingContext2D): void {

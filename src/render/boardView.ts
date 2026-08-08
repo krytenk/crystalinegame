@@ -28,6 +28,11 @@ export class BoardView {
   glyphs = true;
   /** Larger glyphs + thick white/black rims on crystals for colour-blind play. */
   highContrast = false;
+  /**
+   * Peak special board fantasy (theme-set at boot).
+   * Harbor → superchest (chest + peek); Crystalline → supernova (living geode).
+   */
+  peakFantasy: 'supernova' | 'superchest' = 'supernova';
   /** Active conveyor row highlight (set by play loop from engine events). */
   conveyor: {
     row: number;
@@ -261,6 +266,7 @@ export class BoardView {
             this.glyphs,
             undefined,
             this.highContrast,
+            this.peakFantasy,
           );
           // Chain shimmer wash over gems — bright pulse through the whole board
           if (this.shimmer && this.shimmer.alpha > 0.02) {
@@ -364,6 +370,7 @@ export class BoardView {
           this.glyphs,
           size,
           this.highContrast,
+          this.peakFantasy,
         );
         ctx.restore();
       }
@@ -384,6 +391,7 @@ function drawPiece(
   glyphs: boolean,
   forcedSize?: number,
   highContrast = false,
+  peakFantasy: 'supernova' | 'superchest' = 'supernova',
 ): void {
   const isPower =
     piece.kind === 'line' ||
@@ -392,6 +400,7 @@ function drawPiece(
     piece.kind === 'supernova';
   const isCore = piece.kind === 'core';
   const isRelic = piece.kind === 'relic';
+  const isSuperChest = piece.kind === 'supernova' && peakFantasy === 'superchest';
 
   // Gold treasure aura — artifacts must read as special on a crowded board
   if (isRelic) {
@@ -431,13 +440,16 @@ function drawPiece(
     const prismStops =
       isCore
         ? (['#fff6c8', '#ffd24a', '#ff9a40'] as const)
-        : piece.kind === 'supernova'
-          ? (['#ffffff', '#e8d0ff', '#7ed0ff'] as const)
-          : piece.kind === 'prism'
-            ? (['#fff0ff', '#e0a0ff', '#80e0ff'] as const)
-            : piece.kind === 'burst'
-              ? (['#fff0c0', '#ffc060', '#ff8040'] as const)
-              : (['#e8ffff', '#7ed0ff', '#4080ff'] as const);
+        : isSuperChest
+          ? (['#ffffff', '#9ee0e8', '#ffd24a'] as const)
+          : piece.kind === 'supernova'
+            // Living Geode: same opal/gold family as prism, not Harbor cyan
+            ? (['#ffffff', '#ffe56a', '#e0a0ff'] as const)
+            : piece.kind === 'prism'
+              ? (['#fff0ff', '#e0a0ff', '#80e0ff'] as const)
+              : piece.kind === 'burst'
+                ? (['#fff0c0', '#ffc060', '#ff8040'] as const)
+                : (['#e8ffff', '#7ed0ff', '#4080ff'] as const);
     const rOuter =
       (isCore || piece.kind === 'supernova' ? cell * 1.05 : cell * 0.95) *
       (1 + pulse * 0.18);
@@ -587,7 +599,7 @@ function drawPiece(
     }
   }
 
-  const key = pieceFrame(piece);
+  const key = pieceFrame(piece, peakFantasy);
   // Fill more of the cell so gems read larger on phone.
   const scale = isCore
     ? 1.08 + pulse * 0.1
@@ -678,11 +690,12 @@ function drawPiece(
     ctx.beginPath();
     ctx.arc(cx, cy + size * 0.28, cell * 0.16, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#ffe56a';
-    ctx.font = `800 ${Math.max(8, Math.floor(cell * 0.12))}px "ScreenTechno","Nunito",sans-serif`;
+    ctx.fillStyle = isSuperChest ? '#9ee0e8' : '#ffe56a';
+    ctx.font = `800 ${Math.max(7, Math.floor(cell * 0.11))}px "ScreenTechno","Nunito",sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('NOVA', cx, cy + size * 0.28);
+    // Harbor: CHEST (mascot peeks on art). Mine: GEODE living core fantasy.
+    ctx.fillText(isSuperChest ? 'CHEST' : 'GEODE', cx, cy + size * 0.28);
     ctx.restore();
   }
 
@@ -731,8 +744,11 @@ function drawPiece(
   }
 }
 
-function pieceFrame(p: Piece): string {
-  if (p.kind === 'supernova') return 'supernova';
+function pieceFrame(
+  p: Piece,
+  peakFantasy: 'supernova' | 'superchest' = 'supernova',
+): string {
+  if (p.kind === 'supernova') return peakFantasy === 'superchest' ? 'superchest' : 'supernova';
   if (p.kind === 'prism') return 'prism';
   if (p.kind === 'core') return 'prism';
   if (p.kind === 'stone') return 'stone';

@@ -19,7 +19,6 @@ import {
   makeCrystal,
   makeLine,
   makePrism,
-  makeSupernova,
 } from '../../src/engine/tile';
 import type { Cell, LevelDef } from '../../src/engine/types';
 import { shapeReward } from '../../src/engine/resolve';

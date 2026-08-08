@@ -33,7 +33,7 @@ HOW TO PLAY
 Boss chambers hit harder with stacked goals — but gems stay big and readable on phones.
 
 NOTE ON THE SHOP
-In-app offers in this build are simulated for demo / research play. No real money is charged until a future update enables official billing.
+Soft currency only in this free release — no real-money purchases yet. Daily free gifts use a short in-app wait (no video ads). Official Play Billing may arrive in a future update.
 
 From Departure Bay Digital.
 ```

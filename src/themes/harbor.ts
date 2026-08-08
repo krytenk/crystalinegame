@@ -648,15 +648,15 @@ export const harborTheme: ThemeConfig = {
     },
     'ads.remove': {
       name: 'Clear Skies',
-      blurb: 'Permanently removes simulated interstitials.',
+      blurb: 'Permanently skips free-gift waits when they return (future ad-ready).',
     },
     'ads.pass7': {
       name: 'Clear Skies · 7 Days',
-      blurb: 'Ethical convenience: no interstitial Shorts for a week. Stacks from purchase time.',
+      blurb: 'No free-gift prompts for a week. Stacks from purchase time.',
     },
     'ads.pass30': {
       name: 'Clear Skies · 30 Days',
-      blurb: 'Player-friendly month pass for ad-free dock runs. No hard paywall.',
+      blurb: 'Month of no free-gift prompts on the docks. No hard paywall.',
     },
     'ease.comfort': {
       name: 'Comfort Tools',
@@ -711,12 +711,12 @@ export const harborTheme: ThemeConfig = {
   },
   bonusCrackName: 'Chest',
   bonusCrackArt: 'themes/harbor/ui/geode_vein.webp',
-  versionLabel: 'Lantern Harbor v1.0.1 · 300 levels · Departure Bay Digital',
+  versionLabel: 'Lantern Harbor v1.0.2 · 300 levels · Departure Bay Digital',
   powerNames: {
     line: 'Belt Rift',
     burst: 'Crate Burst',
     prism: 'Signal Prism',
-    /** 6+ match Super Chest — octopus pulls shells with tentacles and eats them. */
+    /** 6+ match Super Chest — tile is the chest; octopus mascot feasts on activate. */
     supernova: 'Super Chest',
   },
   comboLabels: {
@@ -729,7 +729,7 @@ export const harborTheme: ThemeConfig = {
     'line+supernova': 'Tide Rift',
     'burst+supernova': 'Crate Feast',
     'prism+supernova': 'Signal Feast',
-    'supernova+supernova': 'Double Kraken',
+    'supernova+supernova': 'Twin Super Chest',
   },
   event: {
     idPrefix: 'tide-rush',

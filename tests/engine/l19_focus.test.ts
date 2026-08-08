@@ -128,20 +128,13 @@ describe('L19 defuse counting integrity', () => {
   it('line power in bomb column defuses top bomb', () => {
     const s = createSession(L19(), 17);
     const g = s._state.grid;
-    // Ensure col 1 has line at y=4 and crystal at y=5 (both playable)
+    // Line/burst only activate with same-colour partners (powerSwapActivates).
+    // Vertical line in col 1: after swap, line sits at (1,5) and clears the column.
     g.at(1, 4).piece = makeLine(s._state.ids, 'verdant', 'v');
-    g.at(1, 5).piece = { id: s._state.ids.next(), kind: 'crystal', color: 'tidal' };
-    // Swap vertical neighbors: both in col 1, line ends at (1,5), fires v footprint col 1
-    // Wait - power swap uses post-swap positions. Line moves to (1,5), fires from there col 1.
+    g.at(1, 5).piece = { id: s._state.ids.next(), kind: 'crystal', color: 'verdant' };
     const ev = s.trySwap({ x: 1, y: 4 }, { x: 1, y: 5 });
     const topBombGone = !bombCells(s).some((b) => b.at.x === 1 && b.at.y === 0);
-    console.log('vline col1:', {
-      topBombGone,
-      defused: s._state.counters.bombsDefused,
-      bombs: bombCells(s),
-      status: s.snapshot().status,
-      specials: ev.filter((e) => e.t === 'specialTriggered').length,
-    });
+    expect(ev.some((e) => e.t === 'specialTriggered')).toBe(true);
     expect(topBombGone).toBe(true);
     expect(s._state.counters.bombsDefused).toBeGreaterThanOrEqual(1);
   });

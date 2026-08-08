@@ -1,23 +1,15 @@
 /**
- * CRYSTALLINE — the simulated advertising layer.
+ * CRYSTALLINE — free-gift / future-ad cadence layer.
  *
  * ===========================================================================
- *  THERE IS NO AD NETWORK HERE. No SDK, no VAST tag, no ad request, no
- *  impression beacon, no tracking identifier. This module is a state machine
- *  and a timer. The UI plays public Discworld in 60 Seconds YouTube Shorts
- *  as the creative — still a research simulation, not a monetized ad stack.
+ *  THERE IS NO AD NETWORK HERE. No SDK, no YouTube Shorts creative, no
+ *  impression beacon. This module is a state machine + timer for **opt-in
+ *  free gifts** (lives / boosters / continue). Interstitials are disabled
+ *  for Play free builds (`interstitialEvery: 0`) until a real ad SDK lands.
  * ===========================================================================
  *
- * What is being reproduced is the *cadence*, because the cadence is the
- * finding. Two ad shapes, doing opposite jobs:
- *
- *  - **Interstitial** — unsolicited, fires every third level end (win or lose).
- *    Its job is not really revenue; its job is to be annoying enough at a
- *    reliable rate that `ads.remove` looks like relief worth 900 credits.
- *  - **Rewarded** — opt-in, offered at the exact moment a deficit bites: out of
- *    lives, out of moves, out of boosters. The player volunteers for it, which
- *    is why it converts. It is capped daily so the "free" path can never fully
- *    substitute for the paid one — the cap is what keeps the store relevant.
+ *  - **Interstitial** — disabled by default (every = 0).
+ *  - **Rewarded / free gift** — opt-in short wait, daily cap, then payout.
  *
  * Session state machine:
  *
@@ -287,12 +279,13 @@ export class AdsModel {
   }
 
   /**
-   * True on every `ECONOMY_CONST.interstitialEvery`-th level end (the 3rd, 6th,
-   * 9th …), and never once `ads.remove` is owned.
+   * Interstitials: off when `interstitialEvery` ≤ 0 (ship default).
+   * When enabled later: every Nth level end, never if `ads.remove` owned.
    */
   shouldShowInterstitial(): boolean {
     if (this.deps.ownsAdRemoval()) return false;
-    const every = Math.max(1, ECONOMY_CONST.interstitialEvery);
+    const every = ECONOMY_CONST.interstitialEvery;
+    if (every <= 0) return false;
     return this.totalPlays > 0 && this.totalPlays % every === 0;
   }
 
@@ -304,7 +297,8 @@ export class AdsModel {
 
   get playsUntilInterstitial(): number {
     if (this.deps.ownsAdRemoval()) return Number.POSITIVE_INFINITY;
-    const every = Math.max(1, ECONOMY_CONST.interstitialEvery);
+    const every = ECONOMY_CONST.interstitialEvery;
+    if (every <= 0) return Number.POSITIVE_INFINITY;
     return every - (this.totalPlays % every);
   }
 

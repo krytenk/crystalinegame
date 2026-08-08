@@ -19,7 +19,7 @@ adb install -r release/crystalline-debug.apk
 | `release/crystalline-release.aab` | **Upload to Play** internal track |
 | `release/lanternharbor-debug.apk` | Harbor sibling sideload |
 
-**Android version:** `versionName 1.0.1` · `versionCode 3`
+**Android version:** `versionName 1.0.2` · `versionCode 4`
 
 ## What’s in this build
 
@@ -29,7 +29,9 @@ adb install -r release/crystalline-debug.apk
 | Map | Chapters **I–XXX** (Crystalline + Harbor titles) |
 | Colour-blind | **Shape glyphs default ON**; Settings → **High contrast** for larger symbols + rims |
 | Deadlock gate | Opening boards re-checked after relic/shadow seed (fixes L165-class soft-locks) |
-| Shop | Still **simulated · no real money** (intentional until Play Billing) |
+| Shop | Soft currency only · **no real money** (until Play Billing) |
+| Free gifts | Short in-app timer · **no YouTube Shorts / no ad SDK** |
+| Interstitials | **Off** for free build |
 | Ice crust | Procedural ice blocks on crust goals |
 
 ## QA focus (your testing)

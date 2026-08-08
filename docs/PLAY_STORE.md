@@ -12,7 +12,7 @@ graphics that need a device capture.
 | App name | Crystalline |
 | Portrait lock | Yes (`AndroidManifest`) |
 | Min / target / compile SDK | 24 / 36 / 36 |
-| Version | `versionName 1.0.1` · `versionCode 3` (bump each upload) |
+| Version | `versionName 1.0.2` · `versionCode 4` (bump each upload) |
 | Launcher icons (adaptive + legacy) | Generated gem icon |
 | High-res icon 512 | `store/icons/ic_launcher_512.png` |
 | Feature graphic 1024×500 | `store/feature_graphic.png` |
@@ -105,7 +105,7 @@ Paste the final URL into Play Console → App content → Privacy policy.
 | Topic | Guidance |
 |-------|----------|
 | Simulated shop | Keep “simulated · no real money” badges until Play Billing is integrated. Misleading fake checkout can fail review. |
-| “Ads” | Discworld Shorts are demo creatives, not a certified ad SDK. Declare carefully; do not claim AdMob mediation you don’t have. |
+| “Ads” | No ad SDK. Free gifts are short in-app waits. Declare **no network ads**. Do not claim AdMob. |
 | Permissions | Only `INTERNET` + `VIBRATE`. Don’t add unused permissions. |
 | Kids | If you select a primarily-child audience, COPPA/Families rules tighten — current copy targets general casual. |
 
@@ -125,16 +125,17 @@ Before every Play upload that replaces a previous artifact:
 | Colour-blind | Shape glyphs **default ON**; Settings → High contrast |
 | Open deadlock gate | Automated smoke seeds all levels |
 | Privacy URL | Hosted (see Console) |
-| Simulated shop | Listing + in-app “no real money” copy must stay until Billing |
+| Soft-currency shop | Listing + in-app “no real money yet” must stay until Play Billing |
 
 ## Not done yet (next store milestones)
 
-- [ ] Device screenshots (phone portrait) under `store/screenshots/` — see README there
+See **`docs/INTERNAL_TEST_CHECKLIST.md`** (10 remaining human/Console items).
+
+- [ ] Device screenshots (phone portrait) under `store/screenshots/`
 - [ ] Play Console listing filled + internal test live
-- [ ] Upload **fresh** AAB from current tree (`npm run android:bundle`)
-- [ ] Real Play Billing **or** permanently demo-only shop wording approved
-- [ ] Optional: Firebase Crashlytics / Play pre-launch report fixes
-- [ ] Optional: remove or gate simulated IAP UI behind a build flag for stricter review
+- [ ] Upload **fresh** AAB (`versionCode 4+`) from current tree
+- [ ] Real Play Billing later **or** keep free soft-currency wording
+- [ ] Optional: Crashlytics / pre-launch report
 
 ## Quick commands
 

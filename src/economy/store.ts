@@ -98,14 +98,14 @@ export const CATALOGUE: readonly Sku[] = [
   {
     id: 'ads.remove',
     name: 'Clear Skies',
-    blurb: 'Permanently removes simulated interstitials.',
+    blurb: 'Permanently skips free-gift waits when they return (future ad-ready).',
     credits: 900,
     oneTime: true,
   },
   {
     id: 'ads.pass7',
     name: 'Clear Skies · 7 Days',
-    blurb: 'Ethical convenience: no interstitial Shorts for a week. Stacks from purchase time.',
+    blurb: 'Convenience: no free-gift prompts for a week. Stacks from purchase time.',
     credits: 180,
     grantAdsFreeDays: 7,
     tag: 'bestValue',
@@ -113,7 +113,7 @@ export const CATALOGUE: readonly Sku[] = [
   {
     id: 'ads.pass30',
     name: 'Clear Skies · 30 Days',
-    blurb: 'Player-friendly month pass for ad-free dives. No hard paywall.',
+    blurb: 'Month of no free-gift prompts. No hard paywall.',
     credits: 420,
     grantAdsFreeDays: 30,
     tag: 'mostPopular',

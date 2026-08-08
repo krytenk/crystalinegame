@@ -30,6 +30,7 @@ Players will call this “another match-3” if only the *swap grammar* is memor
 | **One engine, two myths** | Shared levels; Crystalline + Harbor voice, art, map, companion | Never ship a theme that is only a palette swap |
 | **Story-shaped campaign** | Acts, chapters, finales — mountain/tide that answers back | Act II is a second act, not “harder random levels” |
 | **Legible match grammar** | Familiar swap / cascade / blockers so layout & goals can shine | Invent control rules only when story *earns* them (e.g. locking crust ~361+) |
+| **Peak ceremony (theme-split)** | Harbor **Super Chest + octopus feast**; mine **Living Geode** crack/rays | Same engine peak; costume only — see `docs/SUPER_CHEST_OCTO.md` |
 | **Material brand** | Kinetic / tactile wordmarks and UI that feel mine or harbor | Signature lives in ritual & touch, not in obscure mechanics |
 | **Honest live product** | Fair difficulty grammar, ethical F2P literacy, real “what’s new” | Don’t solve identity by stacking opaque systems |
 

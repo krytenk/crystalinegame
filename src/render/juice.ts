@@ -205,8 +205,10 @@ export class JuiceSystem {
   }
 
   /**
-   * Peak 6+ special spectacle. Harbor → Super Chest (octopus). Mine → Supernova (crystal).
-   * Engine already cleared cells — pure juice.
+   * Peak 6+ special spectacle.
+   * Harbor → Super Chest open + octopus mascot feast.
+   * Mine → Living Geode crack + prism vein rays.
+   * Engine already cleared cells — pure juice. See docs/SUPER_CHEST_OCTO.md.
    */
   peakSpecialFeast(
     style: 'kraken' | 'supernova',
@@ -220,8 +222,8 @@ export class JuiceSystem {
   }
 
   /**
-   * Crystalline peak special: living-geode core + crystal rays that pull shards in.
-   * No tentacles — this is a mine, not a harbor.
+   * Crystalline peak: Living Geode crack → prism shard rays → dazzle.
+   * Opal / gem palette only — no Harbor teal lantern language.
    */
   supernovaFeast(
     ox: number,
@@ -235,8 +237,8 @@ export class JuiceSystem {
     const life = 980;
     const list = prey.length > 0 ? prey.slice(0, 8) : defaultRadialPrey(ox, oy, cell, 7);
 
-    // Crystal “vein rays” — gold / void / white, not octopus arms
-    const rayColors = ['#ffe56a', '#e0a0ff', '#7ed0ff', '#ffffff', '#ffb02e', '#c9a0ff'];
+    // Prism fire palette (mine gem, not harbor teal)
+    const rayColors = ['#fff6e8', '#ffe56a', '#e0a0ff', '#c9a0ff', '#ffd24a', '#ffffff', '#f0c8ff'];
     for (let i = 0; i < list.length; i++) {
       const p = list[i]!;
       this.tentacles.push({
@@ -244,30 +246,32 @@ export class JuiceSystem {
         oy,
         tx: p.x,
         ty: p.y,
-        born: now + i * 28,
+        born: now + 70 + i * 28,
         life: life + (i % 3) * 30,
         color: rayColors[i % rayColors.length]!,
-        belly: '#fff6e8',
-        baseW: Math.max(8, cell * 0.14), // thin crystal blades, not fat tentacles
+        belly: '#ffffff',
+        // Thin crystal blades — readable shards, not fat neon beams
+        baseW: Math.max(5, cell * 0.09),
         preyColor: p.color,
         seed: i * 23 + 3,
         ambient: false,
       });
+      this.burst(p.x, p.y, rayColors[i % rayColors.length]!, 4);
     }
-    // Ambient facet spokes
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2 + 0.2;
-      const reach = cell * (1.6 + (i % 2) * 0.35);
+    // Ambient facet glints (short, thin)
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2 + 0.35;
+      const reach = cell * (1.35 + (i % 2) * 0.28);
       this.tentacles.push({
         ox,
         oy,
         tx: ox + Math.cos(a) * reach,
         ty: oy + Math.sin(a) * reach,
-        born: now + 40 + i * 18,
-        life: life * 0.65,
-        color: i % 2 === 0 ? '#ffd24a' : '#c8a0ff',
+        born: now + 100 + i * 16,
+        life: life * 0.55,
+        color: i % 2 === 0 ? '#ffe56a' : '#e0a0ff',
         belly: '#ffffff',
-        baseW: Math.max(6, cell * 0.1),
+        baseW: Math.max(3.5, cell * 0.055),
         preyColor: 'rgba(0,0,0,0)',
         seed: 200 + i * 5,
         ambient: true,
@@ -278,26 +282,26 @@ export class JuiceSystem {
     this.krakenBody = {
       ox,
       oy,
-      r: Math.max(24, cell * 0.78),
+      r: Math.max(26, cell * 0.82),
       born: now,
       life: life + 100,
     };
-    // Mark body as geode style via oversized r + separate draw path uses peakStyle
     this.peakBodyStyle = 'supernova';
 
-    this.burst(ox, oy, '#ffffff', 28);
+    // Prism shatter — white/opal/gold, no cyan lantern
+    this.burst(ox, oy, '#ffffff', 36);
     this.burst(ox, oy, '#ffe56a', 22);
     this.burst(ox, oy, '#e0a0ff', 18);
-    this.ring(ox, oy, color, cell * 2.4, 700);
-    this.ring(ox, oy, '#ffd24a', cell * 1.3, 480);
-    this.screenFlash('rgba(255, 230, 160, 0.4)', 340, 0.32);
+    this.burst(ox, oy, '#fff6e8', 12);
+    this.ring(ox, oy, color, cell * 2.2, 680);
+    this.ring(ox, oy, '#ffe56a', cell * 1.25, 460);
+    this.screenFlash('rgba(255, 240, 220, 0.38)', 300, 0.28);
     this.requestHitStop(80);
   }
 
   /**
-   * Harbor Super Chest / kraken feast: limbs reach targets, seize gems, drag them in.
-   * Visual language matches octopus_chest (teal + coral belly suckers).
-   * **Harbor only** — Crystalline uses supernovaFeast.
+   * Harbor Super Chest feast: open → octopus wakes → arms grab → pull.
+   * Tile is the chest; mascot lives in this ceremony. Harbor only.
    */
   krakenFeast(
     ox: number,
@@ -308,11 +312,12 @@ export class JuiceSystem {
     const cell = opts.cell ?? 64;
     const color = opts.color ?? KRAKEN.teal;
     const now = performance.now();
-    // Reach → wrap → pull must land before cascade UI; slightly longer than v1
-    const life = 1040;
+    // Open → wake → reach → wrap → pull (see SUPER_CHEST_OCTO.md)
+    const life = 1080;
     const list = prey.length > 0 ? prey.slice(0, 7) : defaultRadialPrey(ox, oy, cell, 6);
-    // Art-locked cycle — teal dominant, lavender accents like chest art
     const dorsalCycle = [KRAKEN.teal, '#6eb8c8', KRAKEN.lavender, KRAKEN.teal, '#7a9ad0', '#5aa8a0'];
+    // Arms wait for chest open (~90ms) so body/mascot owns the first beat
+    const armDelay = 95;
 
     for (let i = 0; i < list.length; i++) {
       const p = list[i]!;
@@ -321,18 +326,16 @@ export class JuiceSystem {
         oy,
         tx: p.x,
         ty: p.y,
-        born: now + i * 30,
+        born: now + armDelay + i * 32,
         life: life + (i % 3) * 36,
         color: dorsalCycle[i % dorsalCycle.length]!,
         belly: i % 3 === 2 ? '#d87068' : KRAKEN.belly,
-        // Slightly fatter base so S-curve reads at arm's length
         baseW: Math.max(15, cell * 0.3),
         preyColor: p.color,
         seed: i * 19 + 5,
         ambient: false,
       });
     }
-    // Ambient arms fill the silhouette when few prey
     const ambientN = Math.max(0, 5 - list.length);
     for (let i = 0; i < ambientN; i++) {
       const a = (i / Math.max(1, ambientN)) * Math.PI * 2 + 0.55 + list.length * 0.12;
@@ -342,7 +345,7 @@ export class JuiceSystem {
         oy,
         tx: ox + Math.cos(a) * reach,
         ty: oy + Math.sin(a) * reach,
-        born: now + 48 + i * 22,
+        born: now + armDelay + 40 + i * 22,
         life: life * 0.7,
         color: i % 2 === 0 ? KRAKEN.teal : '#6a9aaa',
         belly: KRAKEN.belly,
@@ -354,24 +357,24 @@ export class JuiceSystem {
     }
     if (this.tentacles.length > 22) this.tentacles.splice(0, this.tentacles.length - 22);
 
-    // Body pulse tracks feast life (sprite or procedural)
     this.peakBodyStyle = 'kraken';
     this.krakenBody = {
       ox,
       oy,
-      r: Math.max(22, cell * 0.72),
+      r: Math.max(24, cell * 0.78),
       born: now,
-      life: life + 120,
+      life: life + 140,
     };
 
-    // Soft open — not a full explode (limbs need to own the read)
-    this.burst(ox, oy, KRAKEN.tealHi, 16);
-    this.burst(ox, oy, '#ffe9a8', 14);
-    this.burst(ox, oy, KRAKEN.bellyHi, 10);
+    // Open flash (chest lid) — soft, not full explode
+    this.burst(ox, oy, KRAKEN.tealHi, 18);
+    this.burst(ox, oy, '#ffe9a8', 16);
+    this.burst(ox, oy, KRAKEN.bellyHi, 12);
+    this.burst(ox, oy, '#ffffff', 8);
     this.ring(ox, oy, color, cell * 2.2, 640);
-    this.ring(ox, oy, '#ffffff', cell * 1.1, 420);
+    this.ring(ox, oy, '#ffd24a', cell * 1.15, 420);
     this.screenFlash('rgba(90, 200, 210, 0.42)', 320, 0.28);
-    this.requestHitStop(72);
+    this.requestHitStop(76);
   }
 
   /** Full-view colour wash for peak moments. */
@@ -848,11 +851,20 @@ function drawKrakenLimb(
     ctx.fill();
   }
 
-  // Coral tip pad
+  // Coral tip pad + soft lantern glow (reads on dark boards)
   ctx.globalAlpha = alpha;
+  const tipR = Math.max(3.8, ten.baseW * 0.3);
+  const tipGlow = ctx.createRadialGradient(tip.x, tip.y, 0, tip.x, tip.y, tipR * 2.2);
+  tipGlow.addColorStop(0, 'rgba(255, 230, 140, 0.55)');
+  tipGlow.addColorStop(0.45, 'rgba(120, 220, 220, 0.25)');
+  tipGlow.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = tipGlow;
+  ctx.beginPath();
+  ctx.arc(tip.x, tip.y, tipR * 2.2, 0, Math.PI * 2);
+  ctx.fill();
   ctx.fillStyle = KRAKEN.bellyHi;
   ctx.beginPath();
-  ctx.arc(tip.x, tip.y, Math.max(3.8, ten.baseW * 0.3), 0, Math.PI * 2);
+  ctx.arc(tip.x, tip.y, tipR, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,0.4)';
   ctx.beginPath();
@@ -890,58 +902,114 @@ function drawKrakenLimb(
   ctx.restore();
 }
 
-/** Mine peak limb — thin luminous crystal blade that draws prey along its length. */
+/**
+ * Mine peak limb — thin prism shard / facet blade (not a fat neon beam or tentacle).
+ * White fire core + soft opal edges; prey rides home as a diamond spark.
+ */
 function drawCrystalRay(ctx: CanvasRenderingContext2D, ten: Tentacle, lifeT: number): void {
   const enter = lifeT < 0.12 ? easeOutCubic(lifeT / 0.12) : 1;
   const fade = lifeT > 0.82 ? Math.max(0, (1 - lifeT) / 0.18) : 1;
   const alpha = enter * fade;
   if (alpha <= 0.02) return;
-  // Pull phase: tip moves toward origin
   const pull = lifeT > 0.45 ? Math.min(1, (lifeT - 0.45) / 0.4) : 0;
   const tx = ten.tx + (ten.ox - ten.tx) * pull * 0.85;
   const ty = ten.ty + (ten.oy - ten.ty) * pull * 0.85;
+  const dx = tx - ten.ox;
+  const dy = ty - ten.oy;
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len;
+  const ny = dx / len;
+  const w = ten.baseW * (1.05 - pull * 0.4);
 
   ctx.save();
   ctx.globalAlpha = alpha;
-  ctx.lineCap = 'round';
+
+  // Soft outer glow (opal bloom, not teal lantern)
   ctx.strokeStyle = ten.color;
   ctx.shadowColor = ten.color;
-  ctx.shadowBlur = 16;
-  ctx.lineWidth = ten.baseW * (1.1 - pull * 0.35);
-  ctx.beginPath();
-  ctx.moveTo(ten.ox, ten.oy);
-  ctx.lineTo(tx, ty);
-  ctx.stroke();
-  // Hot core
-  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-  ctx.lineWidth = Math.max(2, ten.baseW * 0.35);
-  ctx.shadowBlur = 8;
+  ctx.shadowBlur = 12;
+  ctx.lineCap = 'round';
+  ctx.lineWidth = w * 1.65;
+  ctx.globalAlpha = alpha * 0.35;
   ctx.beginPath();
   ctx.moveTo(ten.ox, ten.oy);
   ctx.lineTo(tx, ty);
   ctx.stroke();
   ctx.shadowBlur = 0;
+  ctx.globalAlpha = alpha;
+
+  // Faceted blade outline (tapered diamond strip)
+  const half = w * 0.55;
+  const tipW = w * 0.22;
+  ctx.beginPath();
+  ctx.moveTo(ten.ox + nx * half, ten.oy + ny * half);
+  ctx.lineTo(tx + nx * tipW, ty + ny * tipW);
+  ctx.lineTo(tx - nx * tipW, ty - ny * tipW);
+  ctx.lineTo(ten.ox - nx * half, ten.oy - ny * half);
+  ctx.closePath();
+  const blade = ctx.createLinearGradient(ten.ox, ten.oy, tx, ty);
+  blade.addColorStop(0, 'rgba(255,255,255,0.95)');
+  blade.addColorStop(0.35, ten.color);
+  blade.addColorStop(0.75, shade(ten.color, 0.75));
+  blade.addColorStop(1, 'rgba(255,255,255,0.55)');
+  ctx.fillStyle = blade;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Hot white fire core
+  ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+  ctx.lineWidth = Math.max(1.5, w * 0.28);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(ten.ox, ten.oy);
+  ctx.lineTo(tx, ty);
+  ctx.stroke();
+
+  // Mid-ray facet sparkles
+  if (!ten.ambient) {
+    for (let k = 1; k <= 3; k++) {
+      const t = k / 4;
+      const sx = ten.ox + dx * t;
+      const sy = ten.oy + dy * t;
+      const sr = w * (0.35 - pull * 0.1);
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.beginPath();
+      ctx.moveTo(sx, sy - sr);
+      ctx.lineTo(sx + sr * 0.55, sy);
+      ctx.lineTo(sx, sy + sr);
+      ctx.lineTo(sx - sr * 0.55, sy);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
 
   if (!ten.ambient && ten.preyColor && !ten.preyColor.startsWith('rgba(0,0,0')) {
     const along = 1 - pull * 0.9;
-    const gx = ten.ox + (tx - ten.ox) * along;
-    const gy = ten.oy + (ty - ten.oy) * along;
-    const gs = ten.baseW * 1.2;
+    const gx = ten.ox + dx * along;
+    const gy = ten.oy + dy * along;
+    const gs = ten.baseW * 1.35;
     ctx.fillStyle = ten.preyColor;
     ctx.shadowColor = ten.preyColor;
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = 10;
     ctx.beginPath();
     ctx.moveTo(gx, gy - gs);
-    ctx.lineTo(gx + gs * 0.7, gy);
+    ctx.lineTo(gx + gs * 0.65, gy);
     ctx.lineTo(gx, gy + gs);
-    ctx.lineTo(gx - gs * 0.7, gy);
+    ctx.lineTo(gx - gs * 0.65, gy);
     ctx.closePath();
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.beginPath();
+    ctx.ellipse(gx - gs * 0.15, gy - gs * 0.2, gs * 0.22, gs * 0.12, -0.5, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
 }
 
-/** Mine peak body — faceted geode / living crystal core (not an octopus). */
+/** Mine peak body — multi-facet Living Geode (prismatic gem, not flat hex / octopus). */
 function drawSupernovaBody(
   ctx: CanvasRenderingContext2D,
   ox: number,
@@ -951,8 +1019,8 @@ function drawSupernovaBody(
   lifeT: number,
 ): void {
   const enter = lifeT < 0.08 ? easeOutCubic(lifeT / 0.08) : 1;
-  const fade = lifeT > 0.88 ? Math.max(0, (1 - lifeT) / 0.12) : 1;
-  const pulse = 1 + 0.08 * Math.sin(now * 0.02) + (lifeT > 0.5 ? 0.06 * Math.sin(lifeT * 20) : 0);
+  const fade = lifeT > 0.88 ? Math.max(0, (1 - tClamp(lifeT)) / 0.12) : 1;
+  const pulse = 1 + 0.05 * Math.sin(now * 0.016) + (lifeT > 0.5 ? 0.04 * Math.sin(lifeT * 18) : 0);
   const scale = enter * pulse;
   const alpha = fade * enter;
   if (alpha <= 0.01) return;
@@ -962,69 +1030,143 @@ function drawSupernovaBody(
   ctx.translate(ox, oy);
   ctx.scale(scale, scale);
 
-  // Outer glow
-  const glow = ctx.createRadialGradient(0, 0, r * 0.1, 0, 0, r * 1.35);
+  // Soft gem bloom (white / gold / violet — not cyan)
+  const glow = ctx.createRadialGradient(0, 0, r * 0.08, 0, 0, r * 1.4);
   glow.addColorStop(0, 'rgba(255,255,255,0.95)');
-  glow.addColorStop(0.35, 'rgba(255, 220, 120, 0.7)');
-  glow.addColorStop(0.7, 'rgba(180, 120, 255, 0.35)');
+  glow.addColorStop(0.3, 'rgba(255, 230, 170, 0.55)');
+  glow.addColorStop(0.65, 'rgba(200, 140, 255, 0.28)');
   glow.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = glow;
   ctx.beginPath();
-  ctx.arc(0, 0, r * 1.35, 0, Math.PI * 2);
+  ctx.arc(0, 0, r * 1.4, 0, Math.PI * 2);
   ctx.fill();
 
-  // Faceted crystal body (hex-ish)
-  const sides = 6;
-  ctx.beginPath();
-  for (let i = 0; i < sides; i++) {
-    const a = -Math.PI / 2 + (i / sides) * Math.PI * 2;
-    const rr = r * (i % 2 === 0 ? 1 : 0.82);
-    const x = Math.cos(a) * rr;
-    const y = Math.sin(a) * rr;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
+  // Brilliant-cut outline
+  const gem = new Path2D();
+  const outline: readonly [number, number][] = [
+    [0, -1],
+    [0.38, -0.58],
+    [0.92, -0.22],
+    [0.95, 0.2],
+    [0.58, 0.68],
+    [0.18, 0.95],
+    [0, 1],
+    [-0.18, 0.95],
+    [-0.58, 0.68],
+    [-0.95, 0.2],
+    [-0.92, -0.22],
+    [-0.38, -0.58],
+  ];
+  for (let i = 0; i < outline.length; i++) {
+    const [u, v] = outline[i]!;
+    const x = u * r;
+    const y = v * r;
+    if (i === 0) gem.moveTo(x, y);
+    else gem.lineTo(x, y);
   }
-  ctx.closePath();
-  const body = ctx.createLinearGradient(-r, -r, r, r);
-  body.addColorStop(0, '#fff6e8');
-  body.addColorStop(0.35, '#e0a0ff');
-  body.addColorStop(0.7, '#7ed0ff');
-  body.addColorStop(1, '#5a3a90');
-  ctx.fillStyle = body;
-  ctx.shadowColor = 'rgba(255, 210, 100, 0.7)';
-  ctx.shadowBlur = 20;
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  ctx.strokeStyle = 'rgba(255, 230, 140, 0.95)';
-  ctx.lineWidth = 2.5;
-  ctx.stroke();
+  gem.closePath();
 
-  // Inner core
-  const core = ctx.createRadialGradient(-r * 0.15, -r * 0.2, 0, 0, 0, r * 0.45);
-  core.addColorStop(0, '#ffffff');
-  core.addColorStop(0.5, '#ffe56a');
-  core.addColorStop(1, 'rgba(200, 120, 255, 0.2)');
-  ctx.fillStyle = core;
-  ctx.beginPath();
-  ctx.arc(0, 0, r * 0.42, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.save();
+  ctx.clip(gem);
 
-  // Facet lines
-  ctx.strokeStyle = 'rgba(255,255,255,0.45)';
-  ctx.lineWidth = 1.2;
-  for (let i = 0; i < 3; i++) {
-    const a = (i / 3) * Math.PI * 2 + now * 0.001;
+  // Opalescent wedges (prismatic fire)
+  const wedge = Math.PI / 6;
+  const facetCols = [
+    '#fff6e8',
+    '#ffe56a',
+    '#e0a0ff',
+    '#c9a0ff',
+    '#ffd24a',
+    '#ffffff',
+    '#f0d0ff',
+    '#ffe9a8',
+    '#d8b0ff',
+    '#fff0c8',
+    '#e8c0ff',
+    '#ffecc0',
+  ];
+  for (let i = 0; i < 12; i++) {
+    ctx.fillStyle = facetCols[i % facetCols.length]!;
+    ctx.globalAlpha = alpha * (0.55 + (i % 3) * 0.12);
     ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(Math.cos(a) * r * 0.75, Math.sin(a) * r * 0.75);
+    ctx.moveTo(0, r * 0.04);
+    ctx.arc(0, r * 0.04, r * 1.15, i * wedge - Math.PI / 2, (i + 1) * wedge - Math.PI / 2);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.globalAlpha = alpha;
+
+  // Crown table plate
+  const table = ctx.createLinearGradient(-r * 0.4, -r * 0.9, r * 0.2, r * 0.1);
+  table.addColorStop(0, 'rgba(255,255,255,0.9)');
+  table.addColorStop(0.4, 'rgba(255, 236, 200, 0.4)');
+  table.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = table;
+  ctx.beginPath();
+  ctx.moveTo(0, -r * 0.95);
+  ctx.lineTo(r * 0.4, -r * 0.45);
+  ctx.lineTo(r * 0.12, r * 0.05);
+  ctx.lineTo(-r * 0.2, 0);
+  ctx.lineTo(-r * 0.35, -r * 0.5);
+  ctx.closePath();
+  ctx.fill();
+
+  // Pavilion depth
+  const deep = ctx.createLinearGradient(0, 0, 0, r);
+  deep.addColorStop(0, 'rgba(50, 20, 80, 0)');
+  deep.addColorStop(1, 'rgba(30, 10, 50, 0.5)');
+  ctx.fillStyle = deep;
+  ctx.fillRect(-r, 0, r * 2, r);
+
+  // Internal fire
+  const fire = ctx.createRadialGradient(-r * 0.1, -r * 0.15, 0, 0, 0, r * 0.5);
+  fire.addColorStop(0, 'rgba(255,255,255,1)');
+  fire.addColorStop(0.3, 'rgba(255, 230, 160, 0.7)');
+  fire.addColorStop(0.65, 'rgba(220, 160, 255, 0.35)');
+  fire.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = fire;
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Crack / facet ridges racing out
+  const crackReach = r * (0.4 + Math.min(1, lifeT / 0.18) * 0.55);
+  ctx.strokeStyle = `rgba(255,255,255,${0.4 + Math.min(1, lifeT * 2) * 0.35})`;
+  ctx.lineWidth = 1.2;
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 - Math.PI / 2 + lifeT * 0.15;
+    const jagged = 0.88 + 0.12 * Math.sin(i * 2.1 + lifeT * 10);
+    ctx.beginPath();
+    ctx.moveTo(0, r * 0.04);
+    ctx.lineTo(Math.cos(a) * crackReach * jagged, Math.sin(a) * crackReach * jagged);
     ctx.stroke();
   }
+
+  // Specular
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.18, -r * 0.4, r * 0.14, r * 0.07, -0.55, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Dark gem rim + warm edge
+  ctx.strokeStyle = 'rgba(12, 8, 24, 0.85)';
+  ctx.lineWidth = 2.4;
+  ctx.stroke(gem);
+  ctx.strokeStyle = 'rgba(255, 230, 170, 0.55)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke(gem);
+
   ctx.restore();
 }
 
+function tClamp(t: number): number {
+  return Math.max(0, Math.min(1, t));
+}
+
 /**
- * Super Chest body — prefer octopus_chest sprite; cute procedural fallback.
- * lifeT: 0..1 feast progress for pop / chomp pulse. Harbor only.
+ * Super Chest feast body — octopus mascot (sprite or procedural).
+ * lifeT: open → wake breathe → chomp on pull → fade. Harbor only.
  */
 function drawKrakenBody(
   ctx: CanvasRenderingContext2D,
@@ -1035,30 +1177,41 @@ function drawKrakenBody(
   lifeT: number,
   img: HTMLImageElement | null,
 ): void {
-  // Pop in, hold, gentle chomp on pull, fade
-  const enter = lifeT < 0.08 ? easeOutCubic(lifeT / 0.08) : 1;
+  // Open pop, living breathe, chomp on pull, fade
+  const enter = lifeT < 0.1 ? easeOutCubic(lifeT / 0.1) : 1;
   const fade = lifeT > 0.88 ? Math.max(0, (1 - lifeT) / 0.12) : 1;
   const chomp =
     lifeT > 0.55 && lifeT < 0.85 ? 1 + 0.1 * Math.sin((lifeT - 0.55) * Math.PI * 6) : 1;
-  const idle = 1 + 0.04 * Math.sin(now * 0.014);
-  const scale = enter * chomp * idle;
+  // Stronger “alive” breathe (resource-honest living — not skeletal anim)
+  const breathe = 1 + 0.07 * Math.sin(now * 0.012);
+  const bobY = Math.sin(now * 0.01) * r * 0.06;
+  const scale = enter * chomp * breathe;
   const alpha = fade * enter;
   if (alpha <= 0.01) return;
 
   ctx.save();
   ctx.globalAlpha = alpha;
-  ctx.translate(ox, oy);
+  ctx.translate(ox, oy + bobY);
   ctx.scale(scale, scale);
+
+  // Soft gold “lid open” ring early in feast
+  if (lifeT < 0.22) {
+    const openT = lifeT / 0.22;
+    ctx.strokeStyle = `rgba(255, 210, 100, ${0.55 * (1 - openT)})`;
+    ctx.lineWidth = 3 + openT * 4;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * (1.1 + openT * 0.55), 0, Math.PI * 2);
+    ctx.stroke();
+  }
 
   const imgReady = img && img.complete && img.naturalWidth > 0;
   if (imgReady) {
-    const size = r * 2.35;
+    const size = r * 2.45;
     ctx.shadowColor = 'rgba(80, 200, 210, 0.55)';
     ctx.shadowBlur = 18;
     ctx.drawImage(img, -size / 2, -size / 2, size, size);
     ctx.shadowBlur = 0;
-    // Soft gold ring so the sprite pops on the board
-    ctx.strokeStyle = 'rgba(255, 210, 100, 0.35)';
+    ctx.strokeStyle = 'rgba(255, 210, 100, 0.4)';
     ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.arc(0, 0, size * 0.48, 0, Math.PI * 2);

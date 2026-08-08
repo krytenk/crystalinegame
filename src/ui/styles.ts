@@ -1788,7 +1788,6 @@ export function injectStyles(): void {
     .ad-player {
       position: relative;
       width: 100%;
-      /* Shorts-friendly portrait frame */
       aspect-ratio: 9 / 14;
       max-height: min(52vh, 520px);
       margin: 0 auto 8px;
@@ -1797,6 +1796,36 @@ export function injectStyles(): void {
       background: #000;
       border: 1px solid rgba(126, 208, 255, 0.25);
       box-shadow: 0 12px 40px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.04);
+    }
+    .ad-player-gift {
+      aspect-ratio: 4 / 3;
+      max-height: min(28vh, 240px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: radial-gradient(ellipse at 50% 40%, rgba(255, 220, 140, 0.22), transparent 55%),
+        linear-gradient(165deg, #1a1430 0%, #0a0818 100%);
+      border-color: rgba(255, 210, 100, 0.35);
+    }
+    .ad-gift-orb {
+      font-size: 3rem;
+      line-height: 1;
+      filter: drop-shadow(0 0 18px rgba(255, 210, 100, 0.65));
+      animation: ad-gift-pulse 1.4s ease-in-out infinite;
+    }
+    .ad-gift-label {
+      margin: 0;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(255, 236, 200, 0.85);
+    }
+    @keyframes ad-gift-pulse {
+      0%, 100% { transform: scale(1); opacity: 0.9; }
+      50% { transform: scale(1.08); opacity: 1; }
     }
     .ad-frame {
       position: absolute; inset: 0;

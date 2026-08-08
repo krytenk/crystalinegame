@@ -45,7 +45,7 @@ installCompanion(...);
 | `metaStages` / `metaUpgrades` | Diorama catalogue |
 | `albumCards` / `albumSheet` | Endless album |
 | `event` | Hybrid event id prefix, milestones, league tiers |
-| `powerNames` / `comboLabels` | Specials + combo toast names |
+| `powerNames` / `comboLabels` | Specials + combo toast names (Harbor peak = Super Chest; mine = Living Geode — see `SUPER_CHEST_OCTO.md`) |
 | `placeCeremony` | Placement reel paths + caption (`webm`/`mp4` empty = still only) |
 | `labels` / `cssVars` / `storeCopy` | UI chrome |
 

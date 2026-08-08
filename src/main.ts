@@ -2,8 +2,8 @@
  * Bootstrap + top-level state machine.
  * Product skin: Crystalline (default) or Lantern Harbor via theme pack.
  *
- * Demo / portfolio build: monetization is simulated.
- * Rewarded + interstitial placements play Discworld in 60 Seconds YouTube Shorts.
+ * Free Play build: shop spends soft/premium currency (no real IAP until Billing).
+ * Opt-in free gifts use a short in-app timer — no ad SDK, no YouTube Shorts.
  */
 
 import { createSession, type Session } from '@engine/board';
@@ -24,12 +24,6 @@ import {
   type BoosterId,
   type MetaUpgrade,
 } from '@economy/index';
-import {
-  channelUrl,
-  nextDiscworldShort,
-  setAdRotateKey,
-  youtubeEmbedUrl,
-} from '@economy/discworldShorts';
 import { installEventTheme } from '@economy/hybridEvent';
 import { AudioDirector } from '@audio/audio';
 import { haptic, hapticCascade, hapticMatchTier, unlockHaptics } from '@audio/haptics';
@@ -76,7 +70,6 @@ installCompanion(
   },
   activeTheme.companion.lines,
 );
-setAdRotateKey(activeTheme.adShortKey);
 if (typeof document !== 'undefined') {
   document.title = activeTheme.productName;
 }
@@ -105,7 +98,7 @@ interface AppState {
   lastResult: { status: 'won' | 'lost'; score: number; stars: number } | null;
   adPlacement: 'rewardedLife' | 'rewardedBooster' | 'rewardedContinue' | 'interstitial' | null;
   adReturn: Screen;
-  /** Active Discworld Short video id while an ad is showing. */
+  /** Reserved (no video creative in free-gift flow). */
   adVideoId: string | null;
   pendingContinue: boolean;
   /** One continue offer per attempt (loss-aversion lever, research). */
@@ -149,7 +142,7 @@ interface AppState {
   mapChapterIndex: number | null;
   /** Fire Outer Channels / Under-Crown unlock ceremony once after L150. */
   pendingActIcCeremony: boolean;
-  /** Peak specials fired this level (Super Chest / Supernova) — win recap. */
+  /** Peak specials fired this level (Super Chest / Living Geode) — win recap. */
   levelPeakSpecials: number;
 }
 
@@ -372,6 +365,14 @@ function mount(): void {
   audio.setMusic(bootSettings.music && bootSettings.sfx);
   boardView.glyphs = bootSettings.glyphs;
   boardView.highContrast = bootSettings.highContrast;
+  // Peak board fantasy: Harbor Super Chest (+ peek) vs mine Living Geode
+  boardView.peakFantasy = theme().id === 'harbor' ? 'superchest' : 'supernova';
+  // Harbor feast body — octopus_chest mascot sprite (see SUPER_CHEST_OCTO.md)
+  if (theme().id === 'harbor') {
+    juice.setKrakenBodySrc(assetUrl('themes/harbor/gen/octopus_chest_128.webp'));
+  } else {
+    juice.setKrakenBodySrc('');
+  }
 
   setUiTapHook(() => {
     audio.uiTap();
@@ -1644,7 +1645,7 @@ function playMatchVfx(events: readonly GameEvent[]): void {
             : ev.kind === 'supernova' || ev.kind === 'core'
               ? '#7ec8ff'
               : '#7ed0ff';
-      // Peak special: Super Chest octopus (Harbor) or Supernova geode (Crystalline)
+      // Peak special: Super Chest + octopus feast (Harbor) or Living Geode (Crystalline)
       if (ev.kind === 'supernova') {
         app.levelPeakSpecials += 1;
         const prey = pickKrakenPrey(ev.at, ev.affected, cellToLogical, atlas.palette());
@@ -1932,7 +1933,7 @@ function acceptContinue(via: 'ad' | 'shards'): void {
   if (via === 'shards') {
     if (!economy.spendShardsForContinue()) {
       pushToast(
-        `Need ${ECONOMY_CONST.cost.extraMoves5} ${theme().premiumCurrencyName.toLowerCase()} — or watch a Short`,
+        `Need ${ECONOMY_CONST.cost.extraMoves5} ${theme().premiumCurrencyName.toLowerCase()} — or claim a free gift`,
         '#ff9a9a',
       );
       return;
@@ -1940,7 +1941,7 @@ function acceptContinue(via: 'ad' | 'shards'): void {
     reviveSessionWithMoves(5);
     return;
   }
-  // Rewarded Short; moves applied in closeAdSession when grant succeeds.
+  // Free gift continue; moves applied in closeAdSession when grant succeeds.
   app.continueUsed = true;
   openAd('rewardedContinue', 'play');
 }
@@ -2038,7 +2039,6 @@ function closeAdSession(opts: { grant: boolean }): void {
   if (opts.grant) {
     const res = economy.completeAd();
     if (res.ok && placement === 'rewardedContinue' && app.session) {
-      // Near-miss revive uses continueWithMoves; mid-level continue uses addMoves.
       if (app.session.snapshot().status === 'lost') {
         reviveSessionWithMoves(5);
         app.adVideoId = null;
@@ -2052,11 +2052,9 @@ function closeAdSession(opts: { grant: boolean }): void {
     }
   } else {
     economy.dismissAd();
-    // Interstitials still count as shown even if skipped after the unlock.
     if (placement === 'interstitial') {
       economy.noteInterstitialShown();
     }
-    // Declined continue ad → treat as give-up if we still have a lost session.
     if (placement === 'rewardedContinue' && app.session?.snapshot().status === 'lost') {
       app.adVideoId = null;
       declineContinue();
@@ -2068,35 +2066,42 @@ function closeAdSession(opts: { grant: boolean }): void {
   renderOverlay();
 }
 
+/** Opt-in free gift (short wait). No ad SDK / no YouTube. */
 function openAd(
   placement: NonNullable<AppState['adPlacement']>,
   returnTo: Screen,
   booster: BoosterId = 'pickaxe',
 ): void {
+  // Interstitials disabled for free Play build
+  if (placement === 'interstitial') {
+    app.screen = returnTo;
+    renderOverlay();
+    return;
+  }
   app.adPlacement = placement;
   app.adReturn = returnTo;
   const start = economy.startAd(placement, booster);
   if (!start.ok) {
     app.adVideoId = null;
     app.screen = returnTo;
-    // Daily cap or ad already running — steer to shards instead of dead end.
     if (placement === 'rewardedBooster') {
-      pushToast('Shorts capped for today — buy with shards in Shop', '#ffd679', 2400);
+      pushToast('Free gifts capped for today — buy with shards in Shop', '#ffd679', 2400);
+    } else if (placement === 'rewardedLife') {
+      pushToast('Free lives capped for today — wait for regen or visit Shop', '#ffd679', 2400);
+    } else {
+      pushToast('Free gift unavailable — try shards in Shop', '#ffd679', 2200);
     }
     renderOverlay();
     return;
   }
-  app.adVideoId = nextDiscworldShort().id;
+  app.adVideoId = null;
   app.screen = 'ad';
-  // Build the player once — ticking only patches timer / skip chrome so the
-  // YouTube iframe is not destroyed every frame.
   renderAdShell();
   const tick = () => {
     if (app.screen !== 'ad') return;
     const p = economy.adProgress();
     updateAdChrome(p);
     if (p.finished) {
-      // Full Short watched → complete (rewarded pays out; interstitial just closes).
       closeAdSession({ grant: true });
       return;
     }
@@ -2867,7 +2872,7 @@ function tryBuyBooster(id: BoosterId, returnScreen?: Screen): boolean {
   }
   if (res.reason === 'insufficientShards') {
     pushToast(
-      `Need ${BOOSTER_COST()} ${theme().premiumCurrencyName.toLowerCase()} — or watch a Short`,
+      `Need ${BOOSTER_COST()} ${theme().premiumCurrencyName.toLowerCase()} — or claim a free gift`,
       '#ff9a9a',
       2200,
     );
@@ -2877,13 +2882,13 @@ function tryBuyBooster(id: BoosterId, returnScreen?: Screen): boolean {
   return false;
 }
 
-/** Watch rewarded Short for +1 of a specific booster. */
+/** Free gift timer for +1 of a specific booster. */
 function watchForBooster(id: BoosterId, returnTo: Screen): void {
   openAd('rewardedBooster', returnTo, id);
 }
 
 /**
- * When inventory is empty, offer buy (shards) or earn (watch Short).
+ * When inventory is empty, offer buy (shards) or free gift.
  * Used from pre-level, play tools, and shop.
  */
 function offerBoosterRestock(id: BoosterId, returnTo: Screen): void {
@@ -2911,7 +2916,7 @@ function offerBoosterRestock(id: BoosterId, returnTo: Screen): void {
     name,
     [
       el('p', { class: 'hud-tip' }, [
-        `Out of stock. Buy for ${cost} ${premium.toLowerCase()}, or watch a Short for +1 free.`,
+        `Out of stock. Buy for ${cost} ${premium.toLowerCase()}, or claim a free gift.`,
       ]),
       el('p', { class: 'hud-tip' }, [`You have ${shards} ${premium.toLowerCase()}.`]),
     ],
@@ -2925,7 +2930,7 @@ function offerBoosterRestock(id: BoosterId, returnTo: Screen): void {
         shards >= cost ? 'gold' : 'secondary',
         shards < cost,
       ),
-      btn(`WATCH · +1`, () => watchForBooster(id, returnTo), 'primary'),
+      btn(`FREE · +1`, () => watchForBooster(id, returnTo), 'primary'),
       btn('BACK', () => {
         app.screen = returnTo;
         renderOverlay();
@@ -3771,7 +3776,7 @@ function renderContinueOffer(): void {
         'gold',
         !canPay,
       ),
-      btn('WATCH · +5 FREE', () => acceptContinue('ad'), 'primary'),
+      btn('FREE · +5 MOVES', () => acceptContinue('ad'), 'primary'),
       btn(
         isHarbor ? 'WALK AWAY · lose a life' : 'GIVE UP · lose a life',
         () => declineContinue(),
@@ -4140,10 +4145,10 @@ function renderResults(): void {
     );
   }
 
-  // Peak special recap — Super Chest / Supernova count this clear
+  // Peak special recap — Super Chest / Living Geode count this clear
   let peakRecap: HTMLElement | null = null;
   if (app.levelPeakSpecials > 0) {
-    const peakName = isHarbor ? 'Super Chest' : 'Supernova';
+    const peakName = isHarbor ? 'Super Chest' : 'Living Geode';
     const peakArt = isHarbor
       ? 'themes/harbor/gen/octopus_chest_128.webp'
       : theme().livingCorePath;
@@ -4160,10 +4165,10 @@ function renderResults(): void {
           app.levelPeakSpecials === 1
             ? isHarbor
               ? 'FEAST FIRED'
-              : 'NOVA FIRED'
+              : 'GEODE FIRED'
             : isHarbor
               ? 'FEAST FRENZY'
-              : 'NOVA STORM',
+              : 'GEODE STORM',
         ]),
         el('div', { class: 'results-peak-v' }, [
           app.levelPeakSpecials === 1
@@ -5151,12 +5156,12 @@ function renderStore(): void {
 
   const ethics = el('div', { class: 'ethics-banner' }, [
     snap.adsFreeActive
-      ? `Ad-free active${snap.adsFreeUntil && !snap.ownedSkus.includes('ads.remove') ? ` · until ${new Date(snap.adsFreeUntil).toLocaleDateString()}` : ' · permanent'}`
-      : 'Ethical convenience: 7d / 30d ad passes · no forced appointment punish',
+      ? `Gift prompts off${snap.adsFreeUntil && !snap.ownedSkus.includes('ads.remove') ? ` · until ${new Date(snap.adsFreeUntil).toLocaleDateString()}` : ' · permanent'}`
+      : 'Free gifts use a short wait · daily cap · no video ads',
     snap.comfortOwned ? ' · Comfort tools on' : '',
   ]);
 
-  // Core tools: buy with shards or earn via rewarded Short (economy was ready; UI was not).
+  // Core tools: buy with shards or claim free gift (daily capped).
   const toolCost = BOOSTER_COST();
   const toolIds: BoosterId[] = ['pickaxe', 'reshuffle', 'seedPrism', 'extraMoves'];
   const toolArt: Partial<Record<BoosterId, string>> = {
@@ -5167,7 +5172,7 @@ function renderStore(): void {
   };
   const toolsSection = el('div', { class: 'shop-tools' }, [
     el('p', { class: 'hud-tip shop-tools-head' }, [
-      `Dive tools · ${toolCost} ${theme().premiumCurrencyName.toLowerCase()} each · or watch a Short`,
+      `Dive tools · ${toolCost} ${theme().premiumCurrencyName.toLowerCase()} each · or free gift`,
     ]),
     ...toolIds.map((id) => {
       const owned = snap.boosters[id];
@@ -5197,7 +5202,7 @@ function renderStore(): void {
           can ? 'gold' : 'secondary',
           !can,
         ),
-        btn('WATCH', () => watchForBooster(id, 'store'), 'secondary'),
+        btn('FREE', () => watchForBooster(id, 'store'), 'secondary'),
       ]);
       row.append(actions);
       return row;
@@ -5207,7 +5212,7 @@ function renderStore(): void {
   panel(
     'Shop',
     [
-      el('div', { class: 'sim-badge sim-badge-show' }, ['simulated · no real money']),
+      el('div', { class: 'sim-badge sim-badge-show' }, ['soft currency only · no real money yet']),
       wallet,
       ethics,
       el('p', { class: 'hud-tip' }, [
@@ -5279,7 +5284,7 @@ function renderLivesGate(): void {
             alt: '',
             decoding: 'async',
           }),
-          document.createTextNode(' WATCH · +1'),
+          document.createTextNode(' FREE · +1'),
         ],
         () => openAd('rewardedLife', 'lives'),
       ),
@@ -5296,7 +5301,7 @@ function renderLivesGate(): void {
   );
 }
 
-/** Full rebuild of the ad overlay (iframe + chrome). Called once per open. */
+/** Free-gift overlay (timer only — no video / no ad network). */
 function renderAdShell(): void {
   clear(overlay);
   overlay.classList.remove('hidden');
@@ -5306,44 +5311,38 @@ function renderAdShell(): void {
   overlay.style.justifyContent = 'center';
   overlay.style.pointerEvents = 'auto';
 
-  const placement = app.adPlacement ?? 'interstitial';
-  const videoId = app.adVideoId ?? nextDiscworldShort().id;
-  app.adVideoId = videoId;
+  const placement = app.adPlacement ?? 'rewardedLife';
   const p = economy.adProgress();
-  const rewarded = placement !== 'interstitial';
 
   const title =
-    placement === 'interstitial'
-      ? 'A moment between chambers…'
-      : placement === 'rewardedLife'
-        ? 'Watch a Short · +1 Life'
-        : placement === 'rewardedBooster'
-          ? 'Watch a Short · +1 Booster'
-          : 'Watch a Short · +5 Moves';
+    placement === 'rewardedLife'
+      ? 'Free gift · +1 Life'
+      : placement === 'rewardedBooster'
+        ? 'Free gift · +1 Booster'
+        : placement === 'rewardedContinue'
+          ? 'Free gift · +5 Moves'
+          : 'A moment…';
 
-  const frame = el('iframe', {
-    class: 'ad-frame',
-    src: youtubeEmbedUrl(videoId),
-    title: 'Discworld in 60 seconds',
-    allow:
-      'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share',
-    allowfullscreen: true,
-    referrerpolicy: 'strict-origin-when-cross-origin',
-  });
+  const rewardLine =
+    placement === 'rewardedLife'
+      ? 'Rest a moment — then claim an extra life.'
+      : placement === 'rewardedBooster'
+        ? 'Rest a moment — then claim a dive tool.'
+        : 'Rest a moment — then claim five more moves.';
 
   const timer = el('div', { class: 'timer', id: 'ad-timer' }, [
-    p.finished ? 'Done' : `${Math.ceil(p.remainingMs / 1000)}s`,
+    p.finished ? 'Ready' : `${Math.ceil(p.remainingMs / 1000)}s`,
   ]);
   const status = el('p', { class: 'ad-status', id: 'ad-status' }, [
-    p.canSkip
-      ? rewarded
-        ? 'Skip available — finish the Short to claim your reward.'
-        : 'You may skip.'
-      : `Skip in ${Math.max(1, Math.ceil((ECONOMY_CONST.adSkippableAfterMs - p.elapsedMs) / 1000))}s…`,
+    p.finished
+      ? 'Gift ready — claim it.'
+      : p.canSkip
+        ? 'You can cancel, or wait to claim.'
+        : `Gift ready in ${Math.max(1, Math.ceil((ECONOMY_CONST.adSkippableAfterMs - p.elapsedMs) / 1000))}s…`,
   ]);
 
   const skipBtn = btn(
-    p.canSkip ? 'Skip' : `Skip in ${Math.max(1, Math.ceil((ECONOMY_CONST.adSkippableAfterMs - p.elapsedMs) / 1000))}s`,
+    p.canSkip ? 'Cancel' : `Wait…`,
     () => {
       if (!economy.adProgress().canSkip) return;
       closeAdSession({ grant: false });
@@ -5354,7 +5353,7 @@ function renderAdShell(): void {
   skipBtn.id = 'ad-skip';
 
   const claimBtn = btn(
-    rewarded ? (p.finished ? 'Claim reward' : 'Watch to claim') : p.finished ? 'Continue' : 'Watch…',
+    p.finished ? 'Claim gift' : 'Preparing…',
     () => {
       if (!economy.adProgress().finished) return;
       closeAdSession({ grant: true });
@@ -5364,27 +5363,12 @@ function renderAdShell(): void {
   );
   claimBtn.id = 'ad-claim';
 
-  const sponsor = el('div', { class: 'ad-sponsor' }, [
-    el('span', { class: 'ad-sponsor-label' }, ['Sponsored · Discworld in 60 seconds']),
-    el(
-      'a',
-      {
-        class: 'ad-channel-link',
-        href: channelUrl(),
-        target: '_blank',
-        rel: 'noopener noreferrer',
-      },
-      ['@discworldin60seconds'],
-    ),
-  ]);
-
   const wrap = el('div', { class: 'panel ad-panel' }, [
-    el('div', { class: 'sim-badge' }, ['demo ads · real Shorts · no real money']),
     el('h1', {}, [title]),
-    sponsor,
-    el('div', { class: 'ad-player' }, [frame]),
-    el('p', { class: 'ad-hint' }, [
-      'Muted autoplay (browser policy). Tap the player to unmute.',
+    el('p', { class: 'ad-hint' }, [rewardLine]),
+    el('div', { class: 'ad-player ad-player-gift' }, [
+      el('div', { class: 'ad-gift-orb', 'aria-hidden': 'true' }, ['✦']),
+      el('p', { class: 'ad-gift-label' }, ['Daily free gifts · limited']),
     ]),
     timer,
     status,
@@ -5393,7 +5377,6 @@ function renderAdShell(): void {
   overlay.append(wrap);
 }
 
-/** Patch timer / skip / claim without tearing down the YouTube iframe. */
 function updateAdChrome(p: {
   remainingMs: number;
   elapsedMs: number;
@@ -5402,44 +5385,30 @@ function updateAdChrome(p: {
 }): void {
   const timer = document.getElementById('ad-timer');
   if (timer) {
-    timer.textContent = p.finished ? 'Done' : `${Math.ceil(p.remainingMs / 1000)}s`;
+    timer.textContent = p.finished ? 'Ready' : `${Math.ceil(p.remainingMs / 1000)}s`;
   }
   const status = document.getElementById('ad-status');
-  const rewarded = app.adPlacement !== 'interstitial';
   if (status) {
     status.textContent = p.finished
-      ? rewarded
-        ? 'Short finished — claim your reward.'
-        : 'Thanks for watching.'
+      ? 'Gift ready — claim it.'
       : p.canSkip
-        ? rewarded
-          ? 'Skip available — finish the Short to claim your reward.'
-          : 'You may skip.'
-        : `Skip in ${Math.max(1, Math.ceil((ECONOMY_CONST.adSkippableAfterMs - p.elapsedMs) / 1000))}s…`;
+        ? 'You can cancel, or wait to claim.'
+        : `Gift ready in ${Math.max(1, Math.ceil((ECONOMY_CONST.adSkippableAfterMs - p.elapsedMs) / 1000))}s…`;
   }
   const skip = document.getElementById('ad-skip') as HTMLButtonElement | null;
   if (skip) {
-    const unlockIn = Math.max(1, Math.ceil((ECONOMY_CONST.adSkippableAfterMs - p.elapsedMs) / 1000));
-    skip.textContent = p.canSkip ? 'Skip' : `Skip in ${unlockIn}s`;
+    skip.textContent = p.canSkip ? 'Cancel' : 'Wait…';
     skip.disabled = !p.canSkip;
   }
   const claim = document.getElementById('ad-claim') as HTMLButtonElement | null;
   if (claim) {
     claim.disabled = !p.finished;
-    claim.textContent = rewarded
-      ? p.finished
-        ? 'Claim reward'
-        : 'Watch to claim'
-      : p.finished
-        ? 'Continue'
-        : 'Watch…';
-    // Primary = bare `.btn`; secondary is the muted variant.
+    claim.textContent = p.finished ? 'Claim gift' : 'Preparing…';
     claim.classList.toggle('secondary', !p.finished);
   }
 }
 
 function renderAd(): void {
-  // renderOverlay → ad: rebuild shell (e.g. after a full overlay refresh).
   renderAdShell();
 }
 
@@ -5475,7 +5444,7 @@ function renderSettings(): void {
     'Settings',
     [
       el('p', { class: 'hud-tip' }, [
-        'Sound, accessibility, and demo tools. Nothing leaves this device.',
+        'Sound, accessibility, and comfort. Progress stays on this device.',
       ]),
       el('div', { class: 'settings-section' }, [
         el('div', { class: 'settings-section-title' }, ['Audio']),
@@ -5546,7 +5515,7 @@ function renderSettings(): void {
           el('div', { class: 'hud-tip' }, [STUDIO.url.replace('https://', '')]),
           el('div', { class: 'hud-tip' }, [theme().versionLabel]),
           el('div', { class: 'hud-tip' }, [
-            'Simulated economy · Discworld Shorts ads · local save only',
+            'Soft currency shop · free gifts · local save only',
           ]),
         ]),
       ]),

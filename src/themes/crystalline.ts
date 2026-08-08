@@ -168,12 +168,13 @@ export const crystallineTheme: ThemeConfig = {
   },
   bonusCrackName: 'Geode',
   bonusCrackArt: 'ui/geode_vein.webp',
-  versionLabel: 'Crystalline v1.0.1 · 300 levels · Departure Bay Digital',
+  versionLabel: 'Crystalline v1.0.2 · 300 levels · Departure Bay Digital',
   powerNames: {
     line: 'Seam Rift',
     burst: 'Geode Burst',
     prism: 'Opal Prism',
-    supernova: 'Supernova',
+    /** 6+ match Living Geode — crack + prism rays (not Harbor octopus). */
+    supernova: 'Living Geode',
   },
   comboLabels: {},
   event: {

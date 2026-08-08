@@ -101,11 +101,16 @@ Shared module sketch: `HeroMaterialWordmark` (profiles: `sand` | `ore` | …).
 
 | Asset | Role | When |
 |-------|------|------|
-| **Super Chest octopus grab** | Signature *gameplay* fantasy made visible (limbs target gems, pull in) | Before marketing that sells Super Chest; after cores are “good enough” to demo |
+| **Super Chest + octopus feast** | Harbor signature: **tile = chest**, **feast = living mascot** (arms grab, pull in). Not “gem that is an octopus.” | Before marketing sells Super Chest; after cores demoable |
+| **Living Geode feast** | Crystalline twin: crack → prism vein rays → shatter (no octopus) | Same engine peak; different costume |
 | **Kinetic sand / ore wordmarks** | Signature *brand* on hero titles | Early identity pack — not years later; not before cores are demoable |
 | **Clear-screen ceremony** | Emotional payoff of the run | Already shipping; keep lean |
 
-**Sell what you launch.** If the trailer shows wrapping tentacles, the binary must show grab-and-pull (even v1). If the trailer is dual-loop + brand, wordmarks can lead.
+**Authority:** [`docs/SUPER_CHEST_OCTO.md`](./SUPER_CHEST_OCTO.md) — locked beat sheet, art rules, anti-patterns (no mining crew, no always-on 8-arm character system).
+
+**Sell what you launch.** If the trailer shows chest-open + wrapping arms, the binary must show that (even v1). Do not demote the octopus to a rare side event only.
+
+**Living enough (resource cap):** breathe pulse + feast performance. Not AAA skeletal animation for launch.
 
 ---
 
@@ -114,7 +119,7 @@ Shared module sketch: `HeroMaterialWordmark` (profiles: `sand` | `ore` | …).
 | Order | Work | Success signal |
 |-------|------|----------------|
 | **1** | Cores 1–3 tightness | Bosses feel multi-threat; continue hits; place feels like pride |
-| **2** | Super Chest octopus **readable** choreography (targeted arms + gem travel) | Trailer/store can show the fantasy honestly |
+| **2** | Super Chest: **chest-first board tile** + octopus feast (open → wake → arms → pull) | Mute gif reads mascot, not “gem with limbs” |
 | **3** | Material wordmark v1 (Harbor sand + Crystalline ore, hero only) | Brand ritual playable on title of both products |
 | **4** | Launch / portfolio push | Device demos + pitch: architecture + signature |
 | **5** | Updates | See §11 cadence + §12 backlog (docks stages 5–6, levels, polish) |
@@ -156,6 +161,9 @@ If it fails all three → drop.
 | `docs/PITCH.md` / `docs/PITCH_HARBOR.md` | Portfolio framing |
 | `docs/THEMES.md` | Theme pack contract |
 | `docs/FONT_ASSESSMENT.md` | Faces + Tidepop honesty |
+| `docs/SUPER_CHEST_OCTO.md` | Harbor peak mascot bible (chest vs octopus roles) |
+| `docs/CAMPAIGN_ARC.md` | Acts, ice lock horizon, signature pillars |
+| `docs/MAC_HANDOFF.md` | iOS package on Mac without this chat |
 
 ---
 
@@ -280,7 +288,7 @@ Target bar (Harbor sibling standard) **plus** differentiation checklist (fantasy
 
 ### P4 — Spectacle / brand (updates)
 
-- Super Chest octopus limb v2 (wrap + more prey polish)  
+- Super Chest limb v2 (wrap + more prey polish) — body identity locked in SUPER_CHEST_OCTO.md  
 - Material wordmark sand/ore fidelity  
 - Capped easter-egg economy on hero materials  
 

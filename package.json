@@ -1,6 +1,6 @@
 {
   "name": "crystalline",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "type": "module",
   "description": "Crystalline - a match-3 research build. All monetization is simulated; no real currency, no ad SDKs, no network calls.",

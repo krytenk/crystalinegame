@@ -104,10 +104,11 @@ describe('ads', () => {
     // Cap = 2; third should fail
     expect(ads.start('rewardedLife').ok).toBe(false);
 
+    // Interstitials disabled for free Play build (interstitialEvery ≤ 0).
     ads.notePlayEnded();
     ads.notePlayEnded();
     ads.notePlayEnded();
-    expect(ads.shouldShowInterstitial()).toBe(true);
+    expect(ads.shouldShowInterstitial()).toBe(false);
     removed = true;
     expect(ads.shouldShowInterstitial()).toBe(false);
   });
