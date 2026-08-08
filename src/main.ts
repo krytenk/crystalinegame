@@ -1657,24 +1657,24 @@ function playMatchVfx(events: readonly GameEvent[]): void {
         juice.powerBanner(
           (theme().id === 'harbor' ? 'SUPER CHEST' : powerLabel(ev.kind)).toUpperCase(),
         );
-        // Soft pops only — full-board sparkle would fight the pull read
-        const sample = ev.affected.slice(0, 12);
+        // Soft pops only — keep sample small for tablet GPU safety
+        const sample = ev.affected.slice(0, 6);
         for (const c of sample) {
           const q = cellToLogical(c);
-          juice.burst(q.x, q.y, powerCol, 4);
+          juice.burst(q.x, q.y, powerCol, 3);
         }
       } else {
-        // Heavy explosion feedback for every other power fire
-        juice.explode(p.x, p.y, powerCol, 1.2 + tier * 0.45);
-        juice.burst(p.x, p.y, '#fff0c0', 28 + tier * 12);
-        juice.burst(p.x, p.y, '#ffffff', 16 + tier * 6);
-        juice.ring(p.x, p.y, powerCol, 100 + tier * 28, 620);
-        juice.ring(p.x, p.y, '#ffffff', 60 + tier * 16, 480);
-        const sample = ev.affected.slice(0, 40);
+        // Power clear FX — keep spectacle, cap cell samples (tablet WebView GPU)
+        juice.explode(p.x, p.y, powerCol, 0.9 + tier * 0.28);
+        juice.burst(p.x, p.y, '#fff0c0', 14 + tier * 6);
+        juice.burst(p.x, p.y, '#ffffff', 8 + tier * 3);
+        juice.ring(p.x, p.y, powerCol, 90 + tier * 20, 520);
+        // One extra ring only on big tiers
+        if (tier >= 5) juice.ring(p.x, p.y, '#ffffff', 50 + tier * 12, 400);
+        const sample = ev.affected.slice(0, tier >= 6 ? 10 : 8);
         for (const c of sample) {
           const q = cellToLogical(c);
-          juice.burst(q.x, q.y, powerCol, 10 + Math.floor(tier / 2));
-          if (tier >= 5) juice.burst(q.x, q.y, '#ffffff', 4);
+          juice.burst(q.x, q.y, powerCol, 4 + Math.floor(tier / 3));
         }
       }
       juice.shimmerBoard(

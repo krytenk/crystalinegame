@@ -74,4 +74,25 @@ describe('win flourish', () => {
     expect(flourishCount).toBe(1);
     expect(s._state.winFlourishPlayed).toBe(true);
   });
+
+  it('caps free forged specials on early levels (L1–10)', () => {
+    const early: LevelDef = { ...easyWin, id: 4, moves: 20 };
+    const s = createSession(early, 42);
+    s._state.score = 9999;
+    s._state.movesLeft = 15;
+    s._state.objectives = [
+      { kind: 'score', target: 1, current: 1, done: true },
+    ];
+    let at = { x: 2, y: 2 };
+    s._state.grid.forEach((cell, coord) => {
+      if (cell.playable && cell.piece) at = coord;
+    });
+    const events = s.usePickaxe(at);
+    const flourish = events.find((e) => e.t === 'winFlourish');
+    expect(flourish && flourish.t === 'winFlourish').toBe(true);
+    if (flourish && flourish.t === 'winFlourish') {
+      expect(flourish.specialsForged).toBeLessThanOrEqual(3);
+      expect(flourish.leftoverMoves).toBe(15);
+    }
+  });
 });

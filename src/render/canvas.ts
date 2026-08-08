@@ -21,7 +21,11 @@ export interface Point {
   y: number;
 }
 
-const MAX_DPR = 3;
+/**
+ * Cap backing-store DPR. Tablets often report high CSS sizes × 2–3 DPR which
+ * balloons GPU memory during multi-gem VFX (WebView Chrome_InProcGp crashes).
+ */
+const MAX_DPR = 2;
 
 export class CanvasView {
   private canvas: HTMLCanvasElement | null = null;

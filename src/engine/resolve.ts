@@ -477,11 +477,16 @@ const listCrystalCoords = (session: SessionState): Coord[] => {
  * Victory sugar-crush: leftover moves become free specials, every power gem
  * auto-detonates, and the board keeps cascading so the clear feels like a reward.
  * Pure model — UI animates the event stream.
+ *
+ * Early band (L1–10): cap free forged specials so first-session flourishes stay
+ * rewarding without board-wide power spam (and tablet GPU storms).
  */
 export const resolveWinFlourish = (session: SessionState): GameEvent[] => {
   const events: GameEvent[] = [];
   const leftover = Math.max(0, session.movesLeft);
-  const convert = Math.min(leftover, 12);
+  const earlyBand = session.level.id >= 1 && session.level.id <= 10;
+  // Score cashout still uses full leftover; only free *forged* specials are capped early.
+  const convert = Math.min(leftover, earlyBand ? 3 : 12);
 
   if (leftover > 0) {
     session.movesLeft = 0;
@@ -492,7 +497,7 @@ export const resolveWinFlourish = (session: SessionState): GameEvent[] => {
     events.push({ t: 'scoreChanged', score: session.score, delta: moveBonus });
   }
 
-  // Forge free power gems equal to leftover moves (capped)
+  // Forge free power gems (capped by band)
   const crystals = listCrystalCoords(session);
   let forged = 0;
   for (let i = 0; i < convert; i++) {
@@ -500,13 +505,27 @@ export const resolveWinFlourish = (session: SessionState): GameEvent[] => {
     const pick = session.rng.int(crystals.length);
     const at = crystals.splice(pick, 1)[0] as Coord;
     const roll = session.rng.next();
-    const piece =
-      roll < 0.12
+    // Early band: no free Living Geodes / prisms — keep line/burst only
+    const piece = earlyBand
+      ? roll < 0.55
+        ? makeBurst(
+            session.ids,
+            session.level.colors[session.rng.int(session.level.colors.length)] ?? 'ember',
+          )
+        : makeLine(
+            session.ids,
+            session.level.colors[session.rng.int(session.level.colors.length)] ?? 'ember',
+            session.rng.chance(0.5) ? 'h' : 'v',
+          )
+      : roll < 0.12
         ? makeSupernova(session.ids)
         : roll < 0.32
           ? makePrism(session.ids)
           : roll < 0.62
-            ? makeBurst(session.ids, session.level.colors[session.rng.int(session.level.colors.length)] ?? 'ember')
+            ? makeBurst(
+                session.ids,
+                session.level.colors[session.rng.int(session.level.colors.length)] ?? 'ember',
+              )
             : makeLine(
                 session.ids,
                 session.level.colors[session.rng.int(session.level.colors.length)] ?? 'ember',

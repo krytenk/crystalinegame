@@ -159,8 +159,23 @@ export class JuiceSystem {
     }
   }
 
+  /**
+   * Soft cap for particles. Full multi-power cascades used to spike past 700+
+   * with shadowBlur and kill WebView GPU (SIGTRAP Chrome_InProcGp on tablets).
+   */
+  private readonly particleCap = 320;
+
+  /** 0..1 pressure: how full the particle pool is (scales new bursts down). */
+  private fxLoad(): number {
+    return Math.min(1, this.particles.length / this.particleCap);
+  }
+
   burst(x: number, y: number, color: string, count = 14): void {
-    const n = Math.min(80, Math.max(4, Math.floor(count)));
+    // Drop count when already saturated so cascades stay readable without OOM
+    const load = this.fxLoad();
+    const scale = load > 0.85 ? 0.25 : load > 0.65 ? 0.45 : load > 0.45 ? 0.7 : 1;
+    const n = Math.min(36, Math.max(0, Math.floor(count * scale)));
+    if (n <= 0) return;
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2;
       const sp = 1.4 + Math.random() * 6.5;
@@ -174,34 +189,46 @@ export class JuiceSystem {
         maxLife: 0.4 + Math.random() * 0.55,
         size: 2.5 + Math.random() * 5,
         color,
-        shape: roll > 0.65 ? 1 : roll > 0.4 ? 2 : 0,
+        // Prefer cheap circles when under load (no diamond path spam)
+        shape: load > 0.55 ? 0 : roll > 0.65 ? 1 : roll > 0.4 ? 2 : 0,
       });
     }
-    if (this.particles.length > 700) this.particles.splice(0, this.particles.length - 700);
+    if (this.particles.length > this.particleCap) {
+      this.particles.splice(0, this.particles.length - this.particleCap);
+    }
   }
 
-  /** Dense radial explosion for power clears — multi-wave, very loud. */
+  /** Dense radial explosion for power clears — multi-wave, budget-aware. */
   explode(x: number, y: number, color: string, power = 1): void {
-    const count = Math.floor(48 + power * 40);
+    const p = Math.min(1.6, power);
+    const load = this.fxLoad();
+    if (load > 0.9) {
+      // Bare minimum shock when already overloaded
+      this.burst(x, y, color, 12);
+      this.ring(x, y, color, 70 + p * 30, 400);
+      return;
+    }
+    const count = Math.floor(28 + p * 22);
     this.burst(x, y, color, count);
-    this.burst(x, y, '#ffffff', Math.floor(18 + power * 14));
-    this.burst(x, y, '#ffe9a8', Math.floor(14 + power * 12));
-    this.burst(x, y, '#e0c0ff', Math.floor(10 + power * 8));
-    // Triple shockwave rings
-    this.ring(x, y, color, 90 + power * 50, 520 + power * 90);
-    this.ring(x, y, '#ffffff', 55 + power * 35, 400 + power * 50);
-    this.ring(x, y, color, 120 + power * 55, 640 + power * 100);
-    this.screenFlash(
-      color.includes('rgba') ? color : `rgba(255, 240, 200, 0.7)`,
-      260 + power * 55,
-      0.38 + power * 0.12,
-    );
+    this.burst(x, y, '#ffffff', Math.floor(10 + p * 8));
+    this.burst(x, y, '#ffe9a8', Math.floor(8 + p * 6));
+    if (load < 0.6) this.burst(x, y, '#e0c0ff', Math.floor(6 + p * 5));
+    // Two rings max under load (shadowBlur is expensive)
+    this.ring(x, y, color, 80 + p * 40, 480 + p * 70);
+    this.ring(x, y, '#ffffff', 48 + p * 28, 360 + p * 40);
+    if (load < 0.5) {
+      this.screenFlash(
+        color.includes('rgba') ? color : `rgba(255, 240, 200, 0.7)`,
+        220 + p * 40,
+        0.32 + p * 0.1,
+      );
+    }
   }
 
   /** Expanding ring shockwave (forge / power / big cascade). */
   ring(x: number, y: number, color: string, maxR = 70, life = 420): void {
     this.rings.push({ x, y, born: performance.now(), life, color, maxR });
-    if (this.rings.length > 12) this.rings.shift();
+    if (this.rings.length > 8) this.rings.shift();
   }
 
   /**
@@ -472,6 +499,8 @@ export class JuiceSystem {
       ctx.restore();
     }
 
+    // Heavy particle count: skip ring glow (shadowBlur was a tablet GPU killer)
+    const softGlow = this.particles.length < 180;
     for (const r of this.rings) {
       const age = now - r.born;
       const t = Math.min(1, age / r.life);
@@ -481,8 +510,10 @@ export class JuiceSystem {
       ctx.globalAlpha = Math.max(0, alpha);
       ctx.strokeStyle = r.color;
       ctx.lineWidth = 3.5 * (1 - t * 0.6);
-      ctx.shadowColor = r.color;
-      ctx.shadowBlur = 14;
+      if (softGlow) {
+        ctx.shadowColor = r.color;
+        ctx.shadowBlur = 10;
+      }
       ctx.beginPath();
       ctx.arc(r.x, r.y, radius, 0, Math.PI * 2);
       ctx.stroke();

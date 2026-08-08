@@ -3,7 +3,7 @@
   "name": "Pressure Point",
   "width": 7,
   "height": 7,
-  "moves": 24,
+  "moves": 19,
   "objectives": [
     {
       "kind": "score",
@@ -13,7 +13,7 @@
   "stars": [
     4800,
     7600,
-    11000
+    12000
   ],
   "colors": [
     "ember",

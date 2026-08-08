@@ -45,3 +45,7 @@ public/sfx/humordome-*.mp3
 public/sfx/stu9-*.mp3
 *.bak
 *.bak-*
+
+# Local capture review (large recordings)
+store/screenshots/_review/
+
